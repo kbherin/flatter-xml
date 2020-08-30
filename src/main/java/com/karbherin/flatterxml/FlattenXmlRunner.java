@@ -10,9 +10,9 @@ import java.io.IOException;
  */
 public class FlattenXmlRunner {
 
-    private static final int DEFAULT_BATCH_SIZE = 100;
     private static final int MIN_NUM_OF_ARGS = 1;
     private static final int MAX_NUM_OF_ARGS = 6;
+    private static final int DEFAULT_BATCH_SIZE = 50;
 
     /**
      * Command line method for running XML flattener.
@@ -42,7 +42,7 @@ public class FlattenXmlRunner {
                 .setXmlFilename(args[0])
                 .setOutDir(args.length <= 1 ? "." : args[1])
                 .setRecordTag(args.length <= 2 ? null : args[2])
-                .setDelimiter((args.length <= 4 ? "," : args[4]))
+                .setDelimiter(args.length <= 4 ? "," : args[4])
                 .createFlattenXml();
 
         System.out.println(String.format("Parsing in batches of %d records", batchSize));
@@ -64,14 +64,14 @@ public class FlattenXmlRunner {
             long end = System.currentTimeMillis();
             long durSec = (end - start) / 1000;
             if (durSec < 600) {
-                System.out.println(String.format("\rProcessed %d XML records in %d seconds",
+                System.out.print(String.format("\rProcessed %d XML records in %d seconds",
                         totalRecs, durSec));
             } else if (durSec < 3600) {
-                System.out.println(String.format("\rProcessed %d XML records in %d minutes %d seconds",
-                        totalRecs, durSec/60, durSec));
+                System.out.print(String.format("\rProcessed %d XML records in %d minutes %d seconds",
+                        totalRecs, durSec/60, durSec%60));
             } else {
-                System.out.println(String.format("\rProcessed %d XML records in %d hours %d minutes %d seconds",
-                        totalRecs, durSec/3600, durSec/60, durSec));
+                System.out.print(String.format("\rProcessed %d XML records in %d hours %d minutes %d seconds",
+                        totalRecs, durSec/3600, durSec/60, durSec%60));
             }
 
             // If previous batch processed 0 records then the processing is complete.

@@ -259,8 +259,7 @@ public class FlattenXml {
                     String tagName = (prefix.length() > 0 ? prefix + ":" : "")
                             + startEl.getName().getLocalPart();
 
-                    if (!eventsRec.empty() &&
-                            !eventsRec.peek().isStartElement() &&
+                    if (!eventsRec.empty() && !eventsRec.peek().isStartElement() &&
                             (eventsRec.peek().isEndElement() ||
                                     eventsRec.peek().asCharacters().getData().length() == 0)) {
 
