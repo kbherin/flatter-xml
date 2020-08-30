@@ -106,11 +106,11 @@ public class FlattenXml {
                     writeRecord(null);
                 }
 
-                tagStack.push(ev.asEndElement());
+                tagStack.push(ev);
                 inElement = false;
 
                 // Reached the end of the top level record.
-                if (tagStack.empty()) {
+                if (tagStack.empty() || ev.asEndElement().getName().getLocalPart().equals(recordTag)) {
                     tracking = false;
                     ++recCounter;
                 }
