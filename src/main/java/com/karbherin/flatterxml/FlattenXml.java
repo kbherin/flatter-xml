@@ -110,7 +110,7 @@ public class FlattenXml {
                 inElement = false;
 
                 // Reached the end of the top level record.
-                if (tagStack.isEmpty()) {
+                if (tagStack.empty()) {
                     tracking = false;
                     ++recCounter;
                 }
@@ -249,7 +249,7 @@ public class FlattenXml {
         boolean condenseToEllipsis = false;
 
         try {
-            while (!eventsRec.isEmpty()) {
+            while (!eventsRec.empty()) {
                 XMLEvent ev = eventsRec.pop();
 
                 if (ev.isStartElement()) {
@@ -269,7 +269,7 @@ public class FlattenXml {
                         eventsRec.pop();     // End tag
 
 
-                        if (!eventsRec.isEmpty() && eventsRec.peek().isStartElement() &&
+                        if (!eventsRec.empty() && eventsRec.peek().isStartElement() &&
                                 eventsRec.peek().asStartElement().getName().equals(startEl.getName())) {
                             condenseToEllipsis = true;
                         }
@@ -282,7 +282,7 @@ public class FlattenXml {
                     } else {
                         buf.append(String.format("%s<%s %s>", indent, tagName, attrStr));
 
-                        if (!eventsRec.isEmpty() && eventsRec.peek().isStartElement()) {
+                        if (!eventsRec.empty() && eventsRec.peek().isStartElement()) {
                             buf.append(System.lineSeparator());
                             indent = indent + "  ";
                         }
