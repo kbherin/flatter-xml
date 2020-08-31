@@ -22,7 +22,7 @@ public class FlattenXml {
 
     private final byte[] delimiter;
     private final String outDir;
-    private final String recordTag;
+    private String recordTag;
     private final XMLEventReader reader;
     private final Map<String, FileOutputStream> fileStreams = new HashMap<>();
     private final Stack<XMLEvent> tagStack = new Stack<>();
@@ -72,13 +72,22 @@ public class FlattenXml {
         }
     }
 
+    /**
+     * Main loop of processing the XML event stream.
+     *
+     * @param firstNRecs
+     * @return
+     * @throws XMLStreamException
+     * @throws IOException
+     */
     private long flattenXmlDoc(final long firstNRecs) throws XMLStreamException, IOException {
 
         long recCounter = 0;
         boolean tracking = false,
-                inElement = false;
+                inElement = false,
+                rootElementVisited = false;
 
-        while (reader.hasNext() && recCounter < firstNRecs) { // Start tag
+        while (reader.hasNext() && recCounter < firstNRecs) {
 
             final XMLEvent ev;
 
@@ -89,7 +98,21 @@ public class FlattenXml {
             }
 
             if (ev.isStartElement()) {                  // Start tag
-                if (recordTag == null || recordTag.equals(ev.asStartElement().getName().getLocalPart())) {
+
+                // Skip XML document's root element and grab the first element after it as the record tag
+                // if user does not specify the primary record tag.
+                if (recordTag == null) {
+                    // Pick the first start element after encountering the XML root.
+                    if (rootElementVisited) {
+                        recordTag = ev.asStartElement().getName().getLocalPart();
+                    } else {
+                        rootElementVisited = true;
+                        // User did not specify the primary record tag. Skip root element.
+                        continue;
+                    }
+                }
+
+                if (recordTag.equals(ev.asStartElement().getName().getLocalPart())) {
                     // Start tag of the top-level record. Parsing starts here.
                     tracking = true;
                 }
@@ -100,17 +123,28 @@ public class FlattenXml {
                 }
 
             } else if (tracking && ev.isEndElement()) { // End tag
+                EndElement endElement = ev.asEndElement();
+                boolean recordWritten = false;
                 if (!inElement) {
                     // If parser is already outside an element and meets end of enclosing element
                     // <c><a>some data</a><a>more data</a>*PARSER HERE*</c>
                     writeRecord(null);
+                    recordWritten = true;
                 }
 
-                tagStack.push(ev);
-                inElement = false;
+                if (recordWritten && tagStack.peek().isStartElement() &&
+                        tagStack.peek().asStartElement().getName().equals(endElement.getName())) {
+                    // A structural envelope does not contain its own data. Remove it from record.
+                    // Avoids empty output files with just the header record from being created.
+                    tagStack.pop();
+                    inElement = true;
+                } else {
+                    tagStack.push(ev);
+                    inElement = false;
+                }
 
                 // Reached the end of the top level record.
-                if (tagStack.empty() || ev.asEndElement().getName().getLocalPart().equals(recordTag)) {
+                if (tagStack.empty() || endElement.getName().getLocalPart().equals(recordTag)) {
                     tracking = false;
                     ++recCounter;
                 }
@@ -129,6 +163,9 @@ public class FlattenXml {
 
 
     private void writeRecord(Stack<XMLEvent> captureRecordOnError) throws IOException {
+        if (tagStack.isEmpty()) {
+            return;
+        }
         XMLEvent ev;
 
         // Read one part of an XML element at a time.
@@ -207,98 +244,21 @@ public class FlattenXml {
             out.write(delimiter);
         }
 
-        out.write(stringStack.pop().getBytes());
-        out.write(System.lineSeparator().getBytes());
+        if (!stringStack.isEmpty()) {
+            out.write(stringStack.pop().getBytes());
+            out.write(System.lineSeparator().getBytes());
+        }
     }
 
-    private void closeAllFileStreams() {
+    private void closeAllFileStreams() throws IOException {
+        Stack<String> filesWritten = new Stack<>();
         for (Map.Entry<String, FileOutputStream> entry: fileStreams.entrySet()) {
-            System.out.println("Closing file " + entry.getKey());
             try {
                 entry.getValue().close();
+                filesWritten.push(entry.getKey());
             } catch (IOException ex) {
-                System.err.println("Could not close file " + entry.getKey());
+                filesWritten.push(entry.getKey() + "<err>");
             }
-        }
-    }
-
-    /** To help locating the errors in an XML document */
-    private String attributeString(Iterator<Attribute> attrs) {
-        StringBuffer attrBuf = new StringBuffer();
-        while (attrs.hasNext()) {
-            Attribute attr = attrs.next();
-
-            if (attr.isSpecified()) {
-                String prefix = attr.getName().getPrefix();
-                attrBuf.append(String.format("%s%s=\"%s\"",
-                        prefix.length() == 0 ? "" : prefix + ":",
-                        attr.getName().getLocalPart(),
-                        attr.getValue()));
-            }
-            if (attrs.hasNext()) {
-                attrBuf.append("  ");
-            }
-        }
-
-        return attrBuf.toString();
-    }
-
-    private String eventsRecordToString(Stack<XMLEvent> eventsRec) {
-        StringBuffer buf = new StringBuffer();
-        String indent = "";
-        boolean condenseToEllipsis = false;
-
-        try {
-            while (!eventsRec.empty()) {
-                XMLEvent ev = eventsRec.pop();
-
-                if (ev.isStartElement()) {
-                    StartElement startEl = ev.asStartElement();
-                    String attrStr = attributeString(startEl.getAttributes());
-                    String prefix = startEl.getName().getPrefix();
-                    String tagName = (prefix.length() > 0 ? prefix + ":" : "")
-                            + startEl.getName().getLocalPart();
-
-                    if (!eventsRec.empty() && !eventsRec.peek().isStartElement() &&
-                            (eventsRec.peek().isEndElement() ||
-                                    eventsRec.peek().asCharacters().getData().length() == 0)) {
-
-                        if (!eventsRec.peek().isEndElement()) {
-                            eventsRec.pop(); // Empty data
-                        }
-                        eventsRec.pop();     // End tag
-
-
-                        if (!eventsRec.empty() && eventsRec.peek().isStartElement() &&
-                                eventsRec.peek().asStartElement().getName().equals(startEl.getName())) {
-                            condenseToEllipsis = true;
-                        }
-
-                        if (condenseToEllipsis) {
-                            buf.append(String.format("%s<%s %s>...<%s>\n", indent, tagName, attrStr, tagName));
-                        } else {
-                            buf.append(String.format("%s<%s %s/>\n", indent, tagName, attrStr));
-                        }
-                    } else {
-                        buf.append(String.format("%s<%s %s>", indent, tagName, attrStr));
-
-                        if (!eventsRec.empty() && eventsRec.peek().isStartElement()) {
-                            buf.append(System.lineSeparator());
-                            indent = indent + "  ";
-                        }
-                    }
-                } else if (ev.isEndElement()) {
-                    String prefix = ev.asEndElement().getName().getPrefix();
-                    String tagName = (prefix.length() > 0 ? prefix + ":" : "")
-                            + ev.asEndElement().getName().getLocalPart();
-                    buf.append(String.format("</%s>\n", tagName));
-                } else {
-                    buf.append(ev.asCharacters().getData());
-                }
-            }
-            return buf.toString();
-        } catch (Throwable throwaway) {
-            return "";
         }
     }
 
@@ -307,10 +267,14 @@ public class FlattenXml {
         writeRecord(errorRec);
         javax.xml.stream.Location loc = ex.getLocation();
         ex.initCause(new XMLStreamException("Excerpt of text before the error location:\n"+
-                eventsRecordToString(errorRec) +
+                XmlHelpers.eventsRecordToString(errorRec) +
                 String.format(">>error occurred @(line,col,doc-offset)=(%s,%s,%s)<<",
                         loc.getLineNumber(), loc.getColumnNumber(), loc.getCharacterOffset())));
         return ex;
+    }
+
+    public String getRecordTag() {
+        return this.recordTag;
     }
 
     public static class FlattenXmlBuilder {

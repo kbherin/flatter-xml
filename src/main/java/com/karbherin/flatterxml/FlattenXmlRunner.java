@@ -49,6 +49,14 @@ public class FlattenXmlRunner {
         long start = System.currentTimeMillis();
         long totalRecs = 0; // Total records processed so far
 
+        boolean recordTagProvided = false;
+        if (flattener.getRecordTag() == null) {
+            System.out.println("Starting record tag not provided.");
+        } else {
+            recordTagProvided = true;
+            System.out.println(String.format("Starting record tag provided is '%s'", flattener.getRecordTag()));
+        }
+
         while(true) {
             long recsInBatch = 0; // Number of records processed in current batch
             if (firstNRecs == 0) {
@@ -59,6 +67,10 @@ public class FlattenXmlRunner {
                 recsInBatch = flattener.parseFlatten(Math.min(batchSize, firstNRecs - totalRecs));
             }
             totalRecs += recsInBatch;
+
+            if (!recordTagProvided) {
+                System.out.println(String.format("Identified primary record tag '%s'", flattener.getRecordTag()));
+            }
 
             // Timings
             long end = System.currentTimeMillis();
