@@ -29,6 +29,7 @@ public class FlattenXml {
     private final Stack<String> recordDataPile = new Stack<>();
     private final Stack<String> recordHeaderPile = new Stack<>();
     private final XMLEventFactory eventFactory = XMLEventFactory.newFactory();
+    private final List<String> filesWritten = new ArrayList<>();
 
     private FlattenXml(String xmlFilename, String recordTag, String outDir, String delimiter)
         throws FileNotFoundException, XMLStreamException {
@@ -251,13 +252,12 @@ public class FlattenXml {
     }
 
     private void closeAllFileStreams() throws IOException {
-        Stack<String> filesWritten = new Stack<>();
         for (Map.Entry<String, FileOutputStream> entry: fileStreams.entrySet()) {
             try {
                 entry.getValue().close();
-                filesWritten.push(entry.getKey());
+                filesWritten.add(entry.getKey());
             } catch (IOException ex) {
-                filesWritten.push(entry.getKey() + "<err>");
+                filesWritten.add(entry.getKey() + "<err>");
             }
         }
     }
@@ -275,6 +275,10 @@ public class FlattenXml {
 
     public String getRecordTag() {
         return this.recordTag;
+    }
+
+    public Iterable<String> getFilesWritten() {
+        return this.filesWritten;
     }
 
     public static class FlattenXmlBuilder {

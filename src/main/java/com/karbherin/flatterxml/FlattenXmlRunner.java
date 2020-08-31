@@ -91,5 +91,10 @@ public class FlattenXmlRunner {
                 break;
             }
         }
+
+        System.out.print("\nFiles produced: ");
+        for (String fileName: flattener.getFilesWritten()) {
+            System.out.print(fileName + ", ");
+        }
     }
 }
