@@ -69,6 +69,7 @@ public class FlattenXmlRunner {
             totalRecs += recsInBatch;
 
             if (!recordTagProvided) {
+                recordTagProvided = true;
                 System.out.println(String.format("Identified primary record tag '%s'", flattener.getRecordTag()));
             }
 
