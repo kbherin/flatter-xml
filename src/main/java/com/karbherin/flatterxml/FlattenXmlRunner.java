@@ -1,5 +1,7 @@
 package com.karbherin.flatterxml;
 
+import org.apache.commons.cli.*;
+
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
 
@@ -14,6 +16,31 @@ public class FlattenXmlRunner {
     private static final int MAX_NUM_OF_ARGS = 6;
     private static final int DEFAULT_BATCH_SIZE = 50;
 
+    private static Options opts = new Options();
+
+    static {
+        opts.addOption("o", "output-dir", true, "Output direction for generating tabular files. Defaults to current directory");
+        opts.addOption("d", "delimiter", true, "Delimiter. Defaults to a comma");
+        opts.addOption("r", "record-tag", true, "Primary record tag from where parsing begins. If not provided entire file will be parsed");
+        opts.addOption("n", "n-records", true, "Number of records to process in the XML document");
+        opts.addOption("p", "progress", false, "Report progress after a batch");
+    }
+
+    private static void printHelp() {
+        HelpFormatter formatter = new HelpFormatter();
+        formatter.printHelp( "FlattenXmlRunner XMLFile [OPTIONS]", opts);
+    }
+
+    private static CommandLine parseCliArgs(String[] args) {
+        CommandLineParser parser = new DefaultParser();
+        try {
+            return parser.parse(opts, args);
+        } catch (ParseException ex) {
+            printHelp();
+            throw new IllegalArgumentException("Could not understand the options provided to the program");
+        }
+    }
+
     /**
      * Command line method for running XML flattener.
      * @param args
@@ -23,27 +50,41 @@ public class FlattenXmlRunner {
     public static void main(String[] args)
         throws XMLStreamException, IOException {
 
-        if (args.length > 0 && args[0].equals("-h") ||
-                args.length < MIN_NUM_OF_ARGS || args.length > MAX_NUM_OF_ARGS) {
-            System.err.println(
-                    "Usage: FlattenXmlRunner <xml-file-path> [<output-dir> <main-record-tag> <num-recs>" +
-                            " <delimiter> <batch-size>]\n\n"+
-                            "<main-record-tag>: Everything within it is flattened into individual tabular files.\n" +
-                            "<num-recs>=0: if provided, processing stops after first N records. 0 implies full file.\n" +
-                            "<batch-size>=100: progress is reported after each batch\n"
-            );
-            System.exit(-1);
+
+        CommandLine cmd = parseCliArgs(args);
+
+        FlattenXml.FlattenXmlBuilder setup = new FlattenXml.FlattenXmlBuilder();
+
+        if (cmd.hasOption("o")) {
+            setup.setOutDir(cmd.getOptionValue("o"));
+        }
+        if (cmd.hasOption("d")) {
+            setup.setDelimiter(cmd.getOptionValue("d"));
+        }
+        if (cmd.hasOption("r")) {
+            setup.setRecordTag(cmd.getOptionValue("r"));
         }
 
-        final long firstNRecs = args.length > 3 ? Long.parseLong(args[3]) : 0;
-        final long batchSize = args.length > 5 ? Long.parseLong(args[5]) : DEFAULT_BATCH_SIZE;
+        final long firstNRecs, batchSize;
+        try {
+            firstNRecs = cmd.hasOption("n") ? Long.parseLong(cmd.getOptionValue("n")) : 0;
+            batchSize = cmd.hasOption("p") && cmd.getOptionValue("p") != null
+                    ? Long.parseLong(cmd.getOptionValue("p")) : DEFAULT_BATCH_SIZE;
+        } catch (NumberFormatException ex) {
+            printHelp();
+            throw new NumberFormatException("Options -n and -p should be numeric");
+        }
+        if (cmd.getArgs().length > 1) {
+            printHelp();
+            throw new IllegalArgumentException("Too many XML files are passed as input. Only 1 file is allowed");
+        }
+        if (cmd.getArgs().length < 1) {
+            printHelp();
+            throw new IllegalArgumentException("Could not parse the arguments passed. XMLFile path is required");
+        }
+        setup.setXmlFilename(cmd.getArgs()[0]);
 
-        FlattenXml flattener = new FlattenXml.FlattenXmlBuilder()
-                .setXmlFilename(args[0])
-                .setOutDir(args.length <= 1 ? "." : args[1])
-                .setRecordTag(args.length <= 2 ? null : args[2])
-                .setDelimiter(args.length <= 4 ? "," : args[4])
-                .createFlattenXml();
+        final FlattenXml flattener = setup.createFlattenXml();
 
         System.out.println(String.format("Parsing in batches of %d records", batchSize));
         long start = System.currentTimeMillis();
