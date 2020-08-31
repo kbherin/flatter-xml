@@ -138,5 +138,6 @@ public class FlattenXmlRunner {
         for (String fileName: flattener.getFilesWritten()) {
             System.out.print(fileName + ", ");
         }
+        System.out.println();
     }
 }
