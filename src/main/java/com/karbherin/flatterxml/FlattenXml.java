@@ -4,12 +4,10 @@ import javax.xml.stream.XMLEventFactory;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
-import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.EndElement;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import java.io.*;
-import java.math.BigInteger;
 import java.util.*;
 
 /**
@@ -30,15 +28,26 @@ public class FlattenXml {
     private final Stack<String> recordHeaderPile = new Stack<>();
     private final XMLEventFactory eventFactory = XMLEventFactory.newFactory();
     private final List<String> filesWritten = new ArrayList<>();
+    private final Map<String, String[]> recordCascadesTemplates;
+    private final Map<String, RecordFieldsCascade> cascades = new HashMap<>();
+    private final Stack<RecordFieldsCascade> cascadingStack = new Stack<>();
+    private final RecordFieldsCascade.CascadePolicy cascadePolicy;
 
-    private FlattenXml(String xmlFilename, String recordTag, String outDir, String delimiter)
-        throws FileNotFoundException, XMLStreamException {
+    private int currLevel = 0;
+    // List of primary fields for each record that should be cascaded to child records
+    private final Stack<RecordFieldsCascade> activeCascades = new Stack<>();
+
+    private FlattenXml(String xmlFilename, String recordTag, String outDir, String delimiter,
+                       RecordFieldsCascade.CascadePolicy cascadePolicy, Map<String, String[]> recordCascadesTemplates)
+            throws FileNotFoundException, XMLStreamException {
 
         this.delimiter = delimiter.getBytes();
         this.outDir = outDir;
         this.recordTag = recordTag;
         this.reader = XMLInputFactory.newFactory().createXMLEventReader(
                 xmlFilename, new FileInputStream(xmlFilename));
+        this.recordCascadesTemplates = recordCascadesTemplates;
+        this.cascadePolicy = cascadePolicy;
     }
 
     /**
@@ -87,6 +96,9 @@ public class FlattenXml {
         boolean tracking = false,
                 inElement = false,
                 rootElementVisited = false;
+        Stack<StartElement> tagPath = new Stack<>();
+        RecordFieldsCascade parentRecCascade = null;
+        String parentTag = null;
 
         while (reader.hasNext() && recCounter < firstNRecs) {
 
@@ -100,20 +112,36 @@ public class FlattenXml {
 
             if (ev.isStartElement()) {                  // Start tag
 
+                String tagName = ev.asStartElement().getName().getLocalPart();
+
                 // Skip XML document's root element and grab the first element after it as the record tag
                 // if user does not specify the primary record tag.
-                if (recordTag == null) {
-                    // Pick the first start element after encountering the XML root.
-                    if (rootElementVisited) {
-                        recordTag = ev.asStartElement().getName().getLocalPart();
-                    } else {
-                        rootElementVisited = true;
-                        // User did not specify the primary record tag. Skip root element.
-                        continue;
+
+                // Pick the first start element after encountering the XML root.
+                if (rootElementVisited) {
+                    if (recordTag == null) {
+                        recordTag = tagName;
                     }
+                } else {
+                    rootElementVisited = true;
+                    cascadingStack.push(new RecordFieldsCascade(tagName, new String[0]));
+                    // User did not specify the primary record tag. Skip root element.
+                    continue;
                 }
 
-                if (recordTag.equals(ev.asStartElement().getName().getLocalPart())) {
+                // Detect nesting boundary
+                if (!tagStack.isEmpty() && tagStack.peek().isStartElement()) {
+                    parentRecCascade = cascadingStack.peek();
+                    parentTag = tagStack.peek().asStartElement().getName().getLocalPart();
+                }
+
+                // Child element can either be a container or a data element.
+                // Cascade fields and values from parent to child record.
+                // If a cascade is not setup for it then use parent container's cascade settings.
+                // If cascade policy is ALL then use a clone of parent's cascades to append additional fields.
+                cascadingStack.push(registerCascades(tagName, parentRecCascade));
+
+                if (recordTag.equals(tagName)) {
                     // Start tag of the top-level record. Parsing starts here.
                     tracking = true;
                 }
@@ -123,26 +151,27 @@ public class FlattenXml {
                     inElement = true;
                 }
 
+                // Increment current level of nesting
+                currLevel++;
+                tagPath.push(ev.asStartElement());
+
             } else if (tracking && ev.isEndElement()) { // End tag
                 EndElement endElement = ev.asEndElement();
-                boolean recordWritten = false;
                 if (!inElement) {
                     // If parser is already outside an element and meets end of enclosing element
                     // <c><a>some data</a><a>more data</a>*PARSER HERE*</c>
                     writeRecord(null);
-                    recordWritten = true;
-                }
 
-                if (recordWritten && tagStack.peek().isStartElement() &&
-                        tagStack.peek().asStartElement().getName().equals(endElement.getName())) {
-                    // A structural envelope does not contain its own data. Remove it from record.
+                    // A structural envelope does not contain its own data. Remove it from stack.
                     // Avoids empty output files with just the header record from being created.
                     tagStack.pop();
-                    inElement = true;
                 } else {
                     tagStack.push(ev);
                     inElement = false;
                 }
+
+                // Step down current level of nesting
+                currLevel--;
 
                 // Reached the end of the top level record.
                 if (tagStack.empty() || endElement.getName().getLocalPart().equals(recordTag)) {
@@ -150,11 +179,21 @@ public class FlattenXml {
                     ++recCounter;
                 }
 
+                tagPath.pop();
+                cascadingStack.pop();
+
+            } else if (ev.isEndElement()) {
+                // Step down current level of nesting
+                currLevel--;
+                cascadingStack.pop();
+
             } else if (tracking && ev.isCharacters()) { // Character data
 
                 final String data = ev.asCharacters().getData();
                 if (data.trim().length() > 0) {
                     tagStack.push(ev);
+                    parentRecCascade.addCascadingData(tagPath.peek().asStartElement().getName().getLocalPart(),
+                            data, cascadePolicy);
                 }
             }
         }
@@ -207,19 +246,23 @@ public class FlattenXml {
         }
 
         // The tabular file to write the record to.
-        String fileName = ev.asStartElement().getName().getLocalPart();
+        StartElement envelope = ev.asStartElement();
+        String recordElementName = envelope.getName().getLocalPart();
         tagStack.push(ev);     // Add it back on to tag stack.
 
         if (captureRecordOnError != null) {
             // Capture the table name which has an error in the record.
             captureRecordOnError.push(ev);
         } else {
-            // Write record to file only if there are no errors.
-            writeToFile(fileName);
+            // Write record to file if there are no errors.
+            writeToFile(recordElementName, recordDataPile, recordHeaderPile,
+                    cascades.get(recordElementName));
         }
     }
 
-    private void writeToFile(String fileName) throws IOException {
+    private void writeToFile(String fileName, Stack<String> recordDataStack, Stack<String> recordHeaderStack,
+                             RecordFieldsCascade cascadedData)
+            throws IOException {
 
         FileOutputStream out = fileStreams.get(fileName);
         if (out == null) {
@@ -228,27 +271,43 @@ public class FlattenXml {
             fileStreams.put(fileName, out);
 
             // Writer header record into a newly opened file.
-            writeDelimited(recordHeaderPile, out);
+            writeDelimited(recordHeaderStack, out, cascadedData.getParentCascadedNames());
         } else {
-            recordHeaderPile.removeAllElements();
+            recordHeaderStack.removeAllElements();
         }
 
-        writeDelimited(recordDataPile, out);
+        writeDelimited(recordDataStack, out, cascadedData.getParentCascadedValues());
     }
 
-    private void writeDelimited(Stack<String> stringStack, OutputStream out)
+    private void writeDelimited(Stack<String> stringStack, OutputStream out, Iterable<String> appendList)
         throws IOException {
 
-        for (int i = stringStack.size(); i > 1; i--) {
-            String data = stringStack.pop();
-            out.write(data.getBytes());
-            out.write(delimiter);
+        if (stringStack.isEmpty()) {
+            return;
         }
 
-        if (!stringStack.isEmpty()) {
+        out.write(stringStack.pop().getBytes());
+        while (!stringStack.isEmpty()) {
+            out.write(delimiter);
             out.write(stringStack.pop().getBytes());
-            out.write(System.lineSeparator().getBytes());
         }
+        for (String append: appendList) {
+            out.write(delimiter);
+            out.write(append.getBytes());
+        }
+
+        out.write(System.lineSeparator().getBytes());
+    }
+
+    private RecordFieldsCascade registerCascades(String tagName, RecordFieldsCascade parentRecCascade) {
+        RecordFieldsCascade recordFieldsCascade = cascades.get(tagName);
+        if (recordFieldsCascade == null) {
+            // Register the cascades for the tag
+            recordFieldsCascade = new RecordFieldsCascade(tagName, recordCascadesTemplates.get(tagName));
+            recordFieldsCascade.cascadeFromParent(parentRecCascade);
+            cascades.put(tagName, recordFieldsCascade);
+        }
+        return recordFieldsCascade;
     }
 
     private void closeAllFileStreams() throws IOException {
@@ -286,6 +345,8 @@ public class FlattenXml {
         private String recordTag = null;
         private String outDir = ".";
         private String delimiter = ",";
+        private RecordFieldsCascade.CascadePolicy cascadePolicy = RecordFieldsCascade.CascadePolicy.NONE;
+        private Map<String, String[]> recordCascadesTemplates = Collections.emptyMap();
 
         public FlattenXmlBuilder setXmlFilename(String xmlFilename) {
             this.xmlFilename = xmlFilename;
@@ -307,9 +368,19 @@ public class FlattenXml {
             return this;
         }
 
+        public FlattenXmlBuilder setCascadePolicy(RecordFieldsCascade.CascadePolicy cascadePolicy) {
+            this.cascadePolicy = cascadePolicy;
+            return this;
+        }
+
+        public FlattenXmlBuilder setRecordCascadesTemplates(Map<String, String[]> recordCascadesTemplates) {
+            this.recordCascadesTemplates = recordCascadesTemplates;
+            return this;
+        }
+
         public FlattenXml createFlattenXml()
                 throws FileNotFoundException, XMLStreamException {
-            return new FlattenXml(xmlFilename, recordTag, outDir, delimiter);
+            return new FlattenXml(xmlFilename, recordTag, outDir, delimiter, cascadePolicy, recordCascadesTemplates);
         }
     }
 }

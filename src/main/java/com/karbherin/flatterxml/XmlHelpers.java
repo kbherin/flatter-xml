@@ -1,13 +1,20 @@
 package com.karbherin.flatterxml;
 
-import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
+import java.text.ParseException;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Stack;
 
 public class XmlHelpers {
+
+    public static String CASCADES_DELIM = ";";
+    public static String PAIR_SEP = "=";
+    public static String COMMA_DELIM = ",";
+    public static String WHITESPACES = "\\s+";
 
     /**
      * Stringifies of attributes on an XML start tag.
@@ -96,5 +103,25 @@ public class XmlHelpers {
         } catch (Throwable throwaway) {
             return "";
         }
+    }
+
+    public static Map<String, String[]> parseTagValueCascades(String cascades) {
+        Map<String, String[]> cascadeMap = new HashMap<>();
+        int c = 1;
+        for (String cascade: cascades.replaceAll(WHITESPACES, "").split(CASCADES_DELIM)) {
+            try {
+                String pair[] = cascade.split(PAIR_SEP);
+                String elem = pair[0];
+                String primaries = pair[1];
+                String[] primaryTags = primaries.split(COMMA_DELIM);
+
+                cascadeMap.put(elem, primaryTags);
+            } catch (Exception ex) {
+                throw new RuntimeException(new ParseException("Could not parse the tag value cascades", c));
+            }
+            c++;
+        }
+
+        return cascadeMap;
     }
 }

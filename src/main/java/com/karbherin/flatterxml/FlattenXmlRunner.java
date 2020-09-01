@@ -24,6 +24,7 @@ public class FlattenXmlRunner {
         opts.addOption("r", "record-tag", true, "Primary record tag from where parsing begins. If not provided entire file will be parsed");
         opts.addOption("n", "n-records", true, "Number of records to process in the XML document");
         opts.addOption("p", "progress", false, "Report progress after a batch");
+        opts.addOption("c", "cascades", true, "Data of specified tags on parent element is cascaded to child elements.\nFormat: elem1:tag1,tag2;elem2:tag1,tag2;");
     }
 
     private static void printHelp() {
@@ -63,6 +64,13 @@ public class FlattenXmlRunner {
         }
         if (cmd.hasOption("r")) {
             setup.setRecordTag(cmd.getOptionValue("r"));
+        }
+        if (cmd.hasOption("c")) {
+            if (cmd.getOptionValue("c").trim().equalsIgnoreCase(RecordFieldsCascade.CascadePolicy.ALL.toString())) {
+                setup.setCascadePolicy(RecordFieldsCascade.CascadePolicy.ALL);
+            } else {
+                setup.setRecordCascadesTemplates(XmlHelpers.parseTagValueCascades(cmd.getOptionValue("c")));
+            }
         }
 
         final long firstNRecs, batchSize;
