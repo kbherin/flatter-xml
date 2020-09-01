@@ -36,7 +36,7 @@ public final class RecordFieldsCascade {
             // Append the tag-value pair only if policy is cascade ALL
             int last = cascadeFieldValueList.size() - 1;
             if (last >= 0 && cascadeFieldValueList.get(last).field.equals(tagName)) {
-                cascadeFieldValueList.add(new FieldValue(tagName, cascadeFieldValueList.get(last).value + tagValue));
+                cascadeFieldValueList.set(last, new FieldValue(tagName, cascadeFieldValueList.get(last).value + tagValue));
             } else {
                 cascadeFieldValueList.add(new FieldValue(tagName, tagValue));
             }

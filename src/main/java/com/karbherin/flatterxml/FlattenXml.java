@@ -157,6 +157,11 @@ public class FlattenXml {
 
             } else if (tracking && ev.isEndElement()) { // End tag
                 EndElement endElement = ev.asEndElement();
+                if (!tagStack.peek().isStartElement() && !tagStack.peek().isEndElement()) {
+                    parentRecCascade.addCascadingData(endElement.getName().getLocalPart(),
+                            tagStack.peek().asCharacters().getData(), cascadePolicy);
+                }
+
                 if (!inElement) {
                     // If parser is already outside an element and meets end of enclosing element
                     // <c><a>some data</a><a>more data</a>*PARSER HERE*</c>
@@ -191,9 +196,13 @@ public class FlattenXml {
 
                 final String data = ev.asCharacters().getData();
                 if (data.trim().length() > 0) {
-                    tagStack.push(ev);
-                    parentRecCascade.addCascadingData(tagPath.peek().asStartElement().getName().getLocalPart(),
-                            data, cascadePolicy);
+                    if (!tagStack.peek().isStartElement() && !tagStack.peek().isEndElement()) {
+                        // StAX can fragment character data into multiple elements. Combine them.
+                        tagStack.push(eventFactory.createCharacters(
+                                tagStack.pop().asCharacters().getData() + ev.asCharacters().getData()));
+                    } else {
+                        tagStack.push(ev);
+                    }
                 }
             }
         }
@@ -219,13 +228,6 @@ public class FlattenXml {
             if (ev.isCharacters()) {
                 // If top of the stack is data then pop its start tag as well.
                 data = ev.asCharacters().getData();
-
-                // Combine all data element between start and end tags.
-                // Multiple lines in a tag's data is seen as multiple data elements by StAX.
-                // Appearance of &amp; in character data also breaks it in multiple data elements.
-                while (tagStack.peek().isCharacters()) {
-                    data = tagStack.pop().asCharacters().getData() + data;
-                }
 
                 // Now the start tag
                 startElement = tagStack.pop().asStartElement();
