@@ -1,5 +1,6 @@
 package com.karbherin.flatterxml;
 
+import javax.xml.namespace.QName;
 import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
@@ -123,5 +124,14 @@ public class XmlHelpers {
         }
 
         return cascadeMap;
+    }
+
+    public static QName parsePrefixTag(String input) {
+        String[] parts = input.split(":");
+        if (parts.length > 1) {
+            return new QName(null, parts[1], parts[0]);
+        } else {
+            return new QName(parts[0]);
+        }
     }
 }

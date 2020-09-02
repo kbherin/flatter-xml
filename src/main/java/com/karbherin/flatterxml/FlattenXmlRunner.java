@@ -2,6 +2,7 @@ package com.karbherin.flatterxml;
 
 import org.apache.commons.cli.*;
 
+import javax.xml.namespace.QName;
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
 
@@ -63,7 +64,7 @@ public class FlattenXmlRunner {
             setup.setDelimiter(cmd.getOptionValue("d"));
         }
         if (cmd.hasOption("r")) {
-            setup.setRecordTag(cmd.getOptionValue("r"));
+            XmlHelpers.parseTagValueCascades(cmd.getOptionValue("r"));
         }
         if (cmd.hasOption("c")) {
             if (cmd.getOptionValue("c").trim().equalsIgnoreCase(RecordFieldsCascade.CascadePolicy.ALL.toString())) {

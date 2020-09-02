@@ -1,9 +1,10 @@
 package com.karbherin.flatterxml;
 
+import javax.xml.namespace.QName;
 import java.util.*;
 
 public final class RecordFieldsCascade {
-    private final String recordName;
+    private final QName recordName;
     private final List<FieldValue> cascadeFieldValueList = new ArrayList<>();
     private final List<FieldValue> parentFieldValueList = new ArrayList<>();
     private final Map<String, Integer> positions;
@@ -12,7 +13,7 @@ public final class RecordFieldsCascade {
 
     private static final String PREFIX_SEP = ":";
 
-    public RecordFieldsCascade(String recordName, String[] primaryTags) {
+    public RecordFieldsCascade(QName recordName, String[] primaryTags) {
         this.recordName = recordName;
         if (primaryTags == null) {
             positions = setupCascadeFields(new ArrayList<String>());
@@ -21,7 +22,7 @@ public final class RecordFieldsCascade {
         }
     }
 
-    public RecordFieldsCascade(String recordName, Iterable<String> primaryTags) {
+    public RecordFieldsCascade(QName recordName, Iterable<String> primaryTags) {
         this.recordName = recordName;
         positions = setupCascadeFields(primaryTags);
     }
@@ -68,18 +69,18 @@ public final class RecordFieldsCascade {
         return Collections.unmodifiableMap(primaryTagList);
     }
 
-    public void cascadeFromParent(RecordFieldsCascade parent) {
-        if (!parentFieldValueList.isEmpty()) {
-            throw new IllegalStateException("Cannot repeat cascading data from parent record");
-        }
+    public RecordFieldsCascade cascadeFromParent(RecordFieldsCascade parent) {
         if (parent != null) {
+            // Current record fields are formatted as RecordName.RecordField
             for (FieldValue fv: parent.cascadeFieldValueList) {
                 parentFieldValueList.add(new FieldValue(
                         String.format("%s.%s", parent.recordName, fv.field), fv.value));
             }
-            // parentFieldValueList.addAll(parent.cascadeFieldValueList);
+
+            // Parent record fields were already formatted as ParentRecordName.ParentRecordField
             parentFieldValueList.addAll(parent.parentFieldValueList);
         }
+        return this;
     }
 
     public List<String> getParentCascadedNames() {

@@ -1,6 +1,9 @@
 package com.karbherin.flatterxml;
 
 import org.junit.Test;
+
+import javax.xml.namespace.QName;
+
 import static org.junit.Assert.*;
 
 import java.util.Stack;
@@ -17,5 +20,10 @@ public class ScratchPad {
             buf.append(item);
         }
         assertEquals("Stack iterable returns in order of insertion. BAD API", "OneTwoThree", buf.toString());
+        QName tag = QName.valueOf("xxx:part");
+//        tag = new QName(null, "abc", "xmlns");
+        System.out.println("nsuri=" + tag.getNamespaceURI());
+        System.out.println("prefix=" + tag.getPrefix());
+        System.out.println("local=" + tag.getLocalPart());
     }
 }
