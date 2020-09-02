@@ -103,6 +103,10 @@ public final class RecordFieldsCascade {
         return cascadeFieldValueList;
     }
 
+    public QName getRecordName() {
+        return recordName;
+    }
+
     private static class FieldValue {
         final String field;
         final String value;

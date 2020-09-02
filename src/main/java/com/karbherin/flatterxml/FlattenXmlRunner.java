@@ -5,6 +5,8 @@ import org.apache.commons.cli.*;
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * CLI main class for flattening an XML file into tabular files.
@@ -16,6 +18,7 @@ public class FlattenXmlRunner {
     private static final int MIN_NUM_OF_ARGS = 1;
     private static final int MAX_NUM_OF_ARGS = 6;
     private static final int DEFAULT_BATCH_SIZE = 50;
+    private static final String INDENT = "  ";
 
     private static Options opts = new Options();
 
@@ -143,10 +146,20 @@ public class FlattenXmlRunner {
             }
         }
 
-        System.out.print("\nFiles produced: ");
-        for (String fileName: flattener.getFilesWritten()) {
-            System.out.print(fileName + ", ");
+        // Display the files generated
+        List<String> filesWritten = flattener.getFilesWritten();
+        System.out.println("\nFiles produced: " + filesWritten.size());
+        Collections.sort(filesWritten);
+        StringBuffer filesGen = new StringBuffer();
+        for (String fileName: filesWritten) {
+            String[] lvlFile = fileName.split("\\.");
+            int level = Integer.parseInt(lvlFile[0]);
+            while (level-- > 2)
+                filesGen.append(INDENT);
+            if (level > 0)
+                filesGen.append("|__");
+            filesGen.append(lvlFile[1]).append("\n");
         }
-        System.out.println();
+        System.out.println(filesGen);
     }
 }
