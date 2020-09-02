@@ -31,6 +31,7 @@ public class FlattenXml {
     private final List<String> filesWritten = new ArrayList<>();
     private final Map<String, String[]> recordCascadesTemplates;
     private final Stack<RecordFieldsCascade> cascadingStack = new Stack<>();
+    private final Stack<StartElement> tagPath = new Stack<>();
     private final RecordFieldsCascade.CascadePolicy cascadePolicy;
 
     private int currLevel = 0;
@@ -96,7 +97,6 @@ public class FlattenXml {
         boolean tracking = false,
                 inElement = false,
                 rootElementVisited = false;
-        Stack<StartElement> tagPath = new Stack<>();
         RecordFieldsCascade currRecordCascade = null, reuseRecordCascade = null;
         XMLEvent prevEv = null;
 
@@ -170,7 +170,7 @@ public class FlattenXml {
 
                 // Previous element was data. Add it to the container's cascade list
                 if (!tagStack.peek().isStartElement() && !tagStack.peek().isEndElement()) {
-                    currRecordCascade.addCascadingData(endElement.getName().getLocalPart(),
+                    currRecordCascade.addCascadingData(endElement.getName(),
                             tagStack.peek().asCharacters().getData(), cascadePolicy);
                 }
 

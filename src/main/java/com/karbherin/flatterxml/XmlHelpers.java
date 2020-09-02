@@ -24,21 +24,10 @@ public class XmlHelpers {
      */
     public static String attributeString(Iterator<Attribute> attrs) {
         StringBuffer attrBuf = new StringBuffer();
-        while (attrs.hasNext()) {
-            Attribute attr = attrs.next();
-
-            if (attr.isSpecified()) {
-                String prefix = attr.getName().getPrefix();
-                attrBuf.append(String.format("%s%s=\"%s\"",
-                        prefix.length() == 0 ? "" : prefix + ":",
-                        attr.getName().getLocalPart(),
-                        attr.getValue()));
-            }
-            if (attrs.hasNext()) {
-                attrBuf.append("  ");
-            }
-        }
-
+        if (attrs.hasNext())
+            attrBuf.append(attrs.next().toString());
+        while (attrs.hasNext())
+            attrBuf.append(" ").append(attrs.next().toString());
         return attrBuf.toString();
     }
 
@@ -133,5 +122,12 @@ public class XmlHelpers {
         } else {
             return new QName(parts[0]);
         }
+    }
+
+    public static String toPrefixedTag(QName qname) {
+        if (qname.getPrefix() != null && qname.getPrefix().length() > 0) {
+            return String.format("%s:%s", qname.getPrefix(), qname.getLocalPart());
+        }
+        return qname.getLocalPart();
     }
 }

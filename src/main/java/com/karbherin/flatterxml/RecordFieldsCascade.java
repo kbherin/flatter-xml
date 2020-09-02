@@ -5,9 +5,9 @@ import java.util.*;
 
 public final class RecordFieldsCascade {
     private final QName recordName;
-    private final List<FieldValue> cascadeFieldValueList = new ArrayList<>();
-    private final List<FieldValue> parentFieldValueList = new ArrayList<>();
-    private final Map<String, Integer> positions;
+    private final List<FieldValue<QName>> cascadeFieldValueList = new ArrayList<>();
+    private final List<FieldValue<String>> parentFieldValueList = new ArrayList<>();
+    private final Map<QName, Integer> positions;
 
     public static enum CascadePolicy {NONE, ALL};
 
@@ -16,18 +16,22 @@ public final class RecordFieldsCascade {
     public RecordFieldsCascade(QName recordName, String[] primaryTags) {
         this.recordName = recordName;
         if (primaryTags == null) {
-            positions = setupCascadeFields(new ArrayList<String>());
+            positions = setupCascadeFields(new ArrayList<QName>());
         } else {
-            positions = setupCascadeFields(Arrays.asList(primaryTags));
+            List<QName> qtags = new ArrayList<>();
+            for (String tag: primaryTags) {
+                qtags.add(XmlHelpers.parsePrefixTag(tag));
+            }
+            positions = setupCascadeFields(qtags);
         }
     }
 
-    public RecordFieldsCascade(QName recordName, Iterable<String> primaryTags) {
+    public RecordFieldsCascade(QName recordName, Iterable<QName> primaryTags) {
         this.recordName = recordName;
         positions = setupCascadeFields(primaryTags);
     }
 
-    public void addCascadingData(String tagName, String tagValue, CascadePolicy policy) {
+    public void addCascadingData(QName tagName, String tagValue, CascadePolicy policy) {
         Integer pos = positions.get(tagName);
         if (pos != null) {
             // Capture the data value at the designated location
@@ -39,7 +43,7 @@ public final class RecordFieldsCascade {
             if (last >= 0 && cascadeFieldValueList.get(last).field.equals(tagName)) {
                 cascadeFieldValueList.set(last, new FieldValue(tagName, cascadeFieldValueList.get(last).value + tagValue));
             } else {
-                cascadeFieldValueList.add(new FieldValue(tagName, tagValue));
+                cascadeFieldValueList.add(new FieldValue<QName>(tagName, tagValue));
             }
         }
     }
@@ -50,19 +54,19 @@ public final class RecordFieldsCascade {
      * @param cascadeFields
      * @return
      */
-    private Map<String, Integer> setupCascadeFields(Iterable<String> cascadeFields) {
+    private Map<QName, Integer> setupCascadeFields(Iterable<QName> cascadeFields) {
         if (cascadeFields == null) {
             return Collections.emptyMap();
         }
 
-        Map<String, Integer> primaryTagList = new TreeMap<>();
+        Map<QName, Integer> primaryTagList = new HashMap<>();
         int pos = 0;
         // Fields to cascade are specified by client or by XSD. Make the list unmodifiable
-        for (String tag: cascadeFields) {
+        for (QName tag: cascadeFields) {
             if (!primaryTagList.containsKey(tag)) {
                 primaryTagList.put(tag, pos++);
                 // Reserve initial slots in the lists for tags to cascade from current record
-                cascadeFieldValueList.add(new FieldValue(tag, ""));
+                cascadeFieldValueList.add(new FieldValue<QName>(tag, ""));
             }
         }
 
@@ -77,9 +81,9 @@ public final class RecordFieldsCascade {
     public RecordFieldsCascade cascadeFromParent(RecordFieldsCascade parent) {
         if (parent != null) {
             // Current record fields are formatted as RecordName.RecordField
-            for (FieldValue fv: parent.cascadeFieldValueList) {
-                parentFieldValueList.add(new FieldValue(
-                        String.format("%s.%s", parent.recordName, fv.field), fv.value));
+            for (FieldValue<QName> fv: parent.cascadeFieldValueList) {
+                parentFieldValueList.add(new FieldValue<String>(
+                        String.format("%s.%s", parent.recordName, XmlHelpers.toPrefixedTag(fv.field)), fv.value));
             }
 
             // Parent record fields were already formatted as ParentRecordName.ParentRecordField
@@ -97,23 +101,29 @@ public final class RecordFieldsCascade {
         return this;
     }
 
-    public List<String> getParentCascadedNames() {
+    public Iterable<String> getParentCascadedNames() {
         List<String> names = new ArrayList<>(parentFieldValueList.size());
-        for (FieldValue fv: parentFieldValueList) {
+        for (FieldValue<String> fv: parentFieldValueList) {
             names.add(fv.field);
         }
         return names;
     }
 
-    public List<String> getParentCascadedValues() {
-        List<String> values = new ArrayList<>(parentFieldValueList.size());
-        for (FieldValue fv: parentFieldValueList) {
-            values.add(fv.value);
+
+    private List<String> parentCascadedValuesCache;
+    public Iterable<String> getParentCascadedValues() {
+        if (parentCascadedValuesCache != null) {
+            return parentCascadedValuesCache;
         }
-        return values;
+
+        parentCascadedValuesCache = new ArrayList<>(parentFieldValueList.size());
+        for (FieldValue fv: parentFieldValueList) {
+            parentCascadedValuesCache.add(fv.value);
+        }
+        return parentCascadedValuesCache;
     }
 
-    public Iterable<FieldValue> getCascadeFieldValueList() {
+    public Iterable<FieldValue<QName>> getCascadeFieldValueList() {
         return cascadeFieldValueList;
     }
 
@@ -121,11 +131,11 @@ public final class RecordFieldsCascade {
         return recordName;
     }
 
-    private static class FieldValue {
-        final String field;
+    private static class FieldValue<K> {
+        final K field;
         final String value;
 
-        FieldValue(String fld, String val) {
+        FieldValue(K fld, String val) {
             field = fld;
             value = val;
         }
