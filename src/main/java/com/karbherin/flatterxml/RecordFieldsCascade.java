@@ -83,7 +83,8 @@ public final class RecordFieldsCascade {
             // Current record fields are formatted as RecordName.RecordField
             for (FieldValue<QName> fv: parent.cascadeFieldValueList) {
                 parentFieldValueList.add(new FieldValue<String>(
-                        String.format("%s.%s", parent.recordName, XmlHelpers.toPrefixedTag(fv.field)), fv.value));
+                        String.format("%s.%s", parent.recordName.getLocalPart(),
+                                XmlHelpers.toPrefixedTag(fv.field)), fv.value));
             }
 
             // Parent record fields were already formatted as ParentRecordName.ParentRecordField
@@ -117,7 +118,7 @@ public final class RecordFieldsCascade {
         }
 
         parentCascadedValuesCache = new ArrayList<>(parentFieldValueList.size());
-        for (FieldValue fv: parentFieldValueList) {
+        for (FieldValue<String> fv: parentFieldValueList) {
             parentCascadedValuesCache.add(fv.value);
         }
         return parentCascadedValuesCache;
