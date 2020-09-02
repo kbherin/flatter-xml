@@ -69,6 +69,11 @@ public final class RecordFieldsCascade {
         return Collections.unmodifiableMap(primaryTagList);
     }
 
+    /**
+     * Cascades fields and their values from ancestral containers into current record.
+     * @param parent
+     * @return
+     */
     public RecordFieldsCascade cascadeFromParent(RecordFieldsCascade parent) {
         if (parent != null) {
             // Current record fields are formatted as RecordName.RecordField
@@ -80,6 +85,15 @@ public final class RecordFieldsCascade {
             // Parent record fields were already formatted as ParentRecordName.ParentRecordField
             parentFieldValueList.addAll(parent.parentFieldValueList);
         }
+        return this;
+    }
+
+    /**
+     * Clear only the current record cascades and retain parent record's cascades.
+     * @return
+     */
+    public RecordFieldsCascade clearCurrentRecordCascades() {
+        cascadeFieldValueList.clear();
         return this;
     }
 

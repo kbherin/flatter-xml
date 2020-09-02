@@ -97,7 +97,7 @@ public class FlattenXml {
                 inElement = false,
                 rootElementVisited = false;
         Stack<StartElement> tagPath = new Stack<>();
-        RecordFieldsCascade currRecordCascade = null;
+        RecordFieldsCascade currRecordCascade = null, reuseRecordCascade = null;
         XMLEvent prevEv = null;
 
         while (reader.hasNext() && recCounter < firstNRecs) {
@@ -137,8 +137,15 @@ public class FlattenXml {
 
                     // Add cascade registry for a newly nested record.
                     if (!currRecordCascade.getRecordName().equals( tagPath.peek().getName() )) {
-                        // Cascade fields and values from parent record to this new record.
-                        currRecordCascade = registerCascades(tagPath.peek().getName(), currRecordCascade);
+
+                        if (reuseRecordCascade != null &&
+                                reuseRecordCascade.getRecordName().equals(tagPath.peek().getName())) {
+                            // Reuse parent cascades if the record continues to be the same
+                            currRecordCascade = reuseRecordCascade.clearCurrentRecordCascades();
+                        } else {
+                            // Cascade fields and values from parent record to this new record.
+                            currRecordCascade = registerCascades(tagPath.peek().getName(), currRecordCascade);
+                        }
                         cascadingStack.push(currRecordCascade);
                     }
                 }
@@ -174,7 +181,7 @@ public class FlattenXml {
 
                     // A structural envelope does not contain its own data. Remove it from stack.
                     tagStack.pop();
-                    cascadingStack.pop();
+                    reuseRecordCascade = cascadingStack.pop();
                 } else {
                     tagStack.push(ev);
                     inElement = false;
