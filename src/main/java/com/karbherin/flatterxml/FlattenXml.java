@@ -1,5 +1,7 @@
 package com.karbherin.flatterxml;
 
+import com.karbherin.flatterxml.xsd.XsdModel;
+
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventFactory;
 import javax.xml.stream.XMLEventReader;
@@ -33,13 +35,15 @@ public class FlattenXml {
     private final Stack<RecordFieldsCascade> cascadingStack = new Stack<>();
     private final Stack<StartElement> tagPath = new Stack<>();
     private final RecordFieldsCascade.CascadePolicy cascadePolicy;
+    private final List<XsdModel> xsds = new ArrayList<>();
 
     private int currLevel = 0;
     // List of primary fields for each record that should be cascaded to child records
     private final Stack<RecordFieldsCascade> activeCascades = new Stack<>();
 
     private FlattenXml(String xmlFilename, QName recordTag, String outDir, String delimiter,
-                       RecordFieldsCascade.CascadePolicy cascadePolicy, Map<String, String[]> recordCascadesTemplates)
+                       RecordFieldsCascade.CascadePolicy cascadePolicy, Map<String, String[]> recordCascadesTemplates,
+                       String[] xsdFiles)
             throws FileNotFoundException, XMLStreamException {
 
         this.delimiter = delimiter.getBytes();
@@ -49,6 +53,12 @@ public class FlattenXml {
                 xmlFilename, new FileInputStream(xmlFilename));
         this.recordCascadesTemplates = recordCascadesTemplates;
         this.cascadePolicy = cascadePolicy;
+
+        for (String xsd: xsdFiles) {
+            XsdModel xsdModel = new XsdModel();
+            xsdModel.parse(xsd);
+            xsds.add(xsdModel);
+        }
     }
 
     /**
@@ -356,6 +366,7 @@ public class FlattenXml {
         private String delimiter = ",";
         private RecordFieldsCascade.CascadePolicy cascadePolicy = RecordFieldsCascade.CascadePolicy.NONE;
         private Map<String, String[]> recordCascadesTemplates = Collections.emptyMap();
+        private String[] xsdFiles;
 
         public FlattenXmlBuilder setXmlFilename(String xmlFilename) {
             this.xmlFilename = xmlFilename;
@@ -387,9 +398,14 @@ public class FlattenXml {
             return this;
         }
 
+        public FlattenXmlBuilder setXsdFiles(String[] xsds) {
+            this.xsdFiles = xsds;
+            return this;
+        }
+
         public FlattenXml createFlattenXml()
                 throws FileNotFoundException, XMLStreamException {
-            return new FlattenXml(xmlFilename, recordTag, outDir, delimiter, cascadePolicy, recordCascadesTemplates);
+            return new FlattenXml(xmlFilename, recordTag, outDir, delimiter, cascadePolicy, recordCascadesTemplates, xsdFiles);
         }
     }
 }

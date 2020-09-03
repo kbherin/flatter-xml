@@ -130,4 +130,19 @@ public class XmlHelpers {
         }
         return qname.getLocalPart();
     }
+
+    public static String extractAttrValue(StartElement el, String attrName) {
+
+        for (Iterator<Attribute> it = el.getAttributes(); it.hasNext(); ) {
+            Attribute attr = it.next();
+            switch(attr.getName().getLocalPart().toLowerCase()) {
+                case "name" : return attr.getValue();
+                case "type" : return attr.getValue();
+                case "ref" : return attr.getValue();
+                case "minoccurs" : return attr.getValue();
+                case "maxoccurs" : return attr.getValue();
+            }
+        }
+        return null;
+    }
 }

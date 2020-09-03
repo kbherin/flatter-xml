@@ -29,6 +29,7 @@ public class FlattenXmlRunner {
         opts.addOption("n", "n-records", true, "Number of records to process in the XML document");
         opts.addOption("p", "progress", false, "Report progress after a batch");
         opts.addOption("c", "cascades", true, "Data of specified tags on parent element is cascaded to child elements.\nFormat: elem1:tag1,tag2;elem2:tag1,tag2;");
+        opts.addOption("x", "xsd", true, "XSD files. Comma separated list.");
     }
 
     private static void printHelp() {
@@ -75,6 +76,9 @@ public class FlattenXmlRunner {
             } else {
                 setup.setRecordCascadesTemplates(XmlHelpers.parseTagValueCascades(cmd.getOptionValue("c")));
             }
+        }
+        if (cmd.hasOption("x")) {
+            setup.setXsdFiles(cmd.getOptionValue("x").split(","));
         }
 
         final long firstNRecs, batchSize;
