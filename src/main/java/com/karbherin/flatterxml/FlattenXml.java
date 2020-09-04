@@ -1,6 +1,7 @@
 package com.karbherin.flatterxml;
 
 import com.karbherin.flatterxml.xsd.XmlSchema;
+import com.karbherin.flatterxml.xsd.XsdElement;
 
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventFactory;
@@ -12,6 +13,7 @@ import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import java.io.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Flattens an XML file into a set of tabular files.
@@ -60,8 +62,9 @@ public class FlattenXml {
             if (new File(outDir).mkdirs())
                 throw new FileNotFoundException("Could not create the output directory");
 
-        for (String xsd: xsdFiles)
-            xsds.add(new XmlSchema().parse(xsd));
+        if (xsdFiles != null)
+            for (String xsd: xsdFiles)
+                xsds.add(new XmlSchema().parse(xsd));
     }
 
     /**
@@ -245,7 +248,7 @@ public class FlattenXml {
         while (!(ev = tagStack.pop()).isStartElement()) {
 
             final EndElement endElement = ev.asEndElement();
-            String data = "";
+            String data = XmlHelpers.EMPTY;
             final StartElement startElement;
 
             ev = tagStack.pop();
@@ -276,6 +279,20 @@ public class FlattenXml {
         String recordElementName = envelope.getName().getLocalPart();
         tagStack.push(ev);     // Add it back on to tag stack.
 
+        // Lookup schema for a list of fields a record can legitimately have
+        XsdElement schemaEl = xsds.stream()
+                .map(xsd -> xsd.getElementByName(envelope.getName()))
+                .filter(xsd -> xsd != null)
+                .findFirst().orElse(null);
+
+        // Collect the list of fields a record should have
+        Stack<QName> recordSchemaFields = new Stack<>();
+        if (schemaEl != null) {
+            schemaEl.getChildElements().stream()
+                    .map(ch -> ch.getName()).forEach(recordSchemaFields::push);
+            alignFieldsToSchema(recordDataPile, recordHeaderPile, recordSchemaFields);
+        }
+
         if (captureRecordOnError != null)
             // Capture the table name which has an error in the record.
             captureRecordOnError.push(ev);
@@ -283,6 +300,24 @@ public class FlattenXml {
             // Write record to file if there are no errors.
             writeToFile(recordElementName, recordDataPile, recordHeaderPile,
                     cascadingStack.peek());
+    }
+
+    private void alignFieldsToSchema(Stack<String> recordDataPile, Stack<String> recordHeaderPile,
+                                     Stack<QName> schemaFields) {
+
+        if (schemaFields == null || schemaFields.isEmpty())
+            return;
+
+        Map<String, String> fv = new HashMap<>();
+        while (!recordHeaderPile.isEmpty())
+            fv.put(recordHeaderPile.pop(), recordDataPile.pop());
+
+        Stack<String[]> aligned = new Stack<>();
+        while (!schemaFields.isEmpty()) {
+            String xsdFld = XmlHelpers.toPrefixedTag(schemaFields.pop());
+            recordHeaderPile.push(xsdFld);
+            recordDataPile.push(Optional.ofNullable(fv.get(xsdFld)).orElse(XmlHelpers.EMPTY));
+        }
     }
 
     private void writeToFile(String fileName, Stack<String> recordDataStack, Stack<String> recordHeaderStack,

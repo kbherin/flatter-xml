@@ -24,10 +24,12 @@ import java.util.stream.StreamSupport;
 
 public class XmlHelpers {
 
-    public static String CASCADES_DELIM = ";";
-    public static String PAIR_SEP = "=";
-    public static String COMMA_DELIM = ",";
-    public static String WHITESPACES = "\\s+";
+    public static final String CASCADES_DELIM = ";";
+    public static final String PAIR_SEP = "=";
+    public static final String PREFIX_SEP = "=";
+    public static final String COMMA_DELIM = ",";
+    public static final String WHITESPACES = "\\s+";
+    public static final String EMPTY = "";
 
     /**
      * Stringifies of attributes on an XML start tag.
@@ -50,7 +52,7 @@ public class XmlHelpers {
      * */
     public static String eventsRecordToString(Stack<XMLEvent> eventsRec) {
         StringBuffer buf = new StringBuffer();
-        String indent = "";
+        String indent = EMPTY;
         boolean condenseToEllipsis = false;
 
         try {
@@ -61,7 +63,7 @@ public class XmlHelpers {
                     StartElement startEl = ev.asStartElement();
                     String attrStr = attributeString(startEl.getAttributes());
                     String prefix = startEl.getName().getPrefix();
-                    String tagName = (prefix.length() > 0 ? prefix + ":" : "")
+                    String tagName = (prefix.length() > 0 ? prefix + PREFIX_SEP : EMPTY)
                             + startEl.getName().getLocalPart();
 
                     if (!eventsRec.empty() && !eventsRec.peek().isStartElement() &&
@@ -94,7 +96,7 @@ public class XmlHelpers {
                     }
                 } else if (ev.isEndElement()) {
                     String prefix = ev.asEndElement().getName().getPrefix();
-                    String tagName = (prefix.length() > 0 ? prefix + ":" : "")
+                    String tagName = (prefix.length() > 0 ? prefix + PREFIX_SEP : EMPTY)
                             + ev.asEndElement().getName().getLocalPart();
                     buf.append(String.format("</%s>\n", tagName));
                 } else {
@@ -103,14 +105,14 @@ public class XmlHelpers {
             }
             return buf.toString();
         } catch (Throwable throwaway) {
-            return "";
+            return EMPTY;
         }
     }
 
     public static Map<String, String[]> parseTagValueCascades(String cascades) {
         Map<String, String[]> cascadeMap = new HashMap<>();
         int c = 1;
-        for (String cascade: cascades.replaceAll(WHITESPACES, "").split(CASCADES_DELIM)) {
+        for (String cascade: cascades.replaceAll(WHITESPACES, EMPTY).split(CASCADES_DELIM)) {
             try {
                 String pair[] = cascade.split(PAIR_SEP);
                 String elem = pair[0];

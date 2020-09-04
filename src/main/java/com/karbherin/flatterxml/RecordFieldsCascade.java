@@ -69,7 +69,7 @@ public final class RecordFieldsCascade {
             if (!primaryTagList.containsKey(tag)) {
                 primaryTagList.put(tag, pos++);
                 // Reserve initial slots in the lists for tags to cascade from current record
-                cascadeFieldValueList.add(new FieldValue<QName>(tag, ""));
+                cascadeFieldValueList.add(new FieldValue<QName>(tag, XmlHelpers.EMPTY));
             }
         }
 

@@ -1,8 +1,5 @@
 package com.karbherin.flatterxml.xsd;
 
-import com.karbherin.flatterxml.XmlHelpers;
-import org.xml.sax.SAXException;
-
 import static com.karbherin.flatterxml.XmlHelpers.extractAttrValue;
 import static com.karbherin.flatterxml.XmlHelpers.parsePrefixTag;
 
@@ -48,6 +45,10 @@ public class XmlSchema {
 
     public XsdElement getElementByName(String name) {
         return elementTypes.get(parsePrefixTag(name, schema.getNamespaceContext(), targetNamespace));
+    }
+
+    public XsdElement getElementByName(QName qName) {
+        return elementTypes.get(qName);
     }
 
     private void resolveReferences() {
