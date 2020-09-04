@@ -1,25 +1,39 @@
 package com.karbherin.flatterxml.xsd;
 
-import static com.karbherin.flatterxml.XmlHelpers.extractAttrValue;
+import com.karbherin.flatterxml.XmlHelpers;
+import org.xml.sax.SAXException;
 
+import static com.karbherin.flatterxml.XmlHelpers.extractAttrValue;
+import static com.karbherin.flatterxml.XmlHelpers.parsePrefixTag;
+
+import javax.xml.XMLConstants;
 import javax.xml.namespace.QName;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.*;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.SchemaFactory;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.*;
 
-public class XsdModel {
+public class XmlSchema {
 
     private String targetNamespace;
-    private Set<Namespace> namespaces = new HashSet<>();
+    private StartElement schema;
     private final Stack<XMLEvent> elStack = new Stack<>();
-    private Map<String, List<XsdElement>> complexTypes = new HashMap<>();
-    private final Map<String, XsdElement> elementTypes = new HashMap<>();
-    private static final String ELEMENT = "element", NAME = "name", SCHEMA = "schema", COMPLEX_TYPE = "complexType";
+    private Map<QName, List<XsdElement>> complexTypes = new HashMap<>();
+    private final Map<QName, XsdElement> elementTypes = new HashMap<>();
+    public static final QName ELEMENT = new QName(XMLConstants.W3C_XML_SCHEMA_NS_URI,"element"),
+            NAME = new QName(XMLConstants.W3C_XML_SCHEMA_NS_URI,"name"),
+            TYPE = new QName(XMLConstants.W3C_XML_SCHEMA_NS_URI,"type"),
+            REF = new QName(XMLConstants.W3C_XML_SCHEMA_NS_URI,"ref"),
+            SCHEMA = new QName(XMLConstants.W3C_XML_SCHEMA_NS_URI,"schema"),
+            COMPLEX_TYPE = new QName(XMLConstants.W3C_XML_SCHEMA_NS_URI, "complexType");
 
     public void parse(String xsdFile) throws FileNotFoundException, XMLStreamException {
         parse(new File(xsdFile));
@@ -36,7 +50,7 @@ public class XsdModel {
     }
 
     public XsdElement getElementByName(String name) {
-        return elementTypes.get(name);
+        return elementTypes.get(parsePrefixTag(name, schema.getNamespaceContext(), targetNamespace));
     }
 
     private void resolveReferences() {
@@ -61,27 +75,28 @@ public class XsdModel {
 
     private void examine(StartElement el) {
         if (isXsdSchema(el)) {
-            setupNamespaces(el);
+            setupSchema(el);
             elStack.push(el);
             return;
         }
 
         if (isXsdComplexType(el))
-            elementTypes.get(extractAttrValue(elStack.peek().asStartElement(), "name")).setType(COMPLEX_TYPE);
+            elementTypes.get(extractAttrValue(elStack.peek().asStartElement(), NAME, targetNamespace))
+                    .setType(COMPLEX_TYPE);
 
         if (!isXsdElement(el))
             return;
 
         if (!elStack.isEmpty()) {
 
-            String parentName = extractAttrValue(elStack.peek().asStartElement(), NAME);
+            QName parentName = extractAttrValue(elStack.peek().asStartElement(), NAME, targetNamespace);
             List<XsdElement> children = complexTypes.get(parentName);
             if (children == null) {
                 children = new ArrayList<>();
                 complexTypes.put(parentName, children);
             }
 
-            XsdElement xsdEl = new XsdElement(el);
+            XsdElement xsdEl = new XsdElement(el, targetNamespace);
             if (xsdEl.getName() != null)
                 elementTypes.put(xsdEl.getName(), xsdEl);
 
@@ -96,34 +111,36 @@ public class XsdModel {
             elStack.pop();
     }
 
-    private void setupNamespaces(StartElement el) {
+    private void setupSchema(StartElement el) {
         Attribute attr = el.getAttributeByName(QName.valueOf("targetNamespace"));
         if (attr != null)
             targetNamespace = attr.getValue();
-        for (Iterator<Namespace> it = el.getNamespaces(); it.hasNext(); )
-            namespaces.add(it.next());
+        schema = el;
     }
 
     private static boolean isXsdElement(XMLEvent el) {
-        return el.isStartElement() && ELEMENT.equals(el.asStartElement().getName().getLocalPart()) ||
-            el.isEndElement() && ELEMENT.equals(el.asEndElement().getName().getLocalPart());
+        return el.isStartElement() && ELEMENT.equals(el.asStartElement().getName()) ||
+            el.isEndElement() && ELEMENT.equals(el.asEndElement().getName());
     }
 
     private static boolean isXsdComplexType(XMLEvent el) {
-        return el.isStartElement() && COMPLEX_TYPE.equals(el.asStartElement().getName().getLocalPart()) ||
-                el.isEndElement() && COMPLEX_TYPE.equals(el.asEndElement().getName().getLocalPart());
+        if (el.isStartElement() && COMPLEX_TYPE.equals(el.asStartElement().getName()) ||
+                el.isEndElement() && COMPLEX_TYPE.equals(el.asEndElement().getName())) {
+            return true;
+        }
+        return false;
     }
 
     private static boolean isXsdSchema(XMLEvent el) {
-        return el.isStartElement() && SCHEMA.equals(el.asStartElement().getName().getLocalPart()) ||
-                el.isEndElement() && SCHEMA.equals(el.asEndElement().getName().getLocalPart());
+        return el.isStartElement() && SCHEMA.equals(el.asStartElement().getName()) ||
+                el.isEndElement() && SCHEMA.equals(el.asEndElement().getName());
     }
 
     public String getTargetNamespace() {
         return targetNamespace;
     }
 
-    public Set<Namespace> getNamespaces() {
-        return namespaces;
+    public StartElement getSchema() {
+        return schema;
     }
 }

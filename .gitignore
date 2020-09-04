@@ -29,3 +29,6 @@ hs_err_pid*
 
 # Build directories
 target/
+
+# Output files
+*.csv

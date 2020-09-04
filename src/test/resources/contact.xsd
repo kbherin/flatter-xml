@@ -1,9 +1,9 @@
-<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema' targetNamespace="bk">
+<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema' targetNamespace="http://kbps.com">
 
     <xs:element name="contact">
         <xs:complexType>
             <xs:sequence>
-                <xs:element ref="address" minOccurs='1' maxOccurs='unbounded' />
+                <xs:element ref="address" minOccurs='1' maxOccurs='unbounded'/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>

@@ -2,11 +2,13 @@ package com.karbherin.flatterxml;
 
 import org.apache.commons.cli.*;
 
-import javax.xml.namespace.QName;
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * CLI main class for flattening an XML file into tabular files.
@@ -15,32 +17,29 @@ import java.util.List;
  */
 public class FlattenXmlRunner {
 
-    private static final int MIN_NUM_OF_ARGS = 1;
-    private static final int MAX_NUM_OF_ARGS = 6;
-    private static final int DEFAULT_BATCH_SIZE = 50;
+    private static final int DEFAULT_BATCH_SIZE = 100;
     private static final String INDENT = "  ";
-
-    private static Options opts = new Options();
+    private static final Options OPTIONS = new Options();
 
     static {
-        opts.addOption("o", "output-dir", true, "Output direction for generating tabular files. Defaults to current directory");
-        opts.addOption("d", "delimiter", true, "Delimiter. Defaults to a comma");
-        opts.addOption("r", "record-tag", true, "Primary record tag from where parsing begins. If not provided entire file will be parsed");
-        opts.addOption("n", "n-records", true, "Number of records to process in the XML document");
-        opts.addOption("p", "progress", false, "Report progress after a batch");
-        opts.addOption("c", "cascades", true, "Data of specified tags on parent element is cascaded to child elements.\nFormat: elem1:tag1,tag2;elem2:tag1,tag2;");
-        opts.addOption("x", "xsd", true, "XSD files. Comma separated list.");
+        OPTIONS.addOption("o", "output-dir", true, "Output direction for generating tabular files. Defaults to current directory");
+        OPTIONS.addOption("d", "delimiter", true, "Delimiter. Defaults to a comma");
+        OPTIONS.addOption("r", "record-tag", true, "Primary record tag from where parsing begins. If not provided entire file will be parsed");
+        OPTIONS.addOption("n", "n-records", true, "Number of records to process in the XML document");
+        OPTIONS.addOption("p", "progress", false, "Report progress after a batch");
+        OPTIONS.addOption("c", "cascades", true, "Data of specified tags on parent element is cascaded to child elements.\nFormat: elem1:tag1,tag2;elem2:tag1,tag2;");
+        OPTIONS.addOption("x", "xsd", true, "XSD files. Comma separated list.");
     }
 
     private static void printHelp() {
         HelpFormatter formatter = new HelpFormatter();
-        formatter.printHelp( "FlattenXmlRunner XMLFile [OPTIONS]", opts);
+        formatter.printHelp( "FlattenXmlRunner XMLFile [OPTIONS]", OPTIONS);
     }
 
     private static CommandLine parseCliArgs(String[] args) {
         CommandLineParser parser = new DefaultParser();
         try {
-            return parser.parse(opts, args);
+            return parser.parse(OPTIONS, args);
         } catch (ParseException ex) {
             printHelp();
             throw new IllegalArgumentException("Could not understand the options provided to the program");
@@ -151,19 +150,30 @@ public class FlattenXmlRunner {
         }
 
         // Display the files generated
-        List<String> filesWritten = flattener.getFilesWritten();
+        List<String[]> filesWritten = flattener.getFilesWritten();
+        StringBuffer filesTreeStr = new StringBuffer();
         System.out.println("\nFiles produced: " + filesWritten.size());
-        Collections.sort(filesWritten);
-        StringBuffer filesGen = new StringBuffer();
-        for (String fileName: filesWritten) {
-            String[] lvlFile = fileName.split("\\.");
-            int level = Integer.parseInt(lvlFile[0]);
-            while (level-- > 2)
-                filesGen.append(INDENT);
-            if (level > 0)
-                filesGen.append("|__");
-            filesGen.append(lvlFile[1]).append("\n");
-        }
-        System.out.println(filesGen);
+        Map<String, List<String[]>> groupedByParent = filesWritten.stream()
+                .collect(Collectors.groupingBy(r -> r[2], Collectors.toList()));
+
+
+        for (String[] child: groupedByParent.get(flattener.getRootElement().getName().getLocalPart()))
+            drillDownFilesHeap(groupedByParent, child[1], Integer.parseInt(child[0]), filesTreeStr);
+
+        System.out.println(filesTreeStr);
+    }
+
+    private static void drillDownFilesHeap(Map<String, List<String[]>> grouped, String file, int level,
+                                           StringBuffer filesGen) {
+        while (level-- > 2)
+            filesGen.append(INDENT);
+        if (level > 0)
+            filesGen.append("|__");
+        filesGen.append(file).append("\n");
+
+        if (!grouped.containsKey(file))
+            return;
+        for (String[] child: grouped.get(file))
+            drillDownFilesHeap(grouped, child[1], Integer.parseInt(child[0]), filesGen);
     }
 }

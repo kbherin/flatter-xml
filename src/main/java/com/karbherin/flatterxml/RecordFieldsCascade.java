@@ -1,6 +1,8 @@
 package com.karbherin.flatterxml;
 
+import javax.xml.XMLConstants;
 import javax.xml.namespace.QName;
+import javax.xml.stream.events.StartElement;
 import java.util.*;
 
 public final class RecordFieldsCascade {
@@ -13,14 +15,15 @@ public final class RecordFieldsCascade {
 
     private static final String PREFIX_SEP = ":";
 
-    public RecordFieldsCascade(QName recordName, String[] primaryTags) {
-        this.recordName = recordName;
+    public RecordFieldsCascade(StartElement recordName, String[] primaryTags) {
+        this.recordName = recordName.getName();
         if (primaryTags == null) {
             positions = setupCascadeFields(new ArrayList<QName>());
         } else {
             List<QName> qtags = new ArrayList<>();
             for (String tag: primaryTags) {
-                qtags.add(XmlHelpers.parsePrefixTag(tag));
+                qtags.add(XmlHelpers.parsePrefixTag(tag, recordName.getNamespaceContext(),
+                        recordName.getNamespaceURI(XMLConstants.DEFAULT_NS_PREFIX)));
             }
             positions = setupCascadeFields(qtags);
         }

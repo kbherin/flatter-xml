@@ -1,14 +1,24 @@
 package com.karbherin.flatterxml;
 
+import com.karbherin.flatterxml.xsd.XmlSchema;
+import com.karbherin.flatterxml.xsd.XsdElement;
+import org.xml.sax.SAXException;
+
+import javax.xml.XMLConstants;
+import javax.xml.namespace.NamespaceContext;
 import javax.xml.namespace.QName;
 import javax.xml.stream.events.Attribute;
+import javax.xml.stream.events.Namespace;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.SchemaFactory;
+import java.io.File;
+import java.io.IOException;
 import java.text.ParseException;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Stack;
+import java.util.*;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 public class XmlHelpers {
 
@@ -115,12 +125,15 @@ public class XmlHelpers {
         return cascadeMap;
     }
 
-    public static QName parsePrefixTag(String input) {
+    public static QName parsePrefixTag(String input, NamespaceContext nsContext, String targetNamespace) {
         String[] parts = input.split(":");
         if (parts.length > 1) {
-            return new QName(null, parts[1], parts[0]);
+            return new QName(nsContext.getNamespaceURI(parts[0]), parts[1], parts[0]);
         } else {
-            return new QName(parts[0]);
+            QName qname = new QName(parts[0]);
+            if (qname.getNamespaceURI() == null || qname.getNamespaceURI().length() == 0)
+                return new QName(targetNamespace, parts[0]);
+            return qname;
         }
     }
 
@@ -131,18 +144,28 @@ public class XmlHelpers {
         return qname.getLocalPart();
     }
 
-    public static String extractAttrValue(StartElement el, String attrName) {
-
+    public static QName extractAttrValue(StartElement el, QName attrName, String targetNamespace) {
         for (Iterator<Attribute> it = el.getAttributes(); it.hasNext(); ) {
             Attribute attr = it.next();
-            switch(attr.getName().getLocalPart().toLowerCase()) {
-                case "name" : return attr.getValue();
-                case "type" : return attr.getValue();
-                case "ref" : return attr.getValue();
-                case "minoccurs" : return attr.getValue();
-                case "maxoccurs" : return attr.getValue();
-            }
+            QName attrQName = attr.getName();
+            String nsUri = attrQName.getNamespaceURI();
+            if (nsUri == null || nsUri.length() == 0)
+                    nsUri = el.getName().getNamespaceURI();
+            if (attrName.getLocalPart().equals(attrQName.getLocalPart()) &&
+                    attrName.getNamespaceURI().equals(nsUri))
+                return parsePrefixTag(attr.getValue(), el.getNamespaceContext(), targetNamespace);
         }
         return null;
+    }
+
+    public static<T> Stream<T> iteratorStream(Iterator<T> iterator) {
+        return StreamSupport.stream(
+                Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false);
+    }
+
+    public static void validateXml(String xmlFile, String xsdFile) throws SAXException, IOException {
+        SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI)
+                .newSchema(new File(xsdFile))
+                .newValidator().validate(new StreamSource(new File(xmlFile)));
     }
 }
