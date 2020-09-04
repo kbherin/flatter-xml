@@ -11,12 +11,14 @@ import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.Namespace;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
+import javax.xml.transform.Source;
 import javax.xml.transform.stream.StreamSource;
 import javax.xml.validation.SchemaFactory;
 import java.io.File;
 import java.io.IOException;
 import java.text.ParseException;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -163,9 +165,11 @@ public class XmlHelpers {
                 Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false);
     }
 
-    public static void validateXml(String xmlFile, String xsdFile) throws SAXException, IOException {
+    public static void validateXml(String xmlFile, String xsdFiles[]) throws SAXException, IOException {
+        Source[] xsds = new StreamSource[xsdFiles.length];
+        Arrays.asList(xsdFiles).stream().map(f -> new StreamSource(f)).collect(Collectors.toList()).toArray(xsds);
         SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI)
-                .newSchema(new File(xsdFile))
+                .newSchema(xsds)
                 .newValidator().validate(new StreamSource(new File(xmlFile)));
     }
 }

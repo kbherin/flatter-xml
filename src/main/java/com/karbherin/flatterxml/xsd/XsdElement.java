@@ -2,7 +2,6 @@ package com.karbherin.flatterxml.xsd;
 
 import com.karbherin.flatterxml.XmlHelpers;
 
-import javax.xml.XMLConstants;
 import javax.xml.namespace.QName;
 import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.StartElement;

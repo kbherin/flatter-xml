@@ -8,17 +8,13 @@ import static com.karbherin.flatterxml.XmlHelpers.parsePrefixTag;
 
 import javax.xml.XMLConstants;
 import javax.xml.namespace.QName;
-import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.*;
-import javax.xml.transform.stream.StreamSource;
-import javax.xml.validation.SchemaFactory;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.util.*;
 
 public class XmlSchema {
@@ -35,8 +31,9 @@ public class XmlSchema {
             SCHEMA = new QName(XMLConstants.W3C_XML_SCHEMA_NS_URI,"schema"),
             COMPLEX_TYPE = new QName(XMLConstants.W3C_XML_SCHEMA_NS_URI, "complexType");
 
-    public void parse(String xsdFile) throws FileNotFoundException, XMLStreamException {
+    public XmlSchema parse(String xsdFile) throws FileNotFoundException, XMLStreamException {
         parse(new File(xsdFile));
+        return this;
     }
 
     public void parse(File xsdFile) throws FileNotFoundException, XMLStreamException {

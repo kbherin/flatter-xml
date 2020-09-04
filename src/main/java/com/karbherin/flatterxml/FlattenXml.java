@@ -2,7 +2,6 @@ package com.karbherin.flatterxml;
 
 import com.karbherin.flatterxml.xsd.XmlSchema;
 
-import javax.xml.XMLConstants;
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventFactory;
 import javax.xml.stream.XMLEventReader;
@@ -12,8 +11,6 @@ import javax.xml.stream.events.EndElement;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import java.io.*;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 
 /**
@@ -59,15 +56,12 @@ public class FlattenXml {
         this.cascadePolicy = cascadePolicy;
 
         // Create output directory
-        if (!new File(outDir).isDirectory()) {
-            new File(outDir).mkdirs();
-        }
+        if (!new File(outDir).isDirectory())
+            if (new File(outDir).mkdirs())
+                throw new FileNotFoundException("Could not create the output directory");
 
-        for (String xsd: xsdFiles) {
-            XmlSchema xsdModel = new XmlSchema();
-            xsdModel.parse(xsd);
-            xsds.add(xsdModel);
-        }
+        for (String xsd: xsdFiles)
+            xsds.add(new XmlSchema().parse(xsd));
     }
 
     /**
@@ -78,9 +72,8 @@ public class FlattenXml {
      */
     public long parseFlatten() throws XMLStreamException, IOException {
         long recCounter = 0;
-        while (reader.hasNext()) {
+        while (reader.hasNext())
             recCounter += parseFlatten(Long.MAX_VALUE);
-        }
         return recCounter;
     }
 
@@ -96,9 +89,8 @@ public class FlattenXml {
         try {
             return flattenXmlDoc(firstNRecords);
         } finally {
-            if (!reader.hasNext()) {
+            if (!reader.hasNext())
                 closeAllFileStreams();
-            }
         }
     }
 
@@ -171,10 +163,9 @@ public class FlattenXml {
                     }
                 }
 
-                if (recordTag.equals(tagName)) {
+                if (recordTag.equals(tagName))
                     // Start tag of the top-level record. Parsing starts here.
                     tracking = true;
-                }
 
                 if (tracking) {
                     tagStack.push(ev);
@@ -190,10 +181,9 @@ public class FlattenXml {
                 EndElement endElement = ev.asEndElement();
 
                 // Previous element was data. Add it to the container's cascade list
-                if (!tagStack.peek().isStartElement() && !tagStack.peek().isEndElement()) {
+                if (!tagStack.peek().isStartElement() && !tagStack.peek().isEndElement())
                     currRecordCascade.addCascadingData(endElement.getName(),
                             tagStack.peek().asCharacters().getData(), cascadePolicy);
-                }
 
                 if (!inElement) {
                     // If parser is already outside an element and meets end of enclosing element
@@ -246,9 +236,9 @@ public class FlattenXml {
 
 
     private void writeRecord(Stack<XMLEvent> captureRecordOnError) throws IOException {
-        if (tagStack.isEmpty()) {
+        if (tagStack.isEmpty())
             return;
-        }
+
         XMLEvent ev;
 
         // Read one part of an XML element at a time.
@@ -286,14 +276,13 @@ public class FlattenXml {
         String recordElementName = envelope.getName().getLocalPart();
         tagStack.push(ev);     // Add it back on to tag stack.
 
-        if (captureRecordOnError != null) {
+        if (captureRecordOnError != null)
             // Capture the table name which has an error in the record.
             captureRecordOnError.push(ev);
-        } else {
+        else
             // Write record to file if there are no errors.
             writeToFile(recordElementName, recordDataPile, recordHeaderPile,
                     cascadingStack.peek());
-        }
     }
 
     private void writeToFile(String fileName, Stack<String> recordDataStack, Stack<String> recordHeaderStack,
@@ -328,9 +317,8 @@ public class FlattenXml {
     private void writeDelimited(Stack<String> stringStack, OutputStream out, Iterable<String> appendList)
         throws IOException {
 
-        if (stringStack.isEmpty()) {
+        if (stringStack.isEmpty())
             return;
-        }
 
         out.write(stringStack.pop().getBytes());
         while (!stringStack.isEmpty()) {
