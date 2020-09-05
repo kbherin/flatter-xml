@@ -139,7 +139,7 @@ public class FlattenXmlRunner {
                 // Process first N records.
                 recsInBatch = flattener.parseFlatten(Math.min(batchSize, firstNRecs - totalRecs));
             }
-            totalRecs = recsInBatch;
+            totalRecs += recsInBatch;
 
             if (!recordTagProvided) {
                 recordTagProvided = true;

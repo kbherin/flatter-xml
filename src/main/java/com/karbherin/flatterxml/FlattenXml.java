@@ -39,7 +39,6 @@ public class FlattenXml {
     private int currLevel = 0;
     private boolean rootElementVisited = false;
     private XMLEvent prevEv = null;
-    private long recCounter = 0;
     private boolean tracking = false;
     private boolean inElement = false;
     private RecordFieldsCascade currRecordCascade = null;
@@ -110,6 +109,7 @@ public class FlattenXml {
      * @throws IOException
      */
     private long flattenXmlDoc(final long firstNRecs) throws XMLStreamException, IOException {
+        long recCounter = 0;
 
         while (reader.hasNext() && recCounter < firstNRecs) {
             final XMLEvent ev;
