@@ -164,7 +164,7 @@ public class FlattenXmlRunner {
 
         // Display the files generated
         List<String[]> filesWritten = recordHandler.getFilesWritten();
-        StringBuffer filesTreeStr = new StringBuffer();
+        StringBuilder filesTreeStr = new StringBuilder();
         System.out.println("\nFiles produced: " + filesWritten.size());
         Map<String, List<String[]>> groupedByParent = filesWritten.stream()
                 .collect(Collectors.groupingBy(r -> r[2], Collectors.toList()));
@@ -178,7 +178,7 @@ public class FlattenXmlRunner {
     }
 
     private static void drillDownFilesHeap(Map<String, List<String[]>> grouped, String file, int level,
-                                           StringBuffer filesGen) {
+                                           StringBuilder filesGen) {
         while (level-- > 2) {
             filesGen.append(INDENT);
         }

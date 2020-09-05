@@ -34,7 +34,7 @@ public class XmlHelpers {
      * @return
      */
     public static String attributeString(Iterator<Attribute> attrs) {
-        StringBuffer attrBuf = new StringBuffer();
+        StringBuilder attrBuf = new StringBuilder();
         if (attrs.hasNext()) {
             attrBuf.append(attrs.next().toString());
         }
@@ -50,7 +50,7 @@ public class XmlHelpers {
      * @param eventsRec - One record of XML element events
      * */
     public static String eventsRecordToString(Stack<XMLEvent> eventsRec) {
-        StringBuffer buf = new StringBuffer();
+        StringBuilder buf = new StringBuilder();
         String indent = EMPTY;
         boolean condenseToEllipsis = false;
 
@@ -178,7 +178,7 @@ public class XmlHelpers {
         public final K field;
         public V value;
 
-        FieldValue(K fld, V val) {
+        public FieldValue(K fld, V val) {
             field = fld;
             value = val;
         }
