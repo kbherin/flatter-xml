@@ -5,6 +5,8 @@ import com.karbherin.flatterxml.output.RecordHandler;
 import org.apache.commons.cli.*;
 
 import javax.xml.stream.XMLStreamException;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +19,7 @@ import java.util.stream.Collectors;
  */
 public class FlattenXmlRunner {
 
-    private static final int DEFAULT_BATCH_SIZE = 100;
+    private static final int DEFAULT_BATCH_SIZE = 2;
     private static final String INDENT = "  ";
     private static final Options OPTIONS = new Options();
 
@@ -60,12 +62,18 @@ public class FlattenXmlRunner {
 
         FlattenXml.FlattenXmlBuilder setup = new FlattenXml.FlattenXmlBuilder();
 
+        String delimiter = "|", outDir = "csvs";
         if (cmd.hasOption("o")) {
-            setup.setOutDir(cmd.getOptionValue("o"));
+            outDir = cmd.getOptionValue("o");
+            createOutputDirectory(outDir);
         }
         if (cmd.hasOption("d")) {
-            setup.setDelimiter(cmd.getOptionValue("d"));
+            delimiter = cmd.getOptionValue("d");
         }
+
+        DelimitedFileHandler recordHandler = new DelimitedFileHandler(delimiter, outDir);
+        setup.setRecordWriter(recordHandler);
+
         if (cmd.hasOption("r")) {
             String recordTag = cmd.getOptionValue("r");
             if (recordTag.trim().length() > 0)
@@ -108,9 +116,6 @@ public class FlattenXmlRunner {
             throw new IllegalArgumentException("Could not parse the arguments passed. XMLFile path is required");
         }
         setup.setXmlFilename(cmd.getArgs()[0]);
-
-        RecordHandler recordHandler = new DelimitedFileHandler(setup.getDelimiter(), setup.getOutDir());
-        setup.setRecordWriter(recordHandler);
 
         final FlattenXml flattener = setup.createFlattenXml();
 
@@ -192,6 +197,16 @@ public class FlattenXmlRunner {
         }
         for (String[] child: grouped.get(file)) {
             drillDownFilesHeap(grouped, child[1], Integer.parseInt(child[0]), filesGen);
+        }
+    }
+
+
+    private static void createOutputDirectory(String outDir) throws FileNotFoundException {
+        // Create output directory
+        if (!new File(outDir).isDirectory()) {
+            if (new File(outDir).mkdirs()) {
+                throw new FileNotFoundException("Could not create the output directory");
+            }
         }
     }
 }

@@ -23,46 +23,39 @@ import java.util.*;
  */
 public class FlattenXml {
 
-    private final byte[] delimiter;
-    private final String outDir;
+    // Inputs supplied by the caller
     private String recordTag;
-    private StartElement rootElement;
     private final XMLEventReader reader;
-    private final Map<String, FileOutputStream> fileStreams = new HashMap<>();
-    private final Stack<XMLEvent> tagStack = new Stack<>();
-    private final XMLEventFactory eventFactory = XMLEventFactory.newFactory();
-    private final List<String[]> filesWritten = new ArrayList<>();
+    private final List<XmlSchema> xsds = new ArrayList<>();
+    private final RecordFieldsCascade.CascadePolicy cascadePolicy;
+    private StartElement rootElement;
     private final Map<String, String[]> recordCascadesTemplates;
+
+    // Parsing state
+    private final Stack<XMLEvent> tagStack = new Stack<>();
     private final Stack<RecordFieldsCascade> cascadingStack = new Stack<>();
     private final Stack<StartElement> tagPath = new Stack<>();
-    private final RecordFieldsCascade.CascadePolicy cascadePolicy;
-    private final List<XmlSchema> xsds = new ArrayList<>();
+    private int currLevel = 0;
+    private boolean rootElementVisited = false;
+    private XMLEvent prevEv = null;
+
+    // Output
     private final RecordHandler recordHandler;
 
-    private int currLevel = 0;
-    // List of primary fields for each record that should be cascaded to child records
-    private final Stack<RecordFieldsCascade> activeCascades = new Stack<>();
+    // Helpers
+    private final XMLEventFactory eventFactory = XMLEventFactory.newFactory();
 
-    private FlattenXml(String xmlFilename, String recordTag, String outDir, String delimiter,
+    private FlattenXml(String xmlFilename, String recordTag,
                        RecordFieldsCascade.CascadePolicy cascadePolicy, Map<String, String[]> recordCascadesTemplates,
                        String[] xsdFiles, RecordHandler recordHandler)
             throws FileNotFoundException, XMLStreamException {
 
-        this.delimiter = delimiter.getBytes();
-        this.outDir = outDir;
         this.recordTag = recordTag;
         this.reader = XMLInputFactory.newFactory().createXMLEventReader(
                 xmlFilename, new FileInputStream(xmlFilename));
         this.recordCascadesTemplates = recordCascadesTemplates;
         this.cascadePolicy = cascadePolicy;
         this.recordHandler = recordHandler;
-
-        // Create output directory
-        if (!new File(outDir).isDirectory()) {
-            if (new File(outDir).mkdirs()) {
-                throw new FileNotFoundException("Could not create the output directory");
-            }
-        }
 
         if (xsdFiles != null) {
             for (String xsd : xsdFiles) {
@@ -114,10 +107,8 @@ public class FlattenXml {
 
         long recCounter = 0;
         boolean tracking = false,
-                inElement = false,
-                rootElementVisited = false;
+                inElement = false;
         RecordFieldsCascade currRecordCascade = null, reuseRecordCascade = null;
-        XMLEvent prevEv = null;
         QName recordTag = null;
 
         while (reader.hasNext() && recCounter < firstNRecs) {
@@ -197,8 +188,10 @@ public class FlattenXml {
 
                 // Previous element was data. Add it to the container's cascade list
                 if (!tagStack.peek().isStartElement() && !tagStack.peek().isEndElement()) {
-                    currRecordCascade.addCascadingData(endElement.getName(),
-                            tagStack.peek().asCharacters().getData(), cascadePolicy);
+                    currRecordCascade.addCascadingData(
+                            endElement.getName(),
+                            tagStack.peek().asCharacters().getData(),
+                            cascadePolicy);
                 }
 
                 if (!inElement) {
@@ -374,10 +367,6 @@ public class FlattenXml {
         return this.recordTag;
     }
 
-    public List<String[]> getFilesWritten() {
-        return filesWritten;
-    }
-
     public StartElement getRootElement() {
         return rootElement;
     }
@@ -385,8 +374,6 @@ public class FlattenXml {
     public static class FlattenXmlBuilder {
         private String xmlFilename;
         private String recordTag = null;
-        private String outDir = ".";
-        private String delimiter = ",";
         private RecordFieldsCascade.CascadePolicy cascadePolicy = RecordFieldsCascade.CascadePolicy.NONE;
         private Map<String, String[]> recordCascadesTemplates = Collections.emptyMap();
         private String[] xsdFiles;
@@ -400,24 +387,6 @@ public class FlattenXml {
         public FlattenXmlBuilder setRecordTag(String recordTag) {
             this.recordTag = recordTag;
             return this;
-        }
-
-        public FlattenXmlBuilder setOutDir(String outDir) {
-            this.outDir = outDir;
-            return this;
-        }
-
-        public String getOutDir() {
-            return outDir;
-        }
-
-        public FlattenXmlBuilder setDelimiter(String delimiter) {
-            this.delimiter = delimiter;
-            return this;
-        }
-
-        public String getDelimiter() {
-            return delimiter;
         }
 
         public FlattenXmlBuilder setCascadePolicy(RecordFieldsCascade.CascadePolicy cascadePolicy) {
@@ -442,8 +411,8 @@ public class FlattenXml {
 
         public FlattenXml createFlattenXml()
                 throws FileNotFoundException, XMLStreamException {
-            // input, tag that identifies a record, output dir, output delimiter
-            return new FlattenXml(xmlFilename, recordTag, outDir, delimiter,
+            // Input XML file, tag that identifies a record
+            return new FlattenXml(xmlFilename, recordTag,
                     // Cascading data from parent record to child records
                     cascadePolicy, recordCascadesTemplates, xsdFiles, recordHandler);
         }

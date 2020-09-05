@@ -3,9 +3,7 @@ package com.karbherin.flatterxml.output;
 import com.karbherin.flatterxml.RecordFieldsCascade;
 import com.karbherin.flatterxml.XmlHelpers;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.util.*;
 
 public class DelimitedFileHandler implements RecordHandler {
