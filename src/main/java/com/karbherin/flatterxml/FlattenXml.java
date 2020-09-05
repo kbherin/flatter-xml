@@ -24,7 +24,8 @@ import java.util.*;
 public class FlattenXml {
 
     // Inputs supplied by the caller
-    private String recordTag;
+    private String recordTagGiven;
+    private QName recordTag = null;  // Will be populated from recordTagGiven
     private final XMLEventReader reader;
     private final List<XmlSchema> xsds = new ArrayList<>();
     private final RecordFieldsCascade.CascadePolicy cascadePolicy;
@@ -38,6 +39,11 @@ public class FlattenXml {
     private int currLevel = 0;
     private boolean rootElementVisited = false;
     private XMLEvent prevEv = null;
+    private long recCounter = 0;
+    private boolean tracking = false;
+    private boolean inElement = false;
+    private RecordFieldsCascade currRecordCascade = null;
+    private RecordFieldsCascade reuseRecordCascade = null;
 
     // Output
     private final RecordHandler recordHandler;
@@ -50,7 +56,7 @@ public class FlattenXml {
                        String[] xsdFiles, RecordHandler recordHandler)
             throws FileNotFoundException, XMLStreamException {
 
-        this.recordTag = recordTag;
+        this.recordTagGiven = recordTag;
         this.reader = XMLInputFactory.newFactory().createXMLEventReader(
                 xmlFilename, new FileInputStream(xmlFilename));
         this.recordCascadesTemplates = recordCascadesTemplates;
@@ -105,14 +111,7 @@ public class FlattenXml {
      */
     private long flattenXmlDoc(final long firstNRecs) throws XMLStreamException, IOException {
 
-        long recCounter = 0;
-        boolean tracking = false,
-                inElement = false;
-        RecordFieldsCascade currRecordCascade = null, reuseRecordCascade = null;
-        QName recordTag = null;
-
         while (reader.hasNext() && recCounter < firstNRecs) {
-
             final XMLEvent ev;
 
             try {
@@ -139,7 +138,7 @@ public class FlattenXml {
                     rootElement = el;
                     // The actual record tag string is parsed here as we now have the namespace context
                     if (recordTag != null) {
-                        recordTag = XmlHelpers.parsePrefixTag(this.recordTag,
+                        recordTag = XmlHelpers.parsePrefixTag(recordTagGiven,
                                 el.getNamespaceContext(), rootElement.getName().getNamespaceURI());
                     }
                     cascadingStack.push(new RecordFieldsCascade(el, new String[0], xsds));
@@ -363,8 +362,12 @@ public class FlattenXml {
         return ex;
     }
 
-    public String getRecordTag() {
-        return this.recordTag;
+    public String getRecordTagGiven() {
+        return recordTagGiven;
+    }
+
+    public QName getRecordTag() {
+        return recordTag;
     }
 
     public StartElement getRootElement() {

@@ -1,7 +1,6 @@
 package com.karbherin.flatterxml;
 
 import com.karbherin.flatterxml.output.DelimitedFileHandler;
-import com.karbherin.flatterxml.output.RecordHandler;
 import org.apache.commons.cli.*;
 
 import javax.xml.stream.XMLStreamException;
@@ -124,11 +123,11 @@ public class FlattenXmlRunner {
         long totalRecs = 0; // Total records processed so far
 
         boolean recordTagProvided = false;
-        if (flattener.getRecordTag() == null) {
+        if (flattener.getRecordTagGiven() == null) {
             System.out.println("Starting record tag not provided.");
         } else {
             recordTagProvided = true;
-            System.out.println(String.format("Starting record tag provided is '%s'", flattener.getRecordTag()));
+            System.out.println(String.format("Starting record tag provided is '%s'", flattener.getRecordTagGiven()));
         }
 
         while(true) {
@@ -140,11 +139,12 @@ public class FlattenXmlRunner {
                 // Process first N records.
                 recsInBatch = flattener.parseFlatten(Math.min(batchSize, firstNRecs - totalRecs));
             }
-            totalRecs += recsInBatch;
+            totalRecs = recsInBatch;
 
             if (!recordTagProvided) {
                 recordTagProvided = true;
-                System.out.println(String.format("Identified primary record tag '%s'", flattener.getRecordTag()));
+                System.out.println(String.format("Identified primary record tag '%s'",
+                        XmlHelpers.toPrefixedTag(flattener.getRecordTag())));
             }
 
             // Timings
