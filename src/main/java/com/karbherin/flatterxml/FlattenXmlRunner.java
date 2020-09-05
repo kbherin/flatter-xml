@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
  */
 public class FlattenXmlRunner {
 
-    private static final int DEFAULT_BATCH_SIZE = 2;
+    private static final int DEFAULT_BATCH_SIZE = 100;
     private static final String INDENT = "  ";
     private static final Options OPTIONS = new Options();
 
