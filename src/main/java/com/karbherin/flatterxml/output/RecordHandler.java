@@ -5,7 +5,6 @@ import com.karbherin.flatterxml.XmlHelpers;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Stack;
 
 public interface RecordHandler {
 

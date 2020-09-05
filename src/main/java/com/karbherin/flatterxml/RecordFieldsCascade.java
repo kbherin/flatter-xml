@@ -6,17 +6,20 @@ import com.karbherin.flatterxml.xsd.XsdElement;
 import javax.xml.namespace.QName;
 import javax.xml.stream.events.StartElement;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public final class RecordFieldsCascade {
     private final QName recordName;
     private final List<XmlHelpers.FieldValue<QName, String>> cascadeFieldValueList = new ArrayList<>();
-    private final List<XmlHelpers.FieldValue<String, String>> parentFieldValueList = new ArrayList<>();
     private final Map<QName, Integer> positions;
+    private final RecordFieldsCascade parent;
+    private List<XmlHelpers.FieldValue<String, String>> toCascadeToChild = null;
 
     public enum CascadePolicy {NONE, ALL, XSD};
 
-    public RecordFieldsCascade(StartElement recordName, String[] primaryTags, List<XmlSchema> xsds) {
+    public RecordFieldsCascade(StartElement recordName, String[] primaryTags, List<XmlSchema> xsds,
+                               RecordFieldsCascade parent) {
         this.recordName = recordName.getName();
         if (primaryTags == null) {
             positions = setupCascadeFields(new ArrayList<QName>(), xsds);
@@ -28,11 +31,9 @@ public final class RecordFieldsCascade {
             }
             positions = setupCascadeFields(qtags, xsds);
         }
-    }
 
-    public RecordFieldsCascade(QName recordName, List<QName> primaryTags, List<XmlSchema> xsds) {
-        this.recordName = recordName;
-        positions = setupCascadeFields(primaryTags, xsds);
+        this.parent = parent == null ? this : parent;
+        cascadeFromParent();
     }
 
     public void addCascadingData(QName tagName, String tagValue, CascadePolicy policy) {
@@ -87,34 +88,23 @@ public final class RecordFieldsCascade {
 
     /**
      * Cascades fields and their values from ancestral containers into current record.
-     * @param parent
      * @return
      */
-    public RecordFieldsCascade cascadeFromParent(final RecordFieldsCascade parent) {
+    public void cascadeFromParent() {
 
-        final int plen = parentFieldValueList.size();
-        final int pplen = parent.parentFieldValueList.size();
-        if (!parentFieldValueList.isEmpty() && parentFieldValueList.size() == plen + pplen) {
-            for (int i = 0; i < plen; i++) {
-                parentFieldValueList.get(i).value = parent.cascadeFieldValueList.get(i).value;
-            }
-            for (int i = 0; i < pplen; i++) {
-                parentFieldValueList.get(plen+i).value = parent.parentFieldValueList.get(i).value;
-            }
-            return this;
+        if (parent.toCascadeToChild != null) {
+            return;
         }
 
-        // Cascading for a new record
         // Current record fields are formatted as RecordName.RecordField
-        parent.cascadeFieldValueList.stream()
+        parent.toCascadeToChild = parent.getCascadeFieldValueList().stream()
                 .map(fv -> new XmlHelpers.FieldValue<>(
                     String.format("%s.%s", parent.recordName.getLocalPart(),
                         XmlHelpers.toPrefixedTag(fv.field)), fv.value))
-                .forEach(parentFieldValueList::add);
+                .collect(Collectors.toList());
 
         // Parent record fields were already formatted as ParentRecordName.ParentRecordField
-        parentFieldValueList.addAll(parent.parentFieldValueList);
-        return this;
+        parent.toCascadeToChild.addAll(parent.parent.toCascadeToChild);
     }
 
     /**
@@ -128,30 +118,12 @@ public final class RecordFieldsCascade {
         return this;
     }
 
-    public Iterable<String> getParentCascadedNames() {
-        List<String> names = new ArrayList<>(parentFieldValueList.size());
-        for (XmlHelpers.FieldValue<String, String> fv: parentFieldValueList) {
-            names.add(fv.field);
-        }
-        return names;
-    }
-
-
-    private List<String> parentCascadedValuesCache;
-    public Iterable<String> getParentCascadedValues() {
-        if (parentCascadedValuesCache != null) {
-            return parentCascadedValuesCache;
-        }
-
-        parentCascadedValuesCache = new ArrayList<>(parentFieldValueList.size());
-        for (XmlHelpers.FieldValue<String, String> fv: parentFieldValueList) {
-            parentCascadedValuesCache.add(fv.value);
-        }
-        return parentCascadedValuesCache;
-    }
-
-    public Iterable<XmlHelpers.FieldValue<QName, String>> getCascadeFieldValueList() {
+    public List<XmlHelpers.FieldValue<QName, String>> getCascadeFieldValueList() {
         return cascadeFieldValueList;
+    }
+
+    public List<XmlHelpers.FieldValue<String, String>> getParentCascadedFieldValueList() {
+        return parent.toCascadeToChild;
     }
 
     public QName getRecordName() {

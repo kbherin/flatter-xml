@@ -3,8 +3,11 @@ package com.karbherin.flatterxml.output;
 import com.karbherin.flatterxml.RecordFieldsCascade;
 import com.karbherin.flatterxml.XmlHelpers;
 
-import java.io.*;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.*;
+
 
 public class DelimitedFileHandler implements RecordHandler {
 
@@ -32,10 +35,10 @@ public class DelimitedFileHandler implements RecordHandler {
             filesWritten.add(new String[]{ String.valueOf(currLevel), fileName, previousFileName });
 
             // Writer header record into a newly opened file.
-            writeDelimited(out, fieldValueStack, KeyValuePart.FIELD_PART, cascadedData.getParentCascadedNames());
+            writeDelimited(out, fieldValueStack, KeyValuePart.FIELD_PART, cascadedData.getParentCascadedFieldValueList());
         }
 
-        writeDelimited(out, fieldValueStack, KeyValuePart.VALUE_PART, cascadedData.getParentCascadedValues());
+        writeDelimited(out, fieldValueStack, KeyValuePart.VALUE_PART, cascadedData.getParentCascadedFieldValueList());
     }
 
     public void closeAllFileStreams() {
@@ -54,7 +57,7 @@ public class DelimitedFileHandler implements RecordHandler {
 
     private void writeDelimited(OutputStream out,
                                 Iterable<XmlHelpers.FieldValue<String, String>> data,
-                                KeyValuePart part, Iterable<String> appendList)
+                                KeyValuePart part, Iterable<XmlHelpers.FieldValue<String, String>> appendList)
             throws IOException {
 
         Iterator<XmlHelpers.FieldValue<String, String>> dataIt = data.iterator();
@@ -67,19 +70,27 @@ public class DelimitedFileHandler implements RecordHandler {
                 out.write(delimiter);
                 out.write(dataIt.next().field.getBytes());
             }
+
+            // Appendix
+            for (XmlHelpers.FieldValue<String, String> append: appendList) {
+                out.write(delimiter);
+                out.write(append.field.getBytes());
+            }
         } else {
             out.write(dataIt.next().value.getBytes());
             while (dataIt.hasNext()) {
                 out.write(delimiter);
                 out.write(dataIt.next().value.getBytes());
             }
+
+            // Appendix
+            for (XmlHelpers.FieldValue<String, String> append: appendList) {
+                out.write(delimiter);
+                out.write(append.value.getBytes());
+            }
         }
 
-        // Appendix
-        for (String append: appendList) {
-            out.write(delimiter);
-            out.write(append.getBytes());
-        }
+
 
         out.write(System.lineSeparator().getBytes());
     }

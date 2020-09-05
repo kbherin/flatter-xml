@@ -45,9 +45,6 @@ public class FlattenXml {
     private RecordFieldsCascade currRecordCascade = null;
     private RecordFieldsCascade reuseRecordCascade = null;
 
-    // Registries
-    private Map<QName, RecordFieldsCascade> cascadeRegistry = new HashMap<>();
-
     // Output
     private final RecordHandler recordHandler;
 
@@ -145,7 +142,7 @@ public class FlattenXml {
                         recordTag = XmlHelpers.parsePrefixTag(recordTagGiven,
                                 el.getNamespaceContext(), rootElement.getName().getNamespaceURI());
                     }
-                    cascadingStack.push(new RecordFieldsCascade(el, new String[0], xsds));
+                    cascadingStack.push(new RecordFieldsCascade(el, new String[0], xsds, null));
                     tagPath.push(el);
                     prevEv = ev;
                     // User did not specify the primary record tag. Skip root element.
@@ -156,16 +153,17 @@ public class FlattenXml {
                 if (prevEv.isStartElement()) {
                     currRecordCascade = cascadingStack.peek();
 
-                    // Add cascade registry for a newly nested record.
+                    // Add a cascading rule for a newly nested record.
                     if (!currRecordCascade.getRecordName().equals( tagPath.peek().getName() )) {
 
                         if (reuseRecordCascade != null &&
                                 reuseRecordCascade.getRecordName().equals(tagPath.peek().getName())) {
-                            // Reuse parent cascades if the record continues to be the same
+                            // Reuse parent cascades if the record continues to be the same.
+                            // The cascading templates will be reused.
                             currRecordCascade = reuseRecordCascade.clearCurrentRecordCascades();
                         } else {
                             // Cascade fields and values from parent record to this new record.
-                            currRecordCascade = registerCascades(tagPath.peek(), currRecordCascade);
+                            currRecordCascade = newRecordCascade(tagPath.peek(), currRecordCascade);
                         }
                         cascadingStack.push(currRecordCascade);
                     }
@@ -349,18 +347,10 @@ public class FlattenXml {
         return prevFileName;
     }
 
-    private RecordFieldsCascade registerCascades(StartElement tag, RecordFieldsCascade parentRecCascade) {
-        RecordFieldsCascade recordFieldsCascade = cascadeRegistry.get(tag.getName());
-        if (recordFieldsCascade == null) {
-            recordFieldsCascade = new RecordFieldsCascade(
-                    tag, recordCascadesTemplates.get(tag.getName()), xsds);
-            cascadeRegistry.put(tag.getName(), recordFieldsCascade);
-        }
-
-        return recordFieldsCascade.clearCurrentRecordCascades().cascadeFromParent(parentRecCascade);
-        /*RecordFieldsCascade recordFieldsCascade = new RecordFieldsCascade(
-                tag, recordCascadesTemplates.get(tag.getName()), xsds);
-        return recordFieldsCascade.cascadeFromParent(parentRecCascade);*/
+    private RecordFieldsCascade newRecordCascade(StartElement tag, RecordFieldsCascade parentRecCascade) {
+        RecordFieldsCascade recordFieldsCascade = new RecordFieldsCascade(
+                tag, recordCascadesTemplates.get(tag.getName()), xsds, parentRecCascade);
+        return recordFieldsCascade;
     }
 
     private XMLStreamException decorateParseError(XMLStreamException ex) throws IOException {
