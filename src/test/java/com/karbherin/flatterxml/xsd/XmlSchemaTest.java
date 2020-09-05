@@ -95,7 +95,8 @@ public class XmlSchemaTest {
         XsdElement name = xsdModel.getElementByName("name");
         assertNull(name.getRef());
         assertNull(name.getMaxOccurs());
-        assertNull(name.getChildElements());
+        assertNotNull(name.getChildElements());
+        assertTrue(name.getChildElements().isEmpty());
         assertEquals(STRING_QNAME, name.getType());
         assertEquals(0, name.getMinOccurs());
     }

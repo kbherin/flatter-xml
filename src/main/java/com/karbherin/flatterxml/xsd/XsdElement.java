@@ -5,6 +5,7 @@ import com.karbherin.flatterxml.XmlHelpers;
 import javax.xml.namespace.QName;
 import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.StartElement;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -87,7 +88,10 @@ public class XsdElement {
     }
 
     public List<XsdElement> getChildElements() {
-        return childElements;
+        if (childElements != null)
+            return childElements;
+        else
+            return Collections.emptyList();
     }
 
     public void setChildElements(List<XsdElement> childElements) {

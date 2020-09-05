@@ -1,11 +1,11 @@
 package com.karbherin.flatterxml;
 
+import com.karbherin.flatterxml.output.DelimitedFileHandler;
+import com.karbherin.flatterxml.output.RecordHandler;
 import org.apache.commons.cli.*;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -67,13 +67,23 @@ public class FlattenXmlRunner {
             setup.setDelimiter(cmd.getOptionValue("d"));
         }
         if (cmd.hasOption("r")) {
-            XmlHelpers.parseTagValueCascades(cmd.getOptionValue("r"));
+            String recordTag = cmd.getOptionValue("r");
+            if (recordTag.trim().length() > 0)
+                setup.setRecordTag(recordTag);
         }
         if (cmd.hasOption("c")) {
-            if (cmd.getOptionValue("c").trim().equalsIgnoreCase(RecordFieldsCascade.CascadePolicy.ALL.toString())) {
+            if (cmd.getOptionValue("c").trim().equalsIgnoreCase(
+                    RecordFieldsCascade.CascadePolicy.ALL.toString())) {
+
                 setup.setCascadePolicy(RecordFieldsCascade.CascadePolicy.ALL);
+            } else if (cmd.getOptionValue("c").trim().equalsIgnoreCase(
+                    RecordFieldsCascade.CascadePolicy.XSD.toString())) {
+
+                setup.setCascadePolicy(RecordFieldsCascade.CascadePolicy.XSD);
             } else {
-                setup.setRecordCascadesTemplates(XmlHelpers.parseTagValueCascades(cmd.getOptionValue("c")));
+
+                setup.setRecordCascadesTemplates(
+                        XmlHelpers.parseTagValueCascades(cmd.getOptionValue("c")));
             }
         }
         if (cmd.hasOption("x")) {
@@ -98,6 +108,9 @@ public class FlattenXmlRunner {
             throw new IllegalArgumentException("Could not parse the arguments passed. XMLFile path is required");
         }
         setup.setXmlFilename(cmd.getArgs()[0]);
+
+        RecordHandler recordHandler = new DelimitedFileHandler(setup.getDelimiter(), setup.getOutDir());
+        setup.setRecordWriter(recordHandler);
 
         final FlattenXml flattener = setup.createFlattenXml();
 
@@ -150,30 +163,35 @@ public class FlattenXmlRunner {
         }
 
         // Display the files generated
-        List<String[]> filesWritten = flattener.getFilesWritten();
+        List<String[]> filesWritten = recordHandler.getFilesWritten();
         StringBuffer filesTreeStr = new StringBuffer();
         System.out.println("\nFiles produced: " + filesWritten.size());
         Map<String, List<String[]>> groupedByParent = filesWritten.stream()
                 .collect(Collectors.groupingBy(r -> r[2], Collectors.toList()));
 
 
-        for (String[] child: groupedByParent.get(flattener.getRootElement().getName().getLocalPart()))
+        for (String[] child: groupedByParent.get(flattener.getRootElement().getName().getLocalPart())) {
             drillDownFilesHeap(groupedByParent, child[1], Integer.parseInt(child[0]), filesTreeStr);
+        }
 
         System.out.println(filesTreeStr);
     }
 
     private static void drillDownFilesHeap(Map<String, List<String[]>> grouped, String file, int level,
                                            StringBuffer filesGen) {
-        while (level-- > 2)
+        while (level-- > 2) {
             filesGen.append(INDENT);
-        if (level > 0)
+        }
+        if (level > 0) {
             filesGen.append("|__");
+        }
         filesGen.append(file).append("\n");
 
-        if (!grouped.containsKey(file))
+        if (!grouped.containsKey(file)) {
             return;
-        for (String[] child: grouped.get(file))
+        }
+        for (String[] child: grouped.get(file)) {
             drillDownFilesHeap(grouped, child[1], Integer.parseInt(child[0]), filesGen);
+        }
     }
 }

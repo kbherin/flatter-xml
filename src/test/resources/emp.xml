@@ -4,8 +4,8 @@
   <employee>
     <!-- first employee -->
     <employee-no>00000001</employee-no>
-    <employee-name>Smith, Matthew</employee-name>
-    <department>sales</department>
+    <employee-name>Steve Rogers</employee-name>
+    <department>public relations</department>
     <salary>150,000.00</salary>
     <contact>
       <addresses>
@@ -14,13 +14,6 @@
           <line1>1 Tudor &amp; Place</line1>
           <state>NY, US</state>
           <zip>12345</zip>
-        </address>
-        <address>
-          <address-type>holiday</address-type>
-          <line1>19 Wilmington View</line1>
-          <line2>Apt 311</line2>
-          <state>NC, US</state>
-          <zip>27617</zip>
         </address>
       </addresses>
       <phones>
@@ -33,7 +26,7 @@
   </employee>
   <employee>
     <employee-no>00000002</employee-no>
-    <employee-name>Brown, Sarah</employee-name>
+    <employee-name>Tony Stark</employee-name>
     <department>sales</department>
     <salary>89,000.00</salary>
     <contact>
@@ -43,6 +36,13 @@
           <line1>1 Bloomington St</line1>
           <state>DC, US</state>
           <zip>22344</zip>
+        </address>
+        <address>
+          <address-type>holiday</address-type>
+          <line1>19 Wilmington View</line1>
+          <line2>Apt 311</line2>
+          <state>NC, US</state>
+          <zip>27617</zip>
         </address>
       </addresses>
       <phones>
@@ -59,7 +59,7 @@
   </employee>
   <employee>
     <employee-no>00000003</employee-no>
-    <employee-name>Oberc, Scott</employee-name>
+    <employee-name>Natasha Romanov</employee-name>
     <department>finance</department>
     <salary>110,000.00</salary>
     <contact>
@@ -75,7 +75,7 @@
   </employee>
   <employee>
     <employee-no>00000004</employee-no>
-    <employee-name>Scott, Colette</employee-name>
+    <employee-name>Clint Barton</employee-name>
     <department>sales</department>
     <salary>75,000.00</salary>
     <contact>
@@ -91,9 +91,9 @@
   </employee>
   <employee>
     <employee-no>00000004</employee-no>
-    <employee-name>Scott, Colette</employee-name>
+    <employee-name>Bruce Banner</employee-name>
     <department>sales</department>
-    <salary>75,000.00</salary>
+    <salary>110,000.00</salary>
     <contact/>
   </employee>
 </employees>

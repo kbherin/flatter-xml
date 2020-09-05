@@ -1,14 +1,11 @@
 package com.karbherin.flatterxml;
 
-import com.karbherin.flatterxml.xsd.XmlSchema;
-import com.karbherin.flatterxml.xsd.XsdElement;
 import org.xml.sax.SAXException;
 
 import javax.xml.XMLConstants;
 import javax.xml.namespace.NamespaceContext;
 import javax.xml.namespace.QName;
 import javax.xml.stream.events.Attribute;
-import javax.xml.stream.events.Namespace;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import javax.xml.transform.Source;
@@ -38,10 +35,12 @@ public class XmlHelpers {
      */
     public static String attributeString(Iterator<Attribute> attrs) {
         StringBuffer attrBuf = new StringBuffer();
-        if (attrs.hasNext())
+        if (attrs.hasNext()) {
             attrBuf.append(attrs.next().toString());
-        while (attrs.hasNext())
+        }
+        while (attrs.hasNext()) {
             attrBuf.append(" ").append(attrs.next().toString());
+        }
         return attrBuf.toString();
     }
 
@@ -173,5 +172,15 @@ public class XmlHelpers {
         SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI)
                 .newSchema(xsds)
                 .newValidator().validate(new StreamSource(new File(xmlFile)));
+    }
+
+    public static class FieldValue<K, V> {
+        public final K field;
+        public V value;
+
+        FieldValue(K fld, V val) {
+            field = fld;
+            value = val;
+        }
     }
 }
