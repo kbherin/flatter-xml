@@ -41,6 +41,7 @@ public final class RecordFieldsCascade {
             // Capture the data value at the designated location
             cascadeFieldValueList.get(pos).value = tagValue;
         } else if (policy == CascadePolicy.ALL) {
+            positions.put(tagName, cascadeFieldValueList.size());
             // Append the tag-value pair only if policy is cascade ALL
             cascadeFieldValueList.add(new XmlHelpers.FieldValue<>(tagName, tagValue));
         }
@@ -81,7 +82,7 @@ public final class RecordFieldsCascade {
                     cascadeFieldValueList.add(new XmlHelpers.FieldValue<>(tag, XmlHelpers.EMPTY));
                 });
 
-        return Collections.unmodifiableMap(primaryTagList);
+        return primaryTagList;
     }
 
     /**
@@ -89,18 +90,30 @@ public final class RecordFieldsCascade {
      * @param parent
      * @return
      */
-    public RecordFieldsCascade cascadeFromParent(RecordFieldsCascade parent) {
-        if (parent != null) {
-            // Current record fields are formatted as RecordName.RecordField
-            for (XmlHelpers.FieldValue<QName, String> fv: parent.cascadeFieldValueList) {
-                parentFieldValueList.add(new XmlHelpers.FieldValue<>(
-                        String.format("%s.%s", parent.recordName.getLocalPart(),
-                                XmlHelpers.toPrefixedTag(fv.field)), fv.value));
-            }
+    public RecordFieldsCascade cascadeFromParent(final RecordFieldsCascade parent) {
 
-            // Parent record fields were already formatted as ParentRecordName.ParentRecordField
-            parentFieldValueList.addAll(parent.parentFieldValueList);
+        final int plen = parentFieldValueList.size();
+        final int pplen = parent.parentFieldValueList.size();
+        if (!parentFieldValueList.isEmpty() && parentFieldValueList.size() == plen + pplen) {
+            for (int i = 0; i < plen; i++) {
+                parentFieldValueList.get(i).value = parent.cascadeFieldValueList.get(i).value;
+            }
+            for (int i = 0; i < pplen; i++) {
+                parentFieldValueList.get(plen+i).value = parent.parentFieldValueList.get(i).value;
+            }
+            return this;
         }
+
+        // Cascading for a new record
+        // Current record fields are formatted as RecordName.RecordField
+        parent.cascadeFieldValueList.stream()
+                .map(fv -> new XmlHelpers.FieldValue<>(
+                    String.format("%s.%s", parent.recordName.getLocalPart(),
+                        XmlHelpers.toPrefixedTag(fv.field)), fv.value))
+                .forEach(parentFieldValueList::add);
+
+        // Parent record fields were already formatted as ParentRecordName.ParentRecordField
+        parentFieldValueList.addAll(parent.parentFieldValueList);
         return this;
     }
 

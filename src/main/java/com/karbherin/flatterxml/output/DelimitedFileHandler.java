@@ -20,7 +20,7 @@ public class DelimitedFileHandler implements RecordHandler {
         this.outDir = outDir;
     }
 
-    public void write(String fileName, Stack<XmlHelpers.FieldValue<String, String>> fieldValueStack,
+    public void write(String fileName, Iterable<XmlHelpers.FieldValue<String, String>> fieldValueStack,
                       RecordFieldsCascade cascadedData, int currLevel, String previousFileName)
             throws IOException {
 
@@ -53,25 +53,25 @@ public class DelimitedFileHandler implements RecordHandler {
     }
 
     private void writeDelimited(OutputStream out,
-                                Stack<XmlHelpers.FieldValue<String, String>> data,
+                                Iterable<XmlHelpers.FieldValue<String, String>> data,
                                 KeyValuePart part, Iterable<String> appendList)
             throws IOException {
 
-        if (data.isEmpty()) {
+        Iterator<XmlHelpers.FieldValue<String, String>> dataIt = data.iterator();
+        if (!dataIt.hasNext())
             return;
-        }
 
         if (part == KeyValuePart.FIELD_PART) {
-            out.write(data.pop().field.getBytes());
-            while (!data.isEmpty()) {
+            out.write(dataIt.next().field.getBytes());
+            while (dataIt.hasNext()) {
                 out.write(delimiter);
-                out.write(data.pop().field.getBytes());
+                out.write(dataIt.next().field.getBytes());
             }
         } else {
-            out.write(data.pop().value.getBytes());
-            while (!data.isEmpty()) {
+            out.write(dataIt.next().value.getBytes());
+            while (dataIt.hasNext()) {
                 out.write(delimiter);
-                out.write(data.pop().value.getBytes());
+                out.write(dataIt.next().value.getBytes());
             }
         }
 
