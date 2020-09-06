@@ -8,7 +8,7 @@ The record element and all the elements nested under it are flattened.
 If it is not specified then the first tag that appears after the root tag is considered as the primary record tag.
 
 ## Minimum Requirements
-Java: 1.7 and above.
+Java: 1.8 and above.
 
 ## Usage
 
@@ -85,6 +85,7 @@ An example of extracting information into CSV files about employees in an organi
           </phones>
         </contact>
       </employee>
+
 ```
 
 If "record identifying" tag is not provided, it infers it as the tag that immediately follows the root tag.
