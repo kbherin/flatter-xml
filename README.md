@@ -1,8 +1,10 @@
 # Flatter XML
-Collapse elements in XML into a collection of tabular files.
-Useful for flattening a deeply nested XML elements into delimited files or load into tables.
+Collapse nested records in an XML into a collection of tabular files.
 
-Flattening starts from `main-record-tag` and all elements nested under it.
+Useful for flattening a deeply nested XML data into delimited files to facilitate loading into tables.
+
+Flattening starts from a primary `record-tag`, an element that identifies a _record_.
+The record element and all the elements nested under it are flattened.
 If it is not specified then the first tag that appears after the root tag is considered as the primary record tag.
 
 ## Minimum Requirements
