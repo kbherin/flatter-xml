@@ -202,7 +202,7 @@ public class FlattenXml {
 
                     // A structural envelope does not contain its own data. Remove it from stack.
                     tagStack.pop();
-                    reuseRecordCascade = cascadingStack.pop();
+                    reuseRecordCascade = cascadingStack.pop().clearToCascadeToChildList();
                 } else {
                     tagStack.push(ev);
                     inElement = false;

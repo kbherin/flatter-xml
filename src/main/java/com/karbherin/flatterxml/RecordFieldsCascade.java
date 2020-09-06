@@ -118,6 +118,14 @@ public final class RecordFieldsCascade {
         return this;
     }
 
+    /**
+     * Clear the list of fields and values to cascade to child.
+     */
+    public RecordFieldsCascade clearToCascadeToChildList() {
+        this.toCascadeToChild = null;
+        return this;
+    }
+
     public List<XmlHelpers.FieldValue<QName, String>> getCascadeFieldValueList() {
         return cascadeFieldValueList;
     }

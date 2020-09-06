@@ -54,6 +54,7 @@
                 <xs:element ref="line2" minOccurs="0" maxOccurs="1"/>
                 <xs:element ref="state" minOccurs="1" maxOccurs="1"/>
                 <xs:element ref="zip" minOccurs="1" maxOccurs="1"/>
+                <xs:element ref="reroute" minOccurs="0" maxOccurs="1"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -63,6 +64,18 @@
             <xs:sequence>
                 <xs:element ref="phone-num" minOccurs="0"/>
                 <xs:element ref="phone-type" minOccurs="0"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="reroute">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="employee-name" minOccurs="1" maxOccurs="1"/>
+                <xs:element ref="line1" minOccurs="1" maxOccurs="1"/>
+                <xs:element ref="line2" minOccurs="0" maxOccurs="1"/>
+                <xs:element ref="state" minOccurs="1" maxOccurs="1"/>
+                <xs:element ref="zip" minOccurs="1" maxOccurs="1"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>

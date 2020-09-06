@@ -23,13 +23,13 @@ public class FlattenXmlRunner {
     private static final Options OPTIONS = new Options();
 
     static {
-        OPTIONS.addOption("o", "output-dir", true, "Output direction for generating tabular files. Defaults to current directory");
-        OPTIONS.addOption("d", "delimiter", true, "Delimiter. Defaults to a comma");
+        OPTIONS.addOption("o", "output-dir", true, "Output directory for generating tabular files. Defaults to current directory");
+        OPTIONS.addOption("d", "delimiter", true, "Delimiter. Defaults to a comma(,)");
         OPTIONS.addOption("r", "record-tag", true, "Primary record tag from where parsing begins. If not provided entire file will be parsed");
         OPTIONS.addOption("n", "n-records", true, "Number of records to process in the XML document");
-        OPTIONS.addOption("p", "progress", false, "Report progress after a batch");
-        OPTIONS.addOption("c", "cascades", true, "Data of specified tags on parent element is cascaded to child elements.\nFormat: elem1:tag1,tag2;elem2:tag1,tag2;");
-        OPTIONS.addOption("x", "xsd", true, "XSD files. Comma separated list.");
+        OPTIONS.addOption("p", "progress", false, "Report progress after a batch. Defaults to 100");
+        OPTIONS.addOption("c", "cascades", true, "Data of specified tags on parent element is cascaded to child elements.\nNONE|ALL|XSD. Defaults to NONE.\nFormat: elem1:tag1,tag2;elem2:tag1,tag2;...");
+        OPTIONS.addOption("x", "xsd", true, "XSD files. Comma separated list.\nFormat: emp.xsd,contact.xsd,...");
     }
 
     private static void printHelp() {
@@ -190,7 +190,7 @@ public class FlattenXmlRunner {
         if (level > 0) {
             filesGen.append("|__");
         }
-        filesGen.append(file).append("\n");
+        filesGen.append(file).append(System.lineSeparator());
 
         if (!grouped.containsKey(file)) {
             return;
