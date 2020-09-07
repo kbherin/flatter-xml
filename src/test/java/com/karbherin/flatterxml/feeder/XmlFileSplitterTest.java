@@ -15,7 +15,15 @@ public class XmlFileSplitterTest {
         XmlEventWorkerPool workerPool = new XmlEventWorkerPool();
         XmlFileSplitterFactory workerFactory = XmlFileSplitterFactory.newInstance(outDir, xmlFilePath);
 
-        Assert.assertEquals(21,
+        Assert.assertEquals("Entire file", 21,
                 workerPool.execute(3, new XmlEventEmitter(xmlFilePath), workerFactory));
+        Assert.assertEquals("Skip 5 records", 16,
+                workerPool.execute(3, new XmlEventEmitter(xmlFilePath, 5), workerFactory));
+        Assert.assertEquals("Skip 5 and pick first 4", 4,
+                workerPool.execute(3, new XmlEventEmitter(xmlFilePath, 5, 4), workerFactory));
+        Assert.assertEquals("First 4 records", 4,
+                workerPool.execute(3, new XmlEventEmitter(xmlFilePath, 0, 4), workerFactory));
+        Assert.assertEquals("Overshoot the end", 3,
+                workerPool.execute(3, new XmlEventEmitter(xmlFilePath, 18, 10), workerFactory));
     }
 }

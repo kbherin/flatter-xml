@@ -22,7 +22,7 @@ public class XmlEventWorkerPool {
             worker.start();
         }
 
-        xmlEventEmitter.startStream(1);
+        xmlEventEmitter.startStream();
 
         workerCounter.await();
         return xmlEventEmitter.getRecCounter();

@@ -1,5 +1,6 @@
 package com.karbherin.flatterxml.feeder;
 
+import org.junit.Assert;
 import org.junit.Test;
 
 import javax.xml.stream.*;
@@ -10,7 +11,15 @@ public class XmlEventEmitterTest {
 
     @Test
     public void test() throws IOException, XMLStreamException, InterruptedException {
-        XmlEventEmitter emitter = new XmlEventEmitter("src/test/resources/emp.xml");
+        String xmlFile = "src/test/resources/emp.xml";
+        Assert.assertEquals("Entire file", 21, run(new XmlEventEmitter(xmlFile)));
+        Assert.assertEquals("Skip 5 records", 16, run(new XmlEventEmitter(xmlFile, 5)));
+        Assert.assertEquals("Skip 5 and pick first 4", 4, run(new XmlEventEmitter(xmlFile, 5, 4)));
+        Assert.assertEquals("First 4 records", 4, run(new XmlEventEmitter(xmlFile, 0, 4)));
+        Assert.assertEquals("Overshoot the end", 3, run(new XmlEventEmitter(xmlFile, 18, 10)));
+    }
+    private long run(XmlEventEmitter emitter)
+            throws IOException, XMLStreamException, InterruptedException {
 
         int numWorkers = 3;
         CountDownLatch workerCounter = new CountDownLatch(numWorkers);
@@ -24,10 +33,9 @@ public class XmlEventEmitterTest {
             worker.start();
         }
 
-        emitter.startStream(1);
-
+        emitter.startStream();
         workerCounter.await();
-        System.out.println("Done");
+        return emitter.getRecCounter();
     }
 
     private Thread newWorkerThread(final PipedInputStream channel, int channelNum, String outDir,
