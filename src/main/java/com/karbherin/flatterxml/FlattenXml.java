@@ -47,27 +47,23 @@ public class FlattenXml {
 
     // Output
     private final RecordHandler recordHandler;
+    private long totalRecordCounter = 0L;
+    private long batchRecCounter = 0L;
 
     // Helpers
     private final XMLEventFactory eventFactory = XMLEventFactory.newFactory();
 
-    private FlattenXml(String xmlFilename, String recordTag,
+    private FlattenXml(InputStream xmlStream, String recordTag,
                        RecordFieldsCascade.CascadePolicy cascadePolicy, Map<String, String[]> recordCascadesTemplates,
-                       String[] xsdFiles, RecordHandler recordHandler)
-            throws FileNotFoundException, XMLStreamException {
+                       List<XmlSchema> xsds, RecordHandler recordHandler)
+            throws XMLStreamException {
 
         this.recordTagGiven = recordTag;
-        this.reader = XMLInputFactory.newFactory().createXMLEventReader(
-                xmlFilename, new FileInputStream(xmlFilename));
+        this.reader = XMLInputFactory.newFactory().createXMLEventReader(xmlStream);
         this.recordCascadesTemplates = recordCascadesTemplates;
         this.cascadePolicy = cascadePolicy;
         this.recordHandler = recordHandler;
-
-        if (xsdFiles != null) {
-            for (String xsd : xsdFiles) {
-                xsds.add(new XmlSchema().parse(xsd));
-            }
-        }
+        this.xsds.addAll(xsds);
     }
 
     /**
@@ -77,7 +73,7 @@ public class FlattenXml {
      * @throws IOException
      */
     public long parseFlatten() throws XMLStreamException, IOException {
-        long recCounter = 0;
+        long recCounter = 0L;
         while (reader.hasNext()) {
             recCounter += parseFlatten(Long.MAX_VALUE);
         }
@@ -110,9 +106,10 @@ public class FlattenXml {
      * @throws IOException
      */
     private long flattenXmlDoc(final long firstNRecs) throws XMLStreamException, IOException {
-        long recCounter = 0;
+        // Batch record counter
+        batchRecCounter = 0L;
 
-        while (reader.hasNext() && recCounter < firstNRecs) {
+        while (reader.hasNext() && batchRecCounter < firstNRecs) {
             final XMLEvent ev;
 
             try {
@@ -211,7 +208,8 @@ public class FlattenXml {
                 // Reached the end of the top level record.
                 if (tagStack.empty() || endElement.getName().equals(recordTag)) {
                     tracking = false;
-                    ++recCounter;
+                    ++batchRecCounter;
+                    ++totalRecordCounter;
                 }
 
                 // Step down everything
@@ -241,7 +239,7 @@ public class FlattenXml {
             }
         }
 
-        return recCounter;
+        return batchRecCounter;
     }
 
 
@@ -376,16 +374,24 @@ public class FlattenXml {
         return rootElement;
     }
 
+    public long getTotalRecordCounter() {
+        return totalRecordCounter;
+    }
+
+    public long getBatchRecCounter() {
+        return batchRecCounter;
+    }
+
     public static class FlattenXmlBuilder {
-        private String xmlFilename;
+        private InputStream xmlStream;
         private String recordTag = null;
         private RecordFieldsCascade.CascadePolicy cascadePolicy = RecordFieldsCascade.CascadePolicy.NONE;
         private Map<String, String[]> recordCascadesTemplates = Collections.emptyMap();
-        private String[] xsdFiles;
+        private List<XmlSchema> xsds = Collections.emptyList();
         private RecordHandler recordHandler;
 
-        public FlattenXmlBuilder setXmlFilename(String xmlFilename) {
-            this.xmlFilename = xmlFilename;
+        public FlattenXmlBuilder setXmlStream(InputStream xmlStream) {
+            this.xmlStream = xmlStream;
             return this;
         }
 
@@ -404,8 +410,10 @@ public class FlattenXml {
             return this;
         }
 
-        public FlattenXmlBuilder setXsdFiles(String[] xsds) {
-            this.xsdFiles = xsds;
+        public FlattenXmlBuilder setXsdFiles(List<XmlSchema> xsds) {
+            if (xsds != null) {
+                this.xsds = xsds;
+            }
             return this;
         }
 
@@ -417,9 +425,9 @@ public class FlattenXml {
         public FlattenXml createFlattenXml()
                 throws FileNotFoundException, XMLStreamException {
             // Input XML file, tag that identifies a record
-            return new FlattenXml(xmlFilename, recordTag,
+            return new FlattenXml(xmlStream, recordTag,
                     // Cascading data from parent record to child records
-                    cascadePolicy, recordCascadesTemplates, xsdFiles, recordHandler);
+                    cascadePolicy, recordCascadesTemplates, xsds, recordHandler);
         }
     }
 }

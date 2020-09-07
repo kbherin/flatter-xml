@@ -5,6 +5,7 @@ import org.apache.commons.cli.*;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
@@ -94,7 +95,8 @@ public class FlattenXmlRunner {
             }
         }
         if (cmd.hasOption("x")) {
-            setup.setXsdFiles(cmd.getOptionValue("x").split(","));
+            String[] xmlFiles = cmd.getOptionValue("x").split(",");
+            setup.setXsdFiles(XmlHelpers.parseXsds(xmlFiles));
         }
 
         final long firstNRecs, batchSize;
@@ -114,7 +116,7 @@ public class FlattenXmlRunner {
             printHelp();
             throw new IllegalArgumentException("Could not parse the arguments passed. XMLFile path is required");
         }
-        setup.setXmlFilename(cmd.getArgs()[0]);
+        setup.setXmlStream(new FileInputStream(cmd.getArgs()[0]));
 
         final FlattenXml flattener = setup.createFlattenXml();
 
