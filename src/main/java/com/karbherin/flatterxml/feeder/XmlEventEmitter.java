@@ -1,7 +1,5 @@
 package com.karbherin.flatterxml.feeder;
 
-import com.karbherin.flatterxml.XmlHelpers;
-
 import javax.xml.namespace.QName;
 import javax.xml.stream.*;
 import javax.xml.stream.events.EndElement;
@@ -17,7 +15,6 @@ public class XmlEventEmitter {
     private final List<XMLEventWriter> channels = new ArrayList<>();
     private final List<PipedOutputStream> pipes = new ArrayList<>();
     private final XMLEventReader reader;
-    private final String recordTagGiven;
 
     // Return number of records processed
     private long recCounter = 0;
@@ -26,29 +23,14 @@ public class XmlEventEmitter {
      * Split the XML file and distribute the records into multiple XMLs.
      * A record in the XML file is identified by the record tag supplied.
      * @param xmlFile
-     * @param recordTag
-     * @throws IOException
-     * @throws XMLStreamException
-     */
-    public XmlEventEmitter(String xmlFile,
-                           String recordTag)
-            throws IOException, XMLStreamException {
-
-        // Each processing channel should run in its own thread
-        reader = XMLInputFactory.newFactory().createXMLEventReader(new FileInputStream(xmlFile));
-        this.recordTagGiven = recordTag;
-    }
-
-    /**
-     * Split the XML assuming the first tag after the root element forms a record.
-     * @param xmlFile
      * @throws IOException
      * @throws XMLStreamException
      */
     public XmlEventEmitter(String xmlFile)
             throws IOException, XMLStreamException {
 
-        this(xmlFile, null);
+        // Each processing channel should run in its own thread
+        reader = XMLInputFactory.newFactory().createXMLEventReader(new FileInputStream(xmlFile));
     }
 
 
@@ -117,8 +99,8 @@ public class XmlEventEmitter {
         // Parsing state stack
         final Stack<StartElement> tagPath = new Stack<>();
 
-        while (firstNRecs-- != 0 &&
-                channels.size() > 0 && (firstNRecs < 0 || recCounter < firstNRecs) && reader.hasNext()) {
+        while (firstNRecs-- != 0
+                && (firstNRecs < 0 || recCounter < firstNRecs) && reader.hasNext()) {
 
             XMLEvent ev = reader.nextEvent();
             if (ev.isStartDocument() || ev.isEndDocument()) {
@@ -129,34 +111,24 @@ public class XmlEventEmitter {
             if (ev.isStartElement()) {
 
                 StartElement startEl = ev.asStartElement();
-                QName tagName = startEl.getName();
                 tagPath.push(startEl);
 
                 // If caller does not specify the primary record tag, then
                 // pick the first start element after encountering the XML root.
                 if (rootElement != null) {
-
                     if (recordTag == null) {
-                        recordTag = tagName;
+                        recordTag = startEl.getName();
                     }
                 } else {
-
                     // Process XML root
                     rootElement = startEl;
-                    // The actual record tag string is parsed here as we now have the namespace context
-                    if (recordTag != null) {
-                        recordTag = XmlHelpers.parsePrefixTag(recordTagGiven,
-                                startEl.getNamespaceContext(), rootElement.getName().getNamespaceURI());
-                    }
-
                     // Send starting root tag to all channels
                     sendToAllChannels(ev);
                 }
 
-                if (skipRecs <= 0 && startEl.getName().equals(recordTag)) {
+                if (skipRecs < 1 && startEl.getName().equals(recordTag)) {
                     tracking = true;
                 }
-
             }
 
             if (tracking && (ev.isCharacters() || ev.isStartElement() || ev.isEndElement())) {
@@ -167,16 +139,14 @@ public class XmlEventEmitter {
             }
 
             if (ev.isEndElement()) {
-                StartElement startEl = tagPath.pop();
                 EndElement endEl = ev.asEndElement();
 
                 if (endEl.getName().equals(recordTag)) {
                     tracking = false;
-                    // Switch to next channel
-                    currentChannel = (currentChannel + 1) % channels.size();
-                    // Update rec counter
                     recCounter++;
                     skipRecs--;
+                    // Switch to next channel
+                    currentChannel = (currentChannel + 1) % channels.size();
                 }
             }
         }
