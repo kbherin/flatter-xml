@@ -13,14 +13,16 @@ public class DelimitedFileHandler implements RecordHandler {
 
     private final byte[] delimiter;
     private final String outDir;
+    private final String fileSuffix;
     private final List<String[]> filesWritten = new ArrayList<>();
     private final Map<String, OutputStream> fileStreams = new HashMap<>();
 
     private enum KeyValuePart {FIELD_PART, VALUE_PART};
 
-    public DelimitedFileHandler(String delimiter, String outDir) {
+    public DelimitedFileHandler(String delimiter, String outDir, String fileSuffix) {
         this.delimiter = delimiter.getBytes();
         this.outDir = outDir;
+        this.fileSuffix = fileSuffix;
     }
 
     public void write(String fileName, Iterable<XmlHelpers.FieldValue<String, String>> fieldValueStack,
@@ -29,7 +31,7 @@ public class DelimitedFileHandler implements RecordHandler {
 
         OutputStream out = fileStreams.get(fileName);
         if (out == null) {
-            out = new FileOutputStream(String.format("%s/%s.csv", outDir, fileName));
+            out = new FileOutputStream(String.format("%s/%s%s.csv", outDir, fileName, fileSuffix));
             // Register the new file stream.
             fileStreams.put(fileName, out);
             filesWritten.add(new String[]{ String.valueOf(currLevel), fileName, previousFileName });

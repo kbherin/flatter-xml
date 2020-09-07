@@ -15,6 +15,8 @@ public class XmlEventEmitter {
     private final String xmlFile;
     private long skipRecs;
     private long firstNRecs;
+    private QName rootTag = null;
+    private QName recordTag = null;
 
     // Return number of records processed
     private long recCounter = 0;
@@ -92,8 +94,6 @@ public class XmlEventEmitter {
                 new FileInputStream(xmlFile));
 
         int currentChannel = 0;
-        QName recordTag = null;
-        QName rootTag = null;
         boolean tracking = false;
         Stack<QName> tagPath = new Stack<>();
 
@@ -140,6 +140,7 @@ public class XmlEventEmitter {
                 // Send ending root tag to all channels
                 if (endTag.equals(rootTag)) {
                     sendToAllChannels(ev);
+                    break;
                 }
 
                 if (endTag.equals(recordTag)) {
@@ -163,6 +164,14 @@ public class XmlEventEmitter {
      */
     public long getRecCounter() {
         return recCounter;
+    }
+
+    public QName getRootTag() {
+        return rootTag;
+    }
+
+    public QName getRecordTag() {
+        return recordTag;
     }
 
     /**

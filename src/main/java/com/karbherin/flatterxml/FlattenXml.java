@@ -5,10 +5,7 @@ import com.karbherin.flatterxml.xsd.XmlSchema;
 import com.karbherin.flatterxml.xsd.XsdElement;
 
 import javax.xml.namespace.QName;
-import javax.xml.stream.XMLEventFactory;
-import javax.xml.stream.XMLEventReader;
-import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.*;
 import javax.xml.stream.events.EndElement;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
@@ -25,7 +22,7 @@ import java.util.stream.Collectors;
 public class FlattenXml {
 
     // Inputs supplied by the caller
-    private String recordTagGiven;
+    private final String recordTagGiven;
     private QName recordTag = null;  // Will be populated from recordTagGiven
     private final XMLEventReader reader;
     private final List<XmlSchema> xsds = new ArrayList<>();
@@ -117,6 +114,8 @@ public class FlattenXml {
             } catch (XMLStreamException ex) {
                 throw decorateParseError(ex);
             }
+
+            if (ev.isEndDocument()) break;
 
             if (ev.isStartElement()) {                  // Start tag
 
@@ -422,8 +421,7 @@ public class FlattenXml {
             return this;
         }
 
-        public FlattenXml createFlattenXml()
-                throws FileNotFoundException, XMLStreamException {
+        public FlattenXml create() throws XMLStreamException {
             // Input XML file, tag that identifies a record
             return new FlattenXml(xmlStream, recordTag,
                     // Cascading data from parent record to child records
