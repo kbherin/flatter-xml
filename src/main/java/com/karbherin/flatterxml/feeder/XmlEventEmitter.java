@@ -100,10 +100,6 @@ public class XmlEventEmitter {
         while (reader.hasNext()) {
 
             XMLEvent ev = reader.nextEvent();
-            if (ev.isStartDocument() || ev.isEndDocument()) {
-                sendToAllChannels(ev);
-                continue;
-            }
 
             // Process first N records after skipping M records
 
@@ -130,8 +126,10 @@ public class XmlEventEmitter {
                 }
             }
 
-            if (tracking && (ev.isCharacters() || ev.isStartElement() || ev.isEndElement())) {
+            if (tracking) {
                 channels.get(currentChannel).add(ev);
+            } else if (ev.isStartDocument() || ev.isEndDocument() || rootTag == null) {
+                sendToAllChannels(ev);
             }
 
             if (ev.isEndElement()) {

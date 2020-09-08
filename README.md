@@ -13,7 +13,7 @@ Java: 1.8 and above.
 ## Usage
 
 #### Library Use
-##### Single threaded use
+##### Single Threaded
 ```java 
     FlattenXml flattener = new FlattenXml.FlattenXmlBuilder()
                 .setXmlFilename("src/test/resources/emp.xml")   // Required
@@ -25,7 +25,7 @@ Java: 1.8 and above.
                 .createFlattenXml();
     flattener.parseFlatten();
 ```
-##### Concurrent workers
+##### Concurrent Workers
 ```java 
     XmlFlattenerWorkerFactory workerFactory = XmlFlattenerWorkerFactory.newInstance(
                     xmlFilePath, outDir, delimiter, /* Required */
@@ -35,7 +35,7 @@ Java: 1.8 and above.
     workerPool.execute(numWorkers, emitter, workerFactory);
 
 ```
-Multiple worker version generates multiple partial files suffixed with _part1, _part2, etc, for each record
+Multiple workers version generates multiple partial files suffixed with _part1, _part2, etc, for each record
  
 ### Command Line
 Use the main function in FlattenXmlRunner to run this on command line.
