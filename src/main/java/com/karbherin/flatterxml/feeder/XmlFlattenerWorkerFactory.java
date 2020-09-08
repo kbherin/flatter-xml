@@ -74,7 +74,7 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
 
             FlattenXml flattener;
             while(true) {
-                long recsInBatch = 0L; // Number of records processed in current batch
+                long recsInBatch; // Number of records processed in current batch
 
                 try {
                     flattener = setup.create();

@@ -26,9 +26,29 @@ public class FlattenXmlRunner {
 
     private static final int DEFAULT_BATCH_SIZE = 100;
     private static final String INDENT = "  ";
-    private static final Options OPTIONS = new Options();
+    private static final HelpFormatter HELP_FORMATTER = new HelpFormatter();
 
-    static {
+    private final Options OPTIONS = new Options();
+    private final FlattenXml.FlattenXmlBuilder setup;
+    private String delimiter = "|";
+    private String outDir = "csvs";
+    private int numWorkers = 1;
+    private String recordTag = null;
+    private CascadePolicy cascadePolicy = CascadePolicy.NONE;
+    private Map<String, String[]>  recordCascadesTemplates = Collections.emptyMap();
+    private List<XmlSchema> xsds = Collections.emptyList();
+    private long firstNRecs;
+    private long batchSize;
+    private String xmlFilePath;
+    private CommandLine cmd;
+
+    private List<String[]> filesGenerated = Collections.emptyList();
+    private String rootTagName = XmlHelpers.EMPTY;
+
+    // Track status and progress
+    private final StatusReporter statusReporter = new StatusReporter();
+
+    private FlattenXmlRunner() {
         OPTIONS.addOption("o", "output-dir", true, "Output directory for generating tabular files. Defaults to current directory");
         OPTIONS.addOption("d", "delimiter", true, "Delimiter. Defaults to a comma(,)");
         OPTIONS.addOption("r", "record-tag", true, "Primary record tag from where parsing begins. If not provided entire file will be parsed");
@@ -37,14 +57,15 @@ public class FlattenXmlRunner {
         OPTIONS.addOption("c", "cascades", true, "Data of specified tags on parent element is cascaded to child elements.\nNONE|ALL|XSD. Defaults to NONE.\nFormat: elem1:tag1,tag2;elem2:tag1,tag2;...");
         OPTIONS.addOption("x", "xsd", true, "XSD files. Comma separated list.\nFormat: emp.xsd,contact.xsd,...");
         OPTIONS.addOption("w", "workers", true, "Number of parallel workers. Defaults to 1");
+
+        setup = new FlattenXml.FlattenXmlBuilder();
     }
 
-    private static void printHelp() {
-        HelpFormatter formatter = new HelpFormatter();
-        formatter.printHelp( "FlattenXmlRunner XMLFile [OPTIONS]", OPTIONS);
+    private void printHelp() {
+        HELP_FORMATTER.printHelp( "FlattenXmlRunner XMLFile [OPTIONS]", OPTIONS);
     }
 
-    private static CommandLine parseCliArgs(String[] args) {
+    private CommandLine parseCliArgs(String[] args) {
         CommandLineParser parser = new DefaultParser();
         try {
             return parser.parse(OPTIONS, args);
@@ -54,70 +75,48 @@ public class FlattenXmlRunner {
         }
     }
 
-    /**
-     * Command line method for running XML flattener.
-     * @param args
-     * @throws XMLStreamException
-     * @throws IOException
-     */
-    public static void main(String[] args)
-            throws XMLStreamException, IOException, InterruptedException {
+    private void assignOptions() throws FileNotFoundException, XMLStreamException {
 
-
-        CommandLine cmd = parseCliArgs(args);
-
-        FlattenXml.FlattenXmlBuilder setup = new FlattenXml.FlattenXmlBuilder();
-
-        String delimiter = "|", outDir = "csvs";
         if (cmd.hasOption("o")) {
             outDir = cmd.getOptionValue("o");
             createOutputDirectory(outDir);
         }
+
         if (cmd.hasOption("d")) {
             delimiter = cmd.getOptionValue("d");
         }
 
-        int numWorkers = 1;
         if (cmd.hasOption("w")) {
-            numWorkers = Integer.valueOf(cmd.getOptionValue("w"));
+            numWorkers = Integer.parseInt(cmd.getOptionValue("w"));
             if (numWorkers < 1) {
                 throw new IllegalArgumentException("Number of workers cannot be less than 1");
             }
         }
 
-        String recordTag = null;
         if (cmd.hasOption("r")) {
             recordTag = cmd.getOptionValue("r");
-            if (recordTag.trim().length() > 0)
-                setup.setRecordTag(recordTag);
         }
 
-        CascadePolicy cascadePolicy = CascadePolicy.NONE;
-        Map<String, String[]>  recordCascadesTemplates = Collections.emptyMap();
         if (cmd.hasOption("c")) {
             if (cmd.getOptionValue("c").trim().equalsIgnoreCase(
                     CascadePolicy.ALL.toString())) {
 
-                setup.setCascadePolicy(CascadePolicy.ALL);
+                cascadePolicy = CascadePolicy.ALL;
             } else if (cmd.getOptionValue("c").trim().equalsIgnoreCase(
                     CascadePolicy.XSD.toString())) {
 
-                setup.setCascadePolicy(CascadePolicy.XSD);
+                cascadePolicy = CascadePolicy.XSD;
             } else {
 
                 recordCascadesTemplates = XmlHelpers.parseTagValueCascades(cmd.getOptionValue("c"));
-                setup.setRecordCascadesTemplates(recordCascadesTemplates);
             }
         }
 
-        List<XmlSchema> xsds = Collections.emptyList();
         if (cmd.hasOption("x")) {
             String[] xmlFiles = cmd.getOptionValue("x").split(",");
             xsds = XmlHelpers.parseXsds(xmlFiles);
-            setup.setXsdFiles(xsds);
         }
 
-        final long firstNRecs, batchSize;
         try {
             firstNRecs = cmd.hasOption("n") ? Long.parseLong(cmd.getOptionValue("n")) : 0;
             batchSize = cmd.hasOption("p") && cmd.getOptionValue("p") != null
@@ -129,91 +128,120 @@ public class FlattenXmlRunner {
         if (cmd.getArgs().length > 1) {
             printHelp();
             throw new IllegalArgumentException("Too many XML files are passed as input. Only 1 file is allowed");
-        }
-        if (cmd.getArgs().length < 1) {
+        } else if (cmd.getArgs().length < 1) {
             printHelp();
             throw new IllegalArgumentException("Could not parse the arguments passed. XMLFile path is required");
         }
 
-        String xmlFilePath = cmd.getArgs()[0];
+        xmlFilePath = cmd.getArgs()[0];
+    }
+
+    private void workAlone() throws IOException, XMLStreamException {
+
+        setup.setRecordTag(recordTag)
+                .setCascadePolicy(cascadePolicy)
+                .setRecordCascadesTemplates(recordCascadesTemplates)
+                .setXsdFiles(xsds);
+
         InputStream xmlStream = new FileInputStream(xmlFilePath);
         setup.setXmlStream(xmlStream);
 
-        // Track status
-        StatusReporter statusReporter = new StatusReporter();
-        List<String[]> filesWritten = Collections.emptyList();
-        String rootTagName = XmlHelpers.EMPTY;
+        // Create XML flattener
+        DelimitedFileHandler recordHandler = new DelimitedFileHandler(delimiter, outDir, XmlHelpers.EMPTY);
+        setup.setRecordWriter(recordHandler);
+        final FlattenXml flattener = setup.create();
 
-        if (numWorkers == 1) {
+        System.out.printf("Parsing in batches of %d records%n", batchSize);
+        if (recordTag != null) {
+            System.out.printf("Starting record tag provided is '%s'%n", flattener.getRecordTagGiven());
+        }
+        boolean firstLoop = true;
 
-            // Create XML flattener
-            DelimitedFileHandler recordHandler = new DelimitedFileHandler(delimiter, outDir, XmlHelpers.EMPTY);
-            setup.setRecordWriter(recordHandler);
-            final FlattenXml flattener = setup.create();
+        // Single worker
+        while (true) {
+            long recsInBatch; // Number of records processed in current batch
+            if (firstNRecs == 0) {
+                // Process all XML records.
+                recsInBatch = flattener.parseFlatten(batchSize);
+            } else {
+                // Process first N records.
+                recsInBatch = flattener.parseFlatten(
+                        Math.min(batchSize, firstNRecs - statusReporter.getTotalRecordCount()));
+            }
+            statusReporter.incrementRecordCounter(recsInBatch);
 
-            System.out.println(String.format("Parsing in batches of %d records", batchSize));
-            if (recordTag != null) {
-                System.out.println(String.format("Starting record tag provided is '%s'", flattener.getRecordTagGiven()));
+            if (firstLoop && recordTag == null) {
+                firstLoop = false;
+                System.out.printf("Starting record tag not provided.\nIdentified primary record tag '%s'%n",
+                        XmlHelpers.toPrefixedTag(flattener.getRecordTag()));
             }
 
-            // Single worker
-            while (true) {
-                long recsInBatch = 0; // Number of records processed in current batch
-                if (firstNRecs == 0) {
-                    // Process all XML records.
-                    recsInBatch = flattener.parseFlatten(batchSize);
-                } else {
-                    // Process first N records.
-                    recsInBatch = flattener.parseFlatten(
-                            Math.min(batchSize, firstNRecs - statusReporter.getTotalRecordCount()));
-                }
-                statusReporter.incrementRecordCounter(recsInBatch);
-
-                if (recordTag == null) {
-                    System.out.println("Starting record tag not provided.");
-                    System.out.println(String.format("Identified primary record tag '%s'",
-                            XmlHelpers.toPrefixedTag(flattener.getRecordTag())));
-                }
-
-                statusReporter.showProgress();
-                // If previous batch processed 0 records then the processing is complete.
-                if (recsInBatch == 0 || recsInBatch < batchSize) {
-                    break;
-                }
-            }
-
-            filesWritten = recordHandler.getFilesWritten();
-            rootTagName =  flattener.getRootElement().getName().getLocalPart();
-            displayFilesGenerated(filesWritten, rootTagName);
-
-        } else {
-
-            // Initiate concurrent workers
-            XmlEventEmitter emitter = new XmlEventEmitter(xmlFilePath);
-            XmlFlattenerWorkerFactory workerFactory = XmlFlattenerWorkerFactory.newInstance(
-                    xmlFilePath, outDir, delimiter,
-                    recordTag, xsds, cascadePolicy, recordCascadesTemplates,
-                    batchSize, statusReporter
-            );
-            XmlEventWorkerPool workerPool = new XmlEventWorkerPool();
-            workerPool.execute(numWorkers, emitter, workerFactory);
-            filesWritten = statusReporter.getFilesGenerated();
-            rootTagName = emitter.getRootTag().getLocalPart();
-
-            System.out.println();
-            if (recordTag == null) {
-                System.out.println("Starting record tag not provided.");
-                System.out.println(String.format("Identified primary record tag '%s'",
-                        XmlHelpers.toPrefixedTag(emitter.getRecordTag())));
-            }
-
-            for (int i = 1; i <= numWorkers; i++) {
-                String fileSuffix = "_part" + i;
-                displayFilesGenerated(filesWritten, rootTagName + fileSuffix);
+            statusReporter.showProgress();
+            // If previous batch processed 0 records then the processing is complete.
+            if (recsInBatch == 0 || recsInBatch < batchSize) {
+                break;
             }
         }
 
-        System.out.println("Total number of files produced: " + filesWritten.size());
+        filesGenerated = recordHandler.getFilesWritten();
+        rootTagName =  flattener.getRootElement().getName().getLocalPart();
+        displayFilesGenerated(filesGenerated, rootTagName);
+    }
+
+    private void workSwarm() throws InterruptedException, XMLStreamException, IOException {
+
+        InputStream xmlStream = new FileInputStream(xmlFilePath);
+        setup.setXmlStream(xmlStream);
+
+        // Initiate concurrent workers
+        XmlEventEmitter emitter = new XmlEventEmitter(xmlFilePath);
+        XmlFlattenerWorkerFactory workerFactory = XmlFlattenerWorkerFactory.newInstance(
+                xmlFilePath, outDir, delimiter,
+                recordTag, xsds, cascadePolicy, recordCascadesTemplates,
+                batchSize, statusReporter);
+
+        XmlEventWorkerPool workerPool = new XmlEventWorkerPool();
+        workerPool.execute(numWorkers, emitter, workerFactory);
+        filesGenerated = statusReporter.getFilesGenerated();
+        rootTagName = emitter.getRootTag().getLocalPart();
+
+        System.out.println();
+        if (recordTag == null) {
+            System.out.printf("Starting record tag not provided.\nIdentified primary record tag '%s'%n",
+                    XmlHelpers.toPrefixedTag(emitter.getRecordTag()));
+        }
+
+        for (int i = 1; i <= numWorkers; i++) {
+            String fileSuffix = "_part" + i;
+            displayFilesGenerated(filesGenerated, rootTagName + fileSuffix);
+        }
+    }
+
+    private  List<String[]> run(String[] args) throws InterruptedException, XMLStreamException, IOException {
+        cmd = parseCliArgs(args);
+        assignOptions();
+
+
+        if (numWorkers == 1) {
+            workAlone();
+        } else {
+            workSwarm();
+        }
+        return filesGenerated;
+    }
+
+    /**
+     * Command line method for running XML flattener.
+     * @param args - command line arguments and options
+     * @throws XMLStreamException - if XML file could not be parsed
+     * @throws IOException - if XML file or output directories cannot be accessed
+     */
+    public static void main(String[] args)
+            throws XMLStreamException, IOException, InterruptedException {
+
+        FlattenXmlRunner runner = new FlattenXmlRunner();
+        List<String[]> filesWritten = runner.run(args);
+        System.out.printf("Total number of files produced in %s: ", runner.outDir, filesWritten.size());
     }
 
     private static void displayFilesGenerated(List<String[]> filesWritten, String rootTagName) {

@@ -13,6 +13,7 @@ Java: 1.8 and above.
 ## Usage
 
 #### Library Use
+##### Single threaded use
 ```java 
     FlattenXml flattener = new FlattenXml.FlattenXmlBuilder()
                 .setXmlFilename("src/test/resources/emp.xml")   // Required
@@ -22,9 +23,19 @@ Java: 1.8 and above.
                 .setCascadePolicy("XSD")                        // Defaults to NONE
                 .setXsdFiles("emp.xsd,contact.xsd".split(","))  // Optional, but preferrable
                 .createFlattenXml();
-    
     flattener.parseFlatten();
 ```
+##### Concurrent workers
+```java 
+    XmlFlattenerWorkerFactory workerFactory = XmlFlattenerWorkerFactory.newInstance(
+                    xmlFilePath, outDir, delimiter, /* Required */
+                    recordTag, xsds, cascadePolicy, recordCascadesTemplates,
+                    batchSize, statusReporter);     /* Required */
+    XmlEventWorkerPool workerPool = new XmlEventWorkerPool();
+    workerPool.execute(numWorkers, emitter, workerFactory);
+
+```
+Multiple worker version generates multiple partial files suffixed with _part1, _part2, etc, for each record
  
 ### Command Line
 Use the main function in FlattenXmlRunner to run this on command line.
@@ -38,9 +49,10 @@ usage: FlattenXmlRunner XMLFile [OPTIONS]
  -n,--n-records <arg>    Number of records to process in the XML document
  -o,--output-dir <arg>   Output directory for generating tabular files.
                          Defaults to current directory
- -p,--progress           Report progress after a batch. Defaults to 100
+ -p,--progress <arg>     Report progress after a batch. Defaults to 100
  -r,--record-tag <arg>   Primary record tag from where parsing begins. If
                          not provided entire file will be parsed
+ -w,--workers <arg>      Number of parallel workers. Defaults to 1
  -x,--xsd <arg>          XSD files. Comma separated list.
                          Format: emp.xsd,contact.xsd,...
 ```
@@ -91,6 +103,7 @@ An example of extracting information into CSV files about employees in an organi
 If "record identifying" tag is not provided, it infers it as the tag that immediately follows the root tag.
 In this case it is `<employee>`.
 
+##### Result
 Given the above XML file the following flat files will be produced:
 ```
 employee.csv
@@ -102,4 +115,4 @@ employee.csv
       |__phone.csv
 ```
 ## Authors
-1. Kartik Bherin
+* Kartik Bherin
