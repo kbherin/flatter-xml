@@ -90,7 +90,7 @@ public class XmlEventEmitter {
 
 
         XMLEventReader reader = XMLInputFactory.newFactory().createXMLEventReader(
-                new FileInputStream(xmlFile));
+                new BufferedInputStream(new FileInputStream(xmlFile)));
 
         int currentChannel = 0;
         boolean tracking = false;

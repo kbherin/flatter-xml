@@ -3,6 +3,7 @@ package com.karbherin.flatterxml.output;
 import com.karbherin.flatterxml.RecordFieldsCascade;
 import com.karbherin.flatterxml.XmlHelpers;
 
+import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -31,7 +32,8 @@ public class DelimitedFileHandler implements RecordHandler {
 
         OutputStream out = fileStreams.get(fileName);
         if (out == null) {
-            out = new FileOutputStream(String.format("%s/%s%s.csv", outDir, fileName, fileSuffix));
+            out = new BufferedOutputStream(
+                    new FileOutputStream(String.format("%s/%s%s.csv", outDir, fileName, fileSuffix)));
             // Register the new file stream.
             fileStreams.put(fileName, out);
             filesWritten.add(new String[]{ String.valueOf(currLevel), fileName, previousFileName });
