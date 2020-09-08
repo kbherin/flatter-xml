@@ -95,18 +95,16 @@ public class XmlEventEmitter {
 
         int currentChannel = 0;
         boolean tracking = false;
-        Stack<QName> tagPath = new Stack<>();
+        XMLEventWriter channel = channels.get(currentChannel);
 
         while (reader.hasNext()) {
 
             XMLEvent ev = reader.nextEvent();
-
             // Process first N records after skipping M records
 
             if (ev.isStartElement()) {
 
                 QName startTag = ev.asStartElement().getName();
-                tagPath.push(startTag);
 
                 // If caller does not specify the primary record tag, then
                 // pick the first start element after encountering the XML root.
@@ -127,7 +125,7 @@ public class XmlEventEmitter {
             }
 
             if (tracking) {
-                channels.get(currentChannel).add(ev);
+                channel.add(ev);
             } else if (ev.isStartDocument() || ev.isEndDocument() || rootTag == null) {
                 sendToAllChannels(ev);
             }
@@ -138,7 +136,6 @@ public class XmlEventEmitter {
                 // Send ending root tag to all channels
                 if (endTag.equals(rootTag)) {
                     sendToAllChannels(ev);
-                    break;
                 }
 
                 if (endTag.equals(recordTag)) {
@@ -149,7 +146,8 @@ public class XmlEventEmitter {
                     }
                     tracking = false;
                     // Switch to next channel
-                    currentChannel = (currentChannel + 1) % channels.size();
+                    currentChannel = (++currentChannel) % channels.size();
+                    channel = channels.get(currentChannel);
                 }
             }
         }
