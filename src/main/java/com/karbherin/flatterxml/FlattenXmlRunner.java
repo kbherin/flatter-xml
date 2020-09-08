@@ -189,6 +189,7 @@ public class FlattenXmlRunner {
     }
 
     private void workSwarm() throws InterruptedException, XMLStreamException, IOException {
+        System.out.println("WARNING: Consider running with a single worker. It is faster!!");
 
         InputStream xmlStream = new FileInputStream(xmlFilePath);
         setup.setXmlStream(xmlStream);
