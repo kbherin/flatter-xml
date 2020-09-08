@@ -32,7 +32,7 @@ public class XmlFileSplitterFactory implements XmlEventWorkerFactory {
     }
 
     @Override
-    public Thread newWorker(PipedInputStream channel, int channelNum, CountDownLatch workerCounter) {
+    public Runnable newWorker(PipedInputStream channel, int channelNum, CountDownLatch workerCounter) {
         return new Thread(() -> {
             XMLEventReader reader;
             try {

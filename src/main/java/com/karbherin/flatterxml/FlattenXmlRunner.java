@@ -241,7 +241,7 @@ public class FlattenXmlRunner {
 
         FlattenXmlRunner runner = new FlattenXmlRunner();
         List<String[]> filesWritten = runner.run(args);
-        System.out.printf("Total number of files produced in %s: ", runner.outDir, filesWritten.size());
+        System.out.printf("Total number of files produced in %s: %d", runner.outDir, filesWritten.size());
     }
 
     private static void displayFilesGenerated(List<String[]> filesWritten, String rootTagName) {

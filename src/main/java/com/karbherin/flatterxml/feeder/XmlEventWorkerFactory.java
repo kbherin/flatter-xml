@@ -5,6 +5,6 @@ import java.util.concurrent.CountDownLatch;
 
 public interface XmlEventWorkerFactory {
 
-    Thread newWorker(PipedInputStream channel, int channelNum, CountDownLatch workerCounter);
+    Runnable newWorker(PipedInputStream channel, int channelNum, CountDownLatch workerCounter);
 
 }

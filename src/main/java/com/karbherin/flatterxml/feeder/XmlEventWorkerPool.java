@@ -12,14 +12,12 @@ public class XmlEventWorkerPool {
             throws IOException, XMLStreamException, InterruptedException {
 
         CountDownLatch workerCounter = new CountDownLatch(numWorkers);
-        Thread[] workers = new Thread[numWorkers];
 
         for (int i = 1; i <= numWorkers; i++) {
             PipedInputStream channel = new PipedInputStream();
             xmlEventEmitter.registerChannel(channel);
-            Thread worker = xmlEventWorkerFactory.newWorker(channel, i, workerCounter);
-            workers[i-1] = worker;
-            worker.start();
+            Runnable worker = xmlEventWorkerFactory.newWorker(channel, i, workerCounter);
+            new Thread(worker).start();
         }
 
         xmlEventEmitter.startStream();

@@ -56,7 +56,7 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
     }
 
     @Override
-    public Thread newWorker(PipedInputStream channel, int workerNum, CountDownLatch workerCounter) {
+    public Runnable newWorker(PipedInputStream channel, int workerNum, CountDownLatch workerCounter) {
         RecordHandler recordHandler = new DelimitedFileHandler(delimiter, outDir, "_part" + workerNum);
 
         // Create XML flattener
