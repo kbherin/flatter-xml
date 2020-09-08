@@ -71,19 +71,17 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
         return new Thread(() -> {
 
             long totalRecs = 0L;
+            FlattenXml flattener = null;
+            try {
+                flattener = setup.create();
+            } catch (Throwable ex) {
+                statusReporter.logError(new Exception("Exception occurred. Could not start worker"), workerNum);
+                ex.printStackTrace();
+            }
 
-            FlattenXml flattener;
-            while(true) {
+            while(flattener != null) {
                 long recsInBatch; // Number of records processed in current batch
 
-                try {
-                    flattener = setup.create();
-                } catch (Throwable ex) {
-                    statusReporter.logError(
-                            new Exception("Exception occurred. Could not start worker"), workerNum);
-                    ex.printStackTrace();
-                    break;
-                }
                 try {
                     recsInBatch = flattener.parseFlatten(batchSize);
                     statusReporter.incrementRecordCounter(recsInBatch);
