@@ -6,12 +6,12 @@ import javax.xml.stream.events.XMLEvent;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Stack;
 
 public class XmlEventEmitter {
 
+    private final XMLOutputFactory outputFactory = XMLOutputFactory.newFactory();
     private final List<XMLEventWriter> channels = new ArrayList<>();
-    private final List<PipedOutputStream> pipes = new ArrayList<>();
+    private final List<OutputStream> pipes = new ArrayList<>();
     private final String xmlFile;
     private long skipRecs;
     private long firstNRecs;
@@ -63,8 +63,7 @@ public class XmlEventEmitter {
      * @throws XMLStreamException
      */
     public void registerChannel(PipedInputStream worker) throws IOException, XMLStreamException {
-        XMLOutputFactory outputFactory = XMLOutputFactory.newFactory();
-        PipedOutputStream pipe = new PipedOutputStream(worker);
+        OutputStream pipe = new BufferedOutputStream(new PipedOutputStream(worker));
         channels.add(outputFactory.createXMLEventWriter(pipe));
         pipes.add(pipe);
     }
@@ -191,7 +190,7 @@ public class XmlEventEmitter {
             channel.flush();
             channel.close();
         }
-        for(PipedOutputStream pipe: pipes) {
+        for(OutputStream pipe: pipes) {
             pipe.flush();
             pipe.close();
         }

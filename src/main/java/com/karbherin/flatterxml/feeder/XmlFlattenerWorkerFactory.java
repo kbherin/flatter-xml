@@ -1,7 +1,6 @@
 package com.karbherin.flatterxml.feeder;
 
 import com.karbherin.flatterxml.FlattenXml;
-import com.karbherin.flatterxml.XmlHelpers;
 import com.karbherin.flatterxml.output.DelimitedFileHandler;
 import com.karbherin.flatterxml.output.StatusReporter;
 import com.karbherin.flatterxml.output.RecordHandler;
@@ -66,7 +65,7 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
                 .setCascadePolicy(cascadePolicy)
                 .setRecordCascadesTemplates(recordCascadesTemplates)
                 .setRecordWriter(recordHandler)
-                .setXmlStream(channel);
+                .setXmlStream(new BufferedInputStream(channel));
 
         return new Thread(() -> {
 
