@@ -22,13 +22,15 @@ public class XmlEventEmitterTest {
             throws IOException, XMLStreamException, InterruptedException {
 
         int numWorkers = 3;
+        String outDir = "target/test/resources/emp_tables";
+        new File(outDir).mkdirs();
         CountDownLatch workerCounter = new CountDownLatch(numWorkers);
         Thread[] workers = new Thread[numWorkers];
         for (int i = numWorkers; i > 0; i--) {
             PipedInputStream channel = new PipedInputStream();
             emitter.registerChannel(channel);
             Thread worker = newWorkerThread(channel, numWorkers-i+1,
-                    "target/test/resources/emp_tables", workerCounter);
+                    outDir, workerCounter);
             workers[i-1] = worker;
             worker.start();
         }
