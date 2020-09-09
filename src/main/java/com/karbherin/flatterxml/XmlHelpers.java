@@ -1,5 +1,6 @@
 package com.karbherin.flatterxml;
 
+import com.karbherin.flatterxml.model.RecordsDefinitionRegistry;
 import com.karbherin.flatterxml.xsd.XmlSchema;
 import org.xml.sax.SAXException;
 
@@ -111,24 +112,8 @@ public class XmlHelpers {
         }
     }
 
-    public static Map<String, String[]> parseTagValueCascades(String cascades) {
-        Map<String, String[]> cascadeMap = new HashMap<>();
-        int c = 1;
-        for (String cascade: cascades.replaceAll(WHITESPACES, EMPTY).split(CASCADES_DELIM)) {
-            try {
-                String pair[] = cascade.split(PAIR_SEP);
-                String elem = pair[0];
-                String primaries = pair[1];
-                String[] primaryTags = primaries.split(COMMA_DELIM);
-
-                cascadeMap.put(elem, primaryTags);
-            } catch (Exception ex) {
-                throw new RuntimeException(new ParseException("Could not parse the tag value cascades", c));
-            }
-            c++;
-        }
-
-        return cascadeMap;
+    public static RecordsDefinitionRegistry parseTagValueCascades(String cascadingFieldsFile) throws IOException {
+        return RecordsDefinitionRegistry.newInstance(new File(cascadingFieldsFile));
     }
 
     public static QName parsePrefixTag(String input, NamespaceContext nsContext, String targetNamespace) {
@@ -186,16 +171,18 @@ public class XmlHelpers {
                 xsds.add(new XmlSchema().parse(xsd));
             }
         }
+
+        XmlSchema.resolveReferences(xsds);
         return xsds;
     }
 
-    public static class FieldValue<K, V> {
-        public final K field;
-        public V value;
-
-        public FieldValue(K fld, V val) {
-            field = fld;
-            value = val;
-        }
+    public static boolean isEmpty(String str) {
+        return str == null || str.trim().length() == 0;
     }
+
+
+    public static String emptyIfNull(String str) {
+        return str == null ? EMPTY : str;
+    }
+
 }

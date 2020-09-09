@@ -41,20 +41,23 @@ Multiple workers version generates multiple partial files suffixed with _part1, 
 Use the main function in FlattenXmlRunner to run this on command line.
 ```shell script
 usage: FlattenXmlRunner XMLFile [OPTIONS]
- -c,--cascades <arg>     Data of specified tags on parent element is
-                         cascaded to child elements.
-                         NONE|ALL|XSD. Defaults to NONE.
-                         Format: elem1:tag1,tag2;elem2:tag1,tag2;...
- -d,--delimiter <arg>    Delimiter. Defaults to a comma(,)
- -n,--n-records <arg>    Number of records to process in the XML document
- -o,--output-dir <arg>   Output directory for generating tabular files.
-                         Defaults to current directory
- -p,--progress <arg>     Report progress after a batch. Defaults to 100
- -r,--record-tag <arg>   Primary record tag from where parsing begins. If
-                         not provided entire file will be parsed
- -w,--workers <arg>      Number of parallel workers. Defaults to 1
- -x,--xsd <arg>          XSD files. Comma separated list.
-                         Format: emp.xsd,contact.xsd,...
+ -c,--cascades <arg>        Data for tags under a record(complex) type
+                            element is cascaded to child records.
+                            NONE|ALL|XSD|<record-fields-yaml>.
+                            Defaults to NONE
+ -d,--delimiter <arg>       Delimiter. Defaults to a comma(,)
+ -f,--output-fields <arg>   Desired output fields for each record(complex)
+                            type in a YAML file
+ -n,--n-records <arg>       Number of records to process in the XML
+                            document
+ -o,--output-dir <arg>      Output directory for generating tabular files.
+                            Defaults to current directory
+ -p,--progress <arg>        Report progress after a batch. Defaults to 100
+ -r,--record-tag <arg>      Primary record tag from where parsing begins.
+                            If not provided entire file will be parsed
+ -w,--workers <arg>         Number of parallel workers. Defaults to 1
+ -x,--xsd <arg>             XSD files. Comma separated list.
+                            Format: emp_ns.xsd,phone_ns.xsd,...
 ```
 
     
@@ -102,6 +105,28 @@ An example of extracting information into CSV files about employees in an organi
 
 If "record identifying" tag is not provided, it infers it as the tag that immediately follows the root tag.
 In this case it is `<employee>`.
+
+##### Record Fields Output Specification
+The output fields for any record type can be specified via an XSD or explicitly with a record specification file.
+An example of the file is in order:
+
+```
+# Namespace prefixes defined here can be used to define record fields
+namespaces:
+  "emp": "http://kbps.com/emp"
+  "xsi": "http://www.w3.org/2001/XMLSchema-instance"
+
+records:
+  "emp:employee":
+    - "employee-no"                      # No NS URI or NS prefix
+    - "{http://kbps.com/emp}department"  # With NS URI
+
+  "{http://kbps.com/emp}address":        # Record name itsel should form a QName
+    - "address-type"                     # Record's fields do not need a prefix or NS URI
+    - "line1"
+    - "emp:state"                        # With NS prefix
+    - "zip"
+```
 
 ##### Result
 Given the above XML file the following flat files will be produced:

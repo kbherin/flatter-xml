@@ -1,7 +1,7 @@
 package com.karbherin.flatterxml.output;
 
-import com.karbherin.flatterxml.RecordFieldsCascade;
-import com.karbherin.flatterxml.XmlHelpers;
+import com.karbherin.flatterxml.model.RecordFieldsCascade;
+import com.karbherin.flatterxml.model.FieldValue;
 
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
@@ -26,7 +26,7 @@ public class DelimitedFileHandler implements RecordHandler {
         this.fileSuffix = fileSuffix;
     }
 
-    public void write(String fileName, Iterable<XmlHelpers.FieldValue<String, String>> fieldValueStack,
+    public void write(String fileName, Iterable<FieldValue<String, String>> fieldValueStack,
                       RecordFieldsCascade cascadedData, int currLevel, String previousFileName)
             throws IOException {
 
@@ -60,37 +60,37 @@ public class DelimitedFileHandler implements RecordHandler {
     }
 
     private void writeDelimited(OutputStream out,
-                                Iterable<XmlHelpers.FieldValue<String, String>> data,
-                                KeyValuePart part, Iterable<XmlHelpers.FieldValue<String, String>> appendList)
+                                Iterable<FieldValue<String, String>> data,
+                                KeyValuePart part, Iterable<FieldValue<String, String>> appendList)
             throws IOException {
 
-        Iterator<XmlHelpers.FieldValue<String, String>> dataIt = data.iterator();
+        Iterator<FieldValue<String, String>> dataIt = data.iterator();
         if (!dataIt.hasNext())
             return;
 
         if (part == KeyValuePart.FIELD_PART) {
-            out.write(dataIt.next().field.getBytes());
+            out.write(dataIt.next().getField().getBytes());
             while (dataIt.hasNext()) {
                 out.write(delimiter);
-                out.write(dataIt.next().field.getBytes());
+                out.write(dataIt.next().getField().getBytes());
             }
 
             // Appendix
-            for (XmlHelpers.FieldValue<String, String> append: appendList) {
+            for (FieldValue<String, String> append: appendList) {
                 out.write(delimiter);
-                out.write(append.field.getBytes());
+                out.write(append.getField().getBytes());
             }
         } else {
-            out.write(dataIt.next().value.getBytes());
+            out.write(dataIt.next().getValue().getBytes());
             while (dataIt.hasNext()) {
                 out.write(delimiter);
-                out.write(dataIt.next().value.getBytes());
+                out.write(dataIt.next().getValue().getBytes());
             }
 
             // Appendix
-            for (XmlHelpers.FieldValue<String, String> append: appendList) {
+            for (FieldValue<String, String> append: appendList) {
                 out.write(delimiter);
-                out.write(append.value.getBytes());
+                out.write(append.getValue().getBytes());
             }
         }
 

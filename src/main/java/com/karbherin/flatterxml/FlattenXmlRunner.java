@@ -3,6 +3,7 @@ package com.karbherin.flatterxml;
 import com.karbherin.flatterxml.feeder.XmlEventEmitter;
 import com.karbherin.flatterxml.feeder.XmlEventWorkerPool;
 import com.karbherin.flatterxml.feeder.XmlFlattenerWorkerFactory;
+import com.karbherin.flatterxml.model.RecordsDefinitionRegistry;
 import com.karbherin.flatterxml.output.DelimitedFileHandler;
 import com.karbherin.flatterxml.output.StatusReporter;
 import com.karbherin.flatterxml.xsd.XmlSchema;
@@ -15,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.karbherin.flatterxml.RecordFieldsCascade.CascadePolicy;
+import static com.karbherin.flatterxml.model.RecordFieldsCascade.CascadePolicy;
 
 /**
  * CLI main class for flattening an XML file into tabular files.
@@ -35,7 +36,8 @@ public class FlattenXmlRunner {
     private int numWorkers = 1;
     private String recordTag = null;
     private CascadePolicy cascadePolicy = CascadePolicy.NONE;
-    private Map<String, String[]>  recordCascadesTemplates = Collections.emptyMap();
+    private RecordsDefinitionRegistry recordCascadesRegistry = RecordsDefinitionRegistry.newInstance();
+    private RecordsDefinitionRegistry outputRecordFieldsSeq = RecordsDefinitionRegistry.newInstance();
     private List<XmlSchema> xsds = Collections.emptyList();
     private long firstNRecs;
     private long batchSize;
@@ -49,14 +51,25 @@ public class FlattenXmlRunner {
     private final StatusReporter statusReporter = new StatusReporter();
 
     private FlattenXmlRunner() {
-        OPTIONS.addOption("o", "output-dir", true, "Output directory for generating tabular files. Defaults to current directory");
-        OPTIONS.addOption("d", "delimiter", true, "Delimiter. Defaults to a comma(,)");
-        OPTIONS.addOption("r", "record-tag", true, "Primary record tag from where parsing begins. If not provided entire file will be parsed");
-        OPTIONS.addOption("n", "n-records", true, "Number of records to process in the XML document");
-        OPTIONS.addOption("p", "progress", true, "Report progress after a batch. Defaults to 100");
-        OPTIONS.addOption("c", "cascades", true, "Data of specified tags on parent element is cascaded to child elements.\nNONE|ALL|XSD. Defaults to NONE.\nFormat: elem1:tag1,tag2;elem2:tag1,tag2;...");
-        OPTIONS.addOption("x", "xsd", true, "XSD files. Comma separated list.\nFormat: emp.xsd,contact.xsd,...");
-        OPTIONS.addOption("w", "workers", true, "Number of parallel workers. Defaults to 1");
+        OPTIONS.addOption("o", "output-dir", true,
+                "Output directory for generating tabular files. Defaults to current directory");
+        OPTIONS.addOption("d", "delimiter", true,
+                "Delimiter. Defaults to a comma(,)");
+        OPTIONS.addOption("r", "record-tag", true,
+                "Primary record tag from where parsing begins. If not provided entire file will be parsed");
+        OPTIONS.addOption("n", "n-records", true,
+                "Number of records to process in the XML document");
+        OPTIONS.addOption("p", "progress", true,
+                "Report progress after a batch. Defaults to 100");
+        OPTIONS.addOption("f", "output-fields", true,
+                "Desired output fields for each record(complex) type in a YAML file");
+        OPTIONS.addOption("c", "cascades", true,
+                "Data for tags under a record(complex) type element is cascaded to child records."
+                +"\nNONE|ALL|XSD|<record-fields-yaml>.\nDefaults to NONE");
+        OPTIONS.addOption("x", "xsd", true,
+                "XSD files. Comma separated list.\nFormat: emp_ns.xsd,phone_ns.xsd,...");
+        OPTIONS.addOption("w", "workers", true,
+                "Number of parallel workers. Defaults to 1");
 
         setup = new FlattenXml.FlattenXmlBuilder();
     }
@@ -75,7 +88,7 @@ public class FlattenXmlRunner {
         }
     }
 
-    private void assignOptions() throws FileNotFoundException, XMLStreamException {
+    private void assignOptions() throws IOException, XMLStreamException {
 
         if (cmd.hasOption("o")) {
             outDir = cmd.getOptionValue("o");
@@ -107,9 +120,13 @@ public class FlattenXmlRunner {
 
                 cascadePolicy = CascadePolicy.XSD;
             } else {
-
-                recordCascadesTemplates = XmlHelpers.parseTagValueCascades(cmd.getOptionValue("c"));
+                // Is a filename
+                recordCascadesRegistry = XmlHelpers.parseTagValueCascades(cmd.getOptionValue("c"));
             }
+        }
+
+        if (cmd.hasOption("f")) {
+            outputRecordFieldsSeq = RecordsDefinitionRegistry.newInstance(new File(cmd.getOptionValue("f")));
         }
 
         if (cmd.hasOption("x")) {
@@ -140,7 +157,8 @@ public class FlattenXmlRunner {
 
         setup.setRecordTag(recordTag)
                 .setCascadePolicy(cascadePolicy)
-                .setRecordCascadesTemplates(recordCascadesTemplates)
+                .setRecordCascadesRegistry(recordCascadesRegistry)
+                .setOutputRecordFieldsSeq(outputRecordFieldsSeq)
                 .setXsdFiles(xsds);
 
         InputStream xmlStream = new FileInputStream(xmlFilePath);
@@ -198,7 +216,7 @@ public class FlattenXmlRunner {
         XmlEventEmitter emitter = new XmlEventEmitter(xmlFilePath);
         XmlFlattenerWorkerFactory workerFactory = XmlFlattenerWorkerFactory.newInstance(
                 xmlFilePath, outDir, delimiter,
-                recordTag, xsds, cascadePolicy, recordCascadesTemplates,
+                recordTag, xsds, cascadePolicy, recordCascadesRegistry,
                 batchSize, statusReporter);
 
         XmlEventWorkerPool workerPool = new XmlEventWorkerPool();

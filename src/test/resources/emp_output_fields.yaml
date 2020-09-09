@@ -1,0 +1,18 @@
+
+# Namespace prefixes defined here can be used to define record fields
+namespaces:
+  "emp": "http://kbps.com/emp"
+  "xsi": "http://www.w3.org/2001/XMLSchema-instance"
+
+
+records:
+
+  "emp:employee":
+    - "employee-no"
+    - "{http://kbps.com/emp}department"
+
+  "{http://kbps.com/emp}address":
+    - "address-type"
+    - "line1"
+    - "emp:state"
+    - "zip"

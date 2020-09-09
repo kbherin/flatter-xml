@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<emp:employees xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'
+               xmlns:emp='http://kbps.com/emp' xmlns:ph='http://kbps.com/phone'
+               xsi:schemaLocation='http://kbps.com/emp emp_ns.xsd
+                                   http://kbps.com/phone phone_ns.xsd'>
+  <emp:employee> <!-- employee.csv: 00000001|Steve Rogers|public relations|150,000.00 -->
+    <!-- first avenger -->
+    <emp:employee-no>00000001</emp:employee-no>
+    <emp:employee-name>Steve Rogers</emp:employee-name>
+    <emp:department>public relations</emp:department>
+    <emp:salary>150,000.00</emp:salary>
+    <emp:contact> <!-- contact.csv: empty -->
+      <emp:addresses> <!-- addresses.csv: empty -->
+        <emp:address>  <!-- address.csv: With cascade policy "ALL" prints: primary|1 Tudor &amp; Place|NY, US|12345|00000001|Steve Rogers|public relations|150,000.00-->
+          <emp:address-type>primary</emp:address-type>
+          <emp:line1>1 Tudor &amp; Place</emp:line1>
+          <emp:state>NY, US</emp:state>
+          <emp:zip>12345</emp:zip>
+          <emp:reroute>  <!-- reroute.csv: While cascading, deepest info is presented first: <emp:reroute-fields>|<emp:address-fields>|<emp:employee-fields> [deepest first]-->
+            <emp:employee-name>Nick Fury</emp:employee-name>
+            <emp:line1>541E Summer St.</emp:line1>
+            <!-- While cascading with "XSD" policy "line2" field with empty value is printed, despite the element missing here. Always intend to use "XSD" policy -->
+            <!-- But when cascading with "ALL" policy "line2" field will be missing in the output. "ALL" works only if XML file includes all the fields for complex types -->
+            <emp:state>NY, US</emp:state>
+            <emp:zip>92478</emp:zip>
+          </emp:reroute> <!-- Nick Fury|541E Summer St.|NY, US|92478|primary|1 Tudor & Place|NY, US|12345|00000001|Steve Rogers|public relations|150,000.00 -->
+        </emp:address>
+      </emp:addresses>
+      <ph:phones>
+        <ph:phone>
+          <ph:phone-num>1234567890</ph:phone-num>
+          <ph:phone-type>landline</ph:phone-type>
+        </ph:phone>
+      </ph:phones>
+    </emp:contact>
+  </emp:employee>
+  <emp:employee>
+    <emp:employee-no>00000002</emp:employee-no>
+    <emp:employee-name>Tony Stark</emp:employee-name>
+    <emp:department>sales</emp:department>
+    <emp:salary>89,000.00</emp:salary>
+    <emp:contact>
+      <emp:addresses>
+        <emp:address>
+          <emp:address-type>primary</emp:address-type>
+          <emp:line1>1 Bloomington St</emp:line1>
+          <emp:state>DC, US</emp:state>
+          <emp:zip>22344</emp:zip>
+        </emp:address>
+        <emp:address>
+          <emp:address-type>holiday</emp:address-type>
+          <emp:line1>19 Wilmington View</emp:line1>
+          <emp:line2/> <!-- Empty element such as "line2" should be included even with cascading policy "ALL" -->
+          <emp:state>NC, US</emp:state>
+          <emp:zip>27617</emp:zip>
+        </emp:address>
+      </emp:addresses>
+      <ph:phones>
+        <ph:phone>
+          <ph:phone-num>7279237008</ph:phone-num>
+          <ph:phone-type>cell</ph:phone-type>
+        </ph:phone>
+        <ph:phone>
+          <ph:phone-num>9090909090</ph:phone-num>
+          <ph:phone-type>office</ph:phone-type>
+        </ph:phone>
+      </ph:phones>
+    </emp:contact>
+  </emp:employee>
+  <emp:employee>
+    <emp:employee-no>00000001</emp:employee-no>
+    <emp:employee-name>Steve Rogers</emp:employee-name>
+    <emp:department>public relations</emp:department>
+    <emp:salary>150,000.00</emp:salary>
+    <emp:contact>
+      <emp:addresses>
+        <emp:address>
+          <emp:address-type>primary</emp:address-type>
+          <emp:line1>1 Tudor &amp; Place</emp:line1>
+          <emp:state>NY, US</emp:state>
+          <emp:zip>12345</emp:zip>
+        </emp:address>
+      </emp:addresses>
+      <ph:phones>
+        <ph:phone>
+          <ph:phone-num>1234567890</ph:phone-num>
+          <ph:phone-type>landline</ph:phone-type>
+        </ph:phone>
+      </ph:phones>
+    </emp:contact>
+  </emp:employee>
+</emp:employees>

@@ -1,16 +1,16 @@
 package com.karbherin.flatterxml.feeder;
 
 import com.karbherin.flatterxml.FlattenXml;
+import com.karbherin.flatterxml.model.RecordsDefinitionRegistry;
 import com.karbherin.flatterxml.output.DelimitedFileHandler;
 import com.karbherin.flatterxml.output.StatusReporter;
 import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.xsd.XmlSchema;
 
-import static com.karbherin.flatterxml.RecordFieldsCascade.CascadePolicy;
+import static com.karbherin.flatterxml.model.RecordFieldsCascade.CascadePolicy;
 
 import java.io.*;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 
@@ -22,14 +22,14 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
     private final String recordTag;
     private final List<XmlSchema> xsds;
     private final CascadePolicy cascadePolicy;
-    private final Map<String, String[]> recordCascadesTemplates;
+    private final RecordsDefinitionRegistry recordCascadesReg;
     private final long batchSize;
     private final StatusReporter statusReporter;
 
     private XmlFlattenerWorkerFactory(String xmlFilePath, String outDir, String delimiter,
                                       String recordTag, List<XmlSchema> xsds,
                                       CascadePolicy cascadePolicy,
-                                      Map<String, String[]> recordCascadesTemplates,
+                                      RecordsDefinitionRegistry recordCascadesReg,
                                       long batchSize, StatusReporter statusReporter) {
 
         this.xmlFileName = new File(xmlFilePath).getName(); // Extract base name from the XML file path
@@ -38,7 +38,7 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
         this.recordTag = recordTag;
         this.xsds = xsds;
         this.cascadePolicy = cascadePolicy;
-        this.recordCascadesTemplates = recordCascadesTemplates;
+        this.recordCascadesReg = recordCascadesReg;
         this.batchSize = batchSize;
         this.statusReporter = statusReporter;
     }
@@ -46,11 +46,11 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
     public static XmlFlattenerWorkerFactory newInstance(String xmlFilePath, String outDir, String delimiter,
                                                         String recordTag, List<XmlSchema> xsds,
                                                         CascadePolicy cascadePolicy,
-                                                        Map<String, String[]> recordCascadesTemplates,
+                                                        RecordsDefinitionRegistry recordCascadesReg,
                                                         long batchSize, StatusReporter statusReporter) {
 
         return new XmlFlattenerWorkerFactory(xmlFilePath, outDir, delimiter, recordTag,
-                xsds, cascadePolicy, recordCascadesTemplates,
+                xsds, cascadePolicy, recordCascadesReg,
                 batchSize, statusReporter);
     }
 
@@ -63,7 +63,7 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
                 .setRecordTag(recordTag)
                 .setXsdFiles(xsds)
                 .setCascadePolicy(cascadePolicy)
-                .setRecordCascadesTemplates(recordCascadesTemplates)
+                .setRecordCascadesRegistry(recordCascadesReg)
                 .setRecordWriter(recordHandler)
                 .setXmlStream(new BufferedInputStream(channel));
 

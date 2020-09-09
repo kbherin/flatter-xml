@@ -15,4 +15,10 @@ public class XmlHelpersTest {
     public void validateXmlBadTest() throws IOException, SAXException {
         XmlHelpers.validateXml("src/test/resources/emp_bad.xml", new String[]{"src/test/resources/emp.xsd"});
     }
+
+    @Test
+    public void validateXmlMultiXsdTest() throws IOException, SAXException {
+        XmlHelpers.validateXml("src/test/resources/emp_ns.xml",
+                new String[]{"src/test/resources/emp_ns.xsd", "src/test/resources/phone_ns.xsd"});
+    }
 }

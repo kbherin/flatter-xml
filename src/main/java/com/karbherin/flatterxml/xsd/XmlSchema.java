@@ -13,6 +13,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class XmlSchema {
 
@@ -52,16 +53,37 @@ public class XmlSchema {
     }
 
     private void resolveReferences() {
+        // Resolve any references. Any element type with ref != null and type=null needs resolution.
         complexTypes.values().forEach(
-                elements -> elements.stream()
-                        .filter(el -> el.getRef() != null && elementTypes.containsKey(el.getRef()))
-                        .forEach(el -> {
-                            XsdElement.copyDefinitionAttrs(elementTypes.get(el.getRef()), el);
-                        }));
+                children -> children.stream()
+                        .filter(child -> child.getRef() != null
+                                && child.getType() == null
+                                && elementTypes.containsKey(child.getRef()))
+                        .forEach(child -> XsdElement.copyDefinitionAttrs(
+                                elementTypes.get(child.getRef()), child)));
         complexTypes.remove(null);
         complexTypes.entrySet()
                 .forEach(ent -> elementTypes.get(ent.getKey()).setChildElements(ent.getValue()));
-        complexTypes = null;
+    }
+
+    public static void resolveReferences(List<XmlSchema> xsds) {
+        // All elements from all XSDs
+        Map<QName, XsdElement> allElementTypes = xsds.stream()
+                .flatMap(xsd -> xsd.elementTypes.entrySet().stream())
+                .collect(Collectors.toMap(ent -> ent.getKey(), ent -> ent.getValue()));
+
+        // Resolve any references. Any element type with ref != null and type=null needs resolution.
+        xsds.stream().forEach(xsd ->
+            xsd.complexTypes.values().forEach(
+                    children -> children.stream()
+                            .filter(child -> child.getRef() != null
+                                    && child.getType() == null
+                                    && allElementTypes.containsKey(child.getRef()))
+                            .forEach(child -> XsdElement.copyDefinitionAttrs(
+                                    allElementTypes.get(child.getRef()), child))));
+
+        // Clear the memory for complex types
+        xsds.stream().forEach(xsd -> xsd.complexTypes = null);
     }
 
     private void examine(XMLEvent el) {

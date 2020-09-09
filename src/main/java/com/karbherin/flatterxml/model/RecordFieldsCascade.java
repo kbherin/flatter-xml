@@ -1,5 +1,6 @@
-package com.karbherin.flatterxml;
+package com.karbherin.flatterxml.model;
 
+import com.karbherin.flatterxml.XmlHelpers;
 import com.karbherin.flatterxml.xsd.XmlSchema;
 import com.karbherin.flatterxml.xsd.XsdElement;
 
@@ -11,25 +12,20 @@ import java.util.stream.Stream;
 
 public final class RecordFieldsCascade {
     private final QName recordName;
-    private final List<XmlHelpers.FieldValue<QName, String>> cascadeFieldValueList = new ArrayList<>();
-    private final Map<QName, Integer> positions;
+    private final List<FieldValue<QName, String>> cascadeFieldValueList = new ArrayList<>();
+    private final Map<String, Integer> positions;
     private final RecordFieldsCascade parent;
-    private List<XmlHelpers.FieldValue<String, String>> toCascadeToChild = null;
+    private List<FieldValue<String, String>> toCascadeToChild = null;
 
     public enum CascadePolicy {NONE, ALL, XSD};
 
-    public RecordFieldsCascade(StartElement recordName, String[] primaryTags, List<XmlSchema> xsds,
-                               RecordFieldsCascade parent) {
+    public RecordFieldsCascade(StartElement recordName, List<QName> cascadingFields,
+                               RecordFieldsCascade parent, List<XmlSchema> xsds) {
         this.recordName = recordName.getName();
-        if (primaryTags == null) {
+        if (cascadingFields == null) {
             positions = setupCascadeFields(new ArrayList<QName>(), xsds);
         } else {
-            List<QName> qtags = new ArrayList<>();
-            for (String tag: primaryTags) {
-                qtags.add(XmlHelpers.parsePrefixTag(tag, recordName.getNamespaceContext(),
-                        recordName.getName().getNamespaceURI()));
-            }
-            positions = setupCascadeFields(qtags, xsds);
+            positions = setupCascadeFields(cascadingFields, xsds);
         }
 
         this.parent = parent == null ? this : parent;
@@ -37,14 +33,14 @@ public final class RecordFieldsCascade {
     }
 
     public void addCascadingData(QName tagName, String tagValue, CascadePolicy policy) {
-        Integer pos = positions.get(tagName);
+        Integer pos = positions.get(tagName.getLocalPart());
         if (pos != null) {
             // Capture the data value at the designated location
-            cascadeFieldValueList.get(pos).value = tagValue;
+            cascadeFieldValueList.get(pos).setValue(tagValue);
         } else if (policy == CascadePolicy.ALL) {
-            positions.put(tagName, cascadeFieldValueList.size());
+            positions.put(tagName.getLocalPart(), cascadeFieldValueList.size());
             // Append the tag-value pair only if policy is cascade ALL
-            cascadeFieldValueList.add(new XmlHelpers.FieldValue<>(tagName, tagValue));
+            cascadeFieldValueList.add(new FieldValue<>(tagName, tagValue));
         }
     }
 
@@ -55,13 +51,23 @@ public final class RecordFieldsCascade {
      * @param cascadeFields
      * @return
      */
-    private Map<QName, Integer> setupCascadeFields(List<QName> cascadeFields, List<XmlSchema> xsds) {
-        if (cascadeFields == null)
-            return Collections.emptyMap();
+    private Map<String, Integer> setupCascadeFields(List<QName> cascadeFields, List<XmlSchema> xsds) {
 
-        Map<QName, Integer> primaryTagList = new HashMap<>();
+        Map<String, Integer> primaryTagList = new HashMap<>();
         final int[] mutablePos = new int[]{0};
 
+        // Is caller explicitly specifies a fields cascade file then that is given priority.
+        if (!cascadeFields.isEmpty()) {
+            cascadeFields.stream()
+                    .filter(tag -> !primaryTagList.containsKey(tag))
+                    .forEach(tag -> {
+                        primaryTagList.put(tag.getLocalPart(), mutablePos[0]++);
+                        cascadeFieldValueList.add(new FieldValue<>(tag, XmlHelpers.EMPTY));
+                    });
+            return primaryTagList;
+        }
+
+        // Cascade all mandatory fields in XSDs.
         // Find the element in all the XSDs
         XsdElement schemaRec = xsds.stream()
                 .map(xsd -> xsd.getElementByName(recordName))
@@ -76,11 +82,11 @@ public final class RecordFieldsCascade {
                     .map(field -> field.getName());
         }
 
-        Stream.concat(cascadeFields.stream(), schemaRecFields)
-                .filter(tag -> !primaryTagList.containsKey(tag))
+        schemaRecFields
+                .filter(tag -> !primaryTagList.containsKey(tag.getLocalPart()))
                 .forEach(tag -> {
-                    primaryTagList.put(tag, mutablePos[0]++);
-                    cascadeFieldValueList.add(new XmlHelpers.FieldValue<>(tag, XmlHelpers.EMPTY));
+                    primaryTagList.put(tag.getLocalPart(), mutablePos[0]++);
+                    cascadeFieldValueList.add(new FieldValue<>(tag, XmlHelpers.EMPTY));
                 });
 
         return primaryTagList;
@@ -98,9 +104,9 @@ public final class RecordFieldsCascade {
 
         // Current record fields are formatted as RecordName.RecordField
         parent.toCascadeToChild = parent.getCascadeFieldValueList().stream()
-                .map(fv -> new XmlHelpers.FieldValue<>(
-                    String.format("%s.%s", parent.recordName.getLocalPart(),
-                        XmlHelpers.toPrefixedTag(fv.field)), fv.value))
+                .map(fv -> new FieldValue<>(
+                    String.format("%s.%s", XmlHelpers.toPrefixedTag(parent.recordName),
+                        fv.getField().getLocalPart()), fv.getValue()))
                 .collect(Collectors.toList());
 
         // Parent record fields were already formatted as ParentRecordName.ParentRecordField
@@ -113,7 +119,7 @@ public final class RecordFieldsCascade {
      */
     public RecordFieldsCascade clearCurrentRecordCascades() {
         for (int i = 0; i < cascadeFieldValueList.size(); i++) {
-            cascadeFieldValueList.get(i).value = XmlHelpers.EMPTY;
+            cascadeFieldValueList.get(i).setValue(XmlHelpers.EMPTY);
         }
         return this;
     }
@@ -126,11 +132,11 @@ public final class RecordFieldsCascade {
         return this;
     }
 
-    public List<XmlHelpers.FieldValue<QName, String>> getCascadeFieldValueList() {
+    public List<FieldValue<QName, String>> getCascadeFieldValueList() {
         return cascadeFieldValueList;
     }
 
-    public List<XmlHelpers.FieldValue<String, String>> getParentCascadedFieldValueList() {
+    public List<FieldValue<String, String>> getParentCascadedFieldValueList() {
         return parent.toCascadeToChild;
     }
 
