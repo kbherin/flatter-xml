@@ -38,7 +38,8 @@ public class DelimitedFileHandler implements RecordHandler {
             try {
                 String filePath = String.format("%s/%s.csv", outDir, fName);
 
-                newOut = Files.newByteChannel(Paths.get(filePath), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                newOut = Files.newByteChannel(Paths.get(filePath),
+                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
 
                 // Register the new file stream.
                 filesWritten.add(new String[]{String.valueOf(currLevel), fName, previousFileName});
@@ -80,8 +81,9 @@ public class DelimitedFileHandler implements RecordHandler {
             throws IOException {
 
         Iterator<FieldValue<String, String>> dataIt = data.iterator();
-        if (!dataIt.hasNext())
+        if (!dataIt.hasNext()) {
             return;
+        }
 
         ByteBuffer buf = buffer.get();
         buf.clear();
@@ -89,31 +91,34 @@ public class DelimitedFileHandler implements RecordHandler {
         if (part == KeyValuePart.FIELD_PART) {
             buf.put(dataIt.next().getField().getBytes());
             while (dataIt.hasNext()) {
-                buf.put(delimiter);
-                buf.put(dataIt.next().getField().getBytes());
+                buf.put(delimiter)
+                        .put(dataIt.next().getField().getBytes());
             }
 
             // Appendix
             for (FieldValue<String, String> appendData: appendList) {
-                buf.put(delimiter);
-                buf.put(appendData.getField().getBytes());
+                buf.put(delimiter)
+                        .put(appendData.getField().getBytes());
             }
 
         } else {
             buf.put(dataIt.next().getValue().getBytes());
             while (dataIt.hasNext()) {
-                buf.put(delimiter);
-                buf.put(dataIt.next().getValue().getBytes());
+                buf.put(delimiter)
+                        .put(dataIt.next().getValue().getBytes());
             }
 
             // Appendix
             for (FieldValue<String, String> appendData: appendList) {
-                buf.put(delimiter);
-                buf.put(appendData.getValue().getBytes());
+                buf.put(delimiter)
+                        .put(appendData.getValue().getBytes());
             }
         }
 
+        // Final line separator
         buf.put(System.lineSeparator().getBytes());
+
+        // Write to output channel
         buf.flip();
         out.write(buf);
     }

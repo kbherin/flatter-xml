@@ -6,6 +6,9 @@ import javax.xml.stream.events.XMLEvent;
 import java.io.*;
 import java.nio.channels.Channels;
 import java.nio.channels.Pipe;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -93,7 +96,8 @@ public class XmlEventEmitter {
 
 
         XMLEventReader reader = XMLInputFactory.newFactory().createXMLEventReader(
-                new BufferedInputStream(new FileInputStream(xmlFile), 204800));
+                Channels.newInputStream(Files.newByteChannel(
+                        Paths.get(xmlFile), StandardOpenOption.READ)));
 
         int currentChannel = 0;
         boolean tracking = false;
