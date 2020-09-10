@@ -4,6 +4,12 @@ import com.karbherin.flatterxml.model.RecordFieldsCascade;
 import com.karbherin.flatterxml.model.FieldValue;
 
 import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.channels.ByteChannel;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -14,7 +20,7 @@ public class DelimitedFileHandler implements RecordHandler {
     private final String outDir;
     private final String fileSuffix;
     private final List<String[]> filesWritten = new ArrayList<>();
-    private final ConcurrentHashMap<String, OutputStream> fileStreams = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ByteChannel> fileStreams = new ConcurrentHashMap<>();
 
     private enum KeyValuePart {FIELD_PART, VALUE_PART};
 
@@ -29,15 +35,15 @@ public class DelimitedFileHandler implements RecordHandler {
             throws IOException {
 
         final IOException[] exceptions = new IOException[1];
-        OutputStream out = fileStreams.computeIfAbsent(fileName, (fName) -> {
-            OutputStream newOut = null;
+        ByteChannel out = fileStreams.computeIfAbsent(fileName, (fName) -> {
+            ByteChannel newOut = null;
             try {
-                newOut = new BufferedOutputStream(
-                        new FileOutputStream(String.format("%s/%s%s.csv", outDir, fName, fileSuffix)));
+                String filePath = String.format("%s/%s%s.csv", outDir, fName, fileSuffix);
+
+                newOut = Files.newByteChannel(Paths.get(filePath), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
 
                 // Register the new file stream.
                 filesWritten.add(new String[]{String.valueOf(currLevel), fName, previousFileName});
-
 
                 // Writer header record into a newly opened file.
                 writeDelimited(newOut, fieldValueStack, KeyValuePart.FIELD_PART, cascadedData.getParentCascadedFieldValueList());
@@ -56,10 +62,9 @@ public class DelimitedFileHandler implements RecordHandler {
     }
 
     public void closeAllFileStreams() {
-        for (Map.Entry<String, OutputStream> entry: fileStreams.entrySet()) {
+        for (Map.Entry<String, ByteChannel> entry: fileStreams.entrySet()) {
             try {
-                OutputStream out = entry.getValue();
-                out.flush();
+                ByteChannel out = entry.getValue();
                 out.close();
             } catch (IOException ex) {
                 ;
@@ -71,7 +76,7 @@ public class DelimitedFileHandler implements RecordHandler {
         return filesWritten;
     }
 
-    private void writeDelimited(OutputStream out,
+    private void writeDelimited(ByteChannel out,
                                 Iterable<FieldValue<String, String>> data,
                                 KeyValuePart part, Iterable<FieldValue<String, String>> appendList)
             throws IOException {
@@ -80,35 +85,38 @@ public class DelimitedFileHandler implements RecordHandler {
         if (!dataIt.hasNext())
             return;
 
+        ByteBuffer buf = ByteBuffer.allocate(8192);
+
         if (part == KeyValuePart.FIELD_PART) {
-            out.write(dataIt.next().getField().getBytes());
+            buf.put(dataIt.next().getField().getBytes());
             while (dataIt.hasNext()) {
-                out.write(delimiter);
-                out.write(dataIt.next().getField().getBytes());
+                buf.put(delimiter);
+                buf.put(dataIt.next().getField().getBytes());
             }
 
             // Appendix
-            for (FieldValue<String, String> append: appendList) {
-                out.write(delimiter);
-                out.write(append.getField().getBytes());
+            for (FieldValue<String, String> appendData: appendList) {
+                buf.put(delimiter);
+                buf.put(appendData.getField().getBytes());
             }
+
         } else {
-            out.write(dataIt.next().getValue().getBytes());
+            buf.put(dataIt.next().getValue().getBytes());
             while (dataIt.hasNext()) {
-                out.write(delimiter);
-                out.write(dataIt.next().getValue().getBytes());
+                buf.put(delimiter);
+                buf.put(dataIt.next().getValue().getBytes());
             }
 
             // Appendix
-            for (FieldValue<String, String> append: appendList) {
-                out.write(delimiter);
-                out.write(append.getValue().getBytes());
+            for (FieldValue<String, String> appendData: appendList) {
+                buf.put(delimiter);
+                buf.put(appendData.getValue().getBytes());
             }
         }
 
-
-
-        out.write(System.lineSeparator().getBytes());
+        buf.put(System.lineSeparator().getBytes());
+        buf.flip();
+        out.write(buf);
     }
 
 }
