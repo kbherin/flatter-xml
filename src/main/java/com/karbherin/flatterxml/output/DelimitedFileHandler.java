@@ -5,7 +5,6 @@ import com.karbherin.flatterxml.model.FieldValue;
 
 import java.io.*;
 import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
 import java.nio.channels.ByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -18,16 +17,15 @@ public class DelimitedFileHandler implements RecordHandler {
 
     private final byte[] delimiter;
     private final String outDir;
-    private final String fileSuffix;
     private final List<String[]> filesWritten = new ArrayList<>();
     private final ConcurrentHashMap<String, ByteChannel> fileStreams = new ConcurrentHashMap<>();
+    private final ThreadLocal<ByteBuffer> buffer = ThreadLocal.withInitial(() -> ByteBuffer.allocate(8192));
 
     private enum KeyValuePart {FIELD_PART, VALUE_PART};
 
-    public DelimitedFileHandler(String delimiter, String outDir, String fileSuffix) {
+    public DelimitedFileHandler(String delimiter, String outDir) {
         this.delimiter = delimiter.getBytes();
         this.outDir = outDir;
-        this.fileSuffix = fileSuffix;
     }
 
     public void write(String fileName, Iterable<FieldValue<String, String>> fieldValueStack,
@@ -38,7 +36,7 @@ public class DelimitedFileHandler implements RecordHandler {
         ByteChannel out = fileStreams.computeIfAbsent(fileName, (fName) -> {
             ByteChannel newOut = null;
             try {
-                String filePath = String.format("%s/%s%s.csv", outDir, fName, fileSuffix);
+                String filePath = String.format("%s/%s.csv", outDir, fName);
 
                 newOut = Files.newByteChannel(Paths.get(filePath), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
 
@@ -85,7 +83,8 @@ public class DelimitedFileHandler implements RecordHandler {
         if (!dataIt.hasNext())
             return;
 
-        ByteBuffer buf = ByteBuffer.allocate(8192);
+        ByteBuffer buf = buffer.get();
+        buf.clear();
 
         if (part == KeyValuePart.FIELD_PART) {
             buf.put(dataIt.next().getField().getBytes());

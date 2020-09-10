@@ -2,7 +2,6 @@ package com.karbherin.flatterxml.feeder;
 
 import com.karbherin.flatterxml.FlattenXml;
 import com.karbherin.flatterxml.model.RecordsDefinitionRegistry;
-import com.karbherin.flatterxml.output.DelimitedFileHandler;
 import com.karbherin.flatterxml.output.StatusReporter;
 import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.xsd.XmlSchema;
@@ -14,7 +13,6 @@ import java.nio.channels.Channels;
 import java.nio.channels.Pipe;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.stream.Collectors;
 
 public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
 
@@ -29,10 +27,12 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
     private final long batchSize;
     private final StatusReporter statusReporter;
     private int workerNumber = 0;
+    private RecordHandler recordHandler;
 
     private XmlFlattenerWorkerFactory(String xmlFilePath, String outDir, String delimiter,
-                                      String recordTag, List<XmlSchema> xsds,
+                                      String recordTag, RecordHandler recordHandler,
                                       CascadePolicy cascadePolicy,
+                                      List<XmlSchema> xsds,
                                       RecordsDefinitionRegistry recordCascadeFieldsSeq,
                                       RecordsDefinitionRegistry recordOutputFieldsSeq,
                                       long batchSize, StatusReporter statusReporter) {
@@ -47,11 +47,13 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
         this.recordOutputFieldsSeq = recordOutputFieldsSeq;
         this.batchSize = batchSize;
         this.statusReporter = statusReporter;
+        this.recordHandler = recordHandler;
     }
 
     public static XmlFlattenerWorkerFactory newInstance(String xmlFilePath, String outDir, String delimiter,
-                                                        String recordTag, List<XmlSchema> xsds,
+                                                        String recordTag, RecordHandler recordHandler,
                                                         CascadePolicy cascadePolicy,
+                                                        List<XmlSchema> xsds,
                                                         File recordCascadeFieldsDefFile,
                                                         File recordOutputFieldsDefFile,
                                                         long batchSize, StatusReporter statusReporter)
@@ -69,8 +71,8 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
             recordOutputFieldsSeq = RecordsDefinitionRegistry.newInstance();
         }
 
-        return new XmlFlattenerWorkerFactory(xmlFilePath, outDir, delimiter, recordTag,
-                xsds, cascadePolicy, recordCascadeFieldsSeq, recordOutputFieldsSeq,
+        return new XmlFlattenerWorkerFactory(xmlFilePath, outDir, delimiter, recordTag, recordHandler,
+                cascadePolicy, xsds, recordCascadeFieldsSeq, recordOutputFieldsSeq,
                 batchSize, statusReporter);
     }
 
@@ -79,7 +81,7 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
         this.workerNumber++;
 
         final int workerNum = this.workerNumber;
-        RecordHandler recordHandler = new DelimitedFileHandler(delimiter, outDir, "_part" + workerNum);
+
 
         // Create XML flattener
         final FlattenXml.FlattenXmlBuilder setup = new FlattenXml.FlattenXmlBuilder()
@@ -129,13 +131,7 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
             statusReporter.logInfo(String.format(
                     "\nWorker %d: Total number of records processed by the worker = %d", workerNum, totalRecs));
 
-            String fileSuffix = "_part" + workerNum;
-            statusReporter.addFilesGenerated(recordHandler.getFilesWritten().stream()
-                    .map(tuple -> {
-                        tuple[1] += fileSuffix;
-                        tuple[2] += fileSuffix;
-                        return tuple;
-                    }).collect(Collectors.toList()));
+            statusReporter.addFilesGenerated(recordHandler.getFilesWritten());
             workerCounter.countDown();
 
         };

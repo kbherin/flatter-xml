@@ -4,6 +4,7 @@ import com.karbherin.flatterxml.feeder.XmlEventEmitter;
 import com.karbherin.flatterxml.feeder.XmlEventWorkerPool;
 import com.karbherin.flatterxml.feeder.XmlFlattenerWorkerFactory;
 import com.karbherin.flatterxml.output.DelimitedFileHandler;
+import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.output.StatusReporter;
 import com.karbherin.flatterxml.xsd.XmlSchema;
 import org.apache.commons.cli.*;
@@ -12,6 +13,7 @@ import javax.xml.stream.XMLStreamException;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -45,7 +47,7 @@ public class FlattenXmlRunner {
     private String xmlFilePath;
     private CommandLine cmd;
 
-    private List<String[]> filesGenerated = Collections.emptyList();
+    private Collection<String[]> filesGenerated = Collections.emptyList();
     private String rootTagName = XmlHelpers.EMPTY;
 
     // Track status and progress
@@ -167,7 +169,7 @@ public class FlattenXmlRunner {
         setup.setXmlStream(xmlStream);
 
         // Create XML flattener
-        DelimitedFileHandler recordHandler = new DelimitedFileHandler(delimiter, outDir, XmlHelpers.EMPTY);
+        DelimitedFileHandler recordHandler = new DelimitedFileHandler(delimiter, outDir);
         setup.setRecordWriter(recordHandler);
         final FlattenXml flattener = setup.create();
 
@@ -203,6 +205,7 @@ public class FlattenXmlRunner {
             }
         }
 
+        recordHandler.closeAllFileStreams();
         filesGenerated = recordHandler.getFilesWritten();
         rootTagName =  flattener.getRootElement().getName().getLocalPart();
         displayFilesGenerated(filesGenerated, rootTagName);
@@ -214,16 +217,18 @@ public class FlattenXmlRunner {
         InputStream xmlStream = new FileInputStream(xmlFilePath);
         setup.setXmlStream(xmlStream);
 
+        RecordHandler recordHandler = new DelimitedFileHandler(delimiter, outDir);
+
         // Initiate concurrent workers
         XmlEventEmitter emitter = new XmlEventEmitter(xmlFilePath);
         XmlFlattenerWorkerFactory workerFactory = XmlFlattenerWorkerFactory.newInstance(
-                xmlFilePath, outDir, delimiter,
-                recordTag, xsds, cascadePolicy, recordCascadeFieldsDefFile, recordOutputFieldsDefFile,
+                xmlFilePath, outDir, delimiter, recordTag, recordHandler,
+                cascadePolicy, xsds, recordCascadeFieldsDefFile, recordOutputFieldsDefFile,
                 batchSize, statusReporter);
 
         XmlEventWorkerPool workerPool = new XmlEventWorkerPool();
         workerPool.execute(numWorkers, emitter, workerFactory);
-        filesGenerated = statusReporter.getFilesGenerated();
+        recordHandler.closeAllFileStreams();
         rootTagName = emitter.getRootTag().getLocalPart();
 
         System.out.println();
@@ -232,13 +237,11 @@ public class FlattenXmlRunner {
                     XmlHelpers.toPrefixedTag(emitter.getRecordTag()));
         }
 
-        for (int i = 1; i <= numWorkers; i++) {
-            String fileSuffix = "_part" + i;
-            displayFilesGenerated(filesGenerated, rootTagName + fileSuffix);
-        }
+        filesGenerated = statusReporter.getFilesGenerated();
+        displayFilesGenerated(filesGenerated, rootTagName);
     }
 
-    private  List<String[]> run(String[] args) throws InterruptedException, XMLStreamException, IOException {
+    private  Collection<String[]> run(String[] args) throws InterruptedException, XMLStreamException, IOException {
         cmd = parseCliArgs(args);
         assignOptions();
 
@@ -261,11 +264,11 @@ public class FlattenXmlRunner {
             throws XMLStreamException, IOException, InterruptedException {
 
         FlattenXmlRunner runner = new FlattenXmlRunner();
-        List<String[]> filesWritten = runner.run(args);
+        Collection<String[]> filesWritten = runner.run(args);
         System.out.printf("Total number of files produced in %s: %d", runner.outDir, filesWritten.size());
     }
 
-    private static void displayFilesGenerated(List<String[]> filesWritten, String rootTagName) {
+    private static void displayFilesGenerated(Collection<String[]> filesWritten, String rootTagName) {
 
         // Display the files generated
         StringBuilder filesTreeStr = new StringBuilder();

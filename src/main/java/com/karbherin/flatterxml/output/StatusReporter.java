@@ -1,14 +1,13 @@
 package com.karbherin.flatterxml.output;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class StatusReporter {
     long start = System.currentTimeMillis();
 
     private AtomicLong recordCounter = new AtomicLong(0L);
-    private List<String[]> filesGenerated = new ArrayList<>();
+    private Map<String, String[]> filesGenerated = new HashMap<>();
 
 
     public synchronized void logError(Throwable exception, int workerNum) {
@@ -24,8 +23,8 @@ public class StatusReporter {
         return recordCounter.addAndGet(increment);
     }
 
-    public synchronized void addFilesGenerated(List<String[]> filesGenerated) {
-        this.filesGenerated.addAll(filesGenerated);
+    public synchronized void addFilesGenerated(List<String[]> filesGen) {
+        filesGen.stream().forEach(f -> this.filesGenerated.put(f[1], f));
     }
 
     /**
@@ -53,8 +52,8 @@ public class StatusReporter {
         return recordCounter.get();
     }
 
-    public List<String[]> getFilesGenerated() {
-        return filesGenerated;
+    public Collection<String[]> getFilesGenerated() {
+        return filesGenerated.values();
     }
 
 }
