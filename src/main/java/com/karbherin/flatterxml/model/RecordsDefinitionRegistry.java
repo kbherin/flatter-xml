@@ -103,6 +103,9 @@ public final class RecordsDefinitionRegistry {
         return new RecordsDefinitionRegistry(spec);
     }
 
+    /**
+     * Returns an empty record fields sequence.
+     */
     private static RecordsDefinitionRegistry EMPTY_REGISTRY = new RecordsDefinitionRegistry(Collections.emptyMap());
     public static RecordsDefinitionRegistry newInstance() {
         return EMPTY_REGISTRY;

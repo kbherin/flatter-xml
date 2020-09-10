@@ -19,6 +19,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.text.ParseException;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -112,10 +113,6 @@ public class XmlHelpers {
         }
     }
 
-    public static RecordsDefinitionRegistry parseTagValueCascades(String cascadingFieldsFile) throws IOException {
-        return RecordsDefinitionRegistry.newInstance(new File(cascadingFieldsFile));
-    }
-
     public static QName parsePrefixTag(String input, NamespaceContext nsContext, String targetNamespace) {
         String[] parts = input.split(":");
         if (parts.length > 1) {
@@ -180,9 +177,12 @@ public class XmlHelpers {
         return str == null || str.trim().length() == 0;
     }
 
+    public static <T> T defaultIfNull(T val, T defaultVal) {
+        return val == null ? defaultVal : val;
+    }
 
     public static String emptyIfNull(String str) {
-        return str == null ? EMPTY : str;
+        return defaultIfNull(str, EMPTY);
     }
 
 }

@@ -13,6 +13,7 @@ Java: 1.8 and above.
 ## Usage
 
 #### Library Use
+
 ##### Single Threaded
 ```java 
     FlattenXml flattener = new FlattenXml.FlattenXmlBuilder()
@@ -21,6 +22,8 @@ Java: 1.8 and above.
                 .setRecordTag("employee")                       // Inferred if not provided
                 .setDelimiter("|")                              // Defaults to ","
                 .setCascadePolicy("XSD")                        // Defaults to NONE
+                .setRecordCascadeFieldsSeq(yamlFile1)           // Optionally define fields to cascade in a YAML
+                .setRecordOutputFieldsSeq(yamlFile2)            // Optionally define output fields in a YAML
                 .setXsdFiles("emp.xsd,contact.xsd".split(","))  // Optional, but preferrable
                 .createFlattenXml();
     flattener.parseFlatten();
@@ -29,13 +32,13 @@ Java: 1.8 and above.
 ```java 
     XmlFlattenerWorkerFactory workerFactory = XmlFlattenerWorkerFactory.newInstance(
                     xmlFilePath, outDir, delimiter, /* Required */
-                    recordTag, xsds, cascadePolicy, recordCascadesTemplates,
+                    recordTag, xsds, cascadePolicy, recordCascadeFieldsDefFile, recordOutputFieldsDefFile,
                     batchSize, statusReporter);     /* Required */
     XmlEventWorkerPool workerPool = new XmlEventWorkerPool();
-    workerPool.execute(numWorkers, emitter, workerFactory);
+    workerPool.execute(numberOfWorkers, emitter, workerFactory);
 
 ```
-Multiple workers version generates multiple partial files suffixed with _part1, _part2, etc, for each record
+Multiple workers version generates multiple partial files suffixed with _part1, _part2, etc, for each record type.
  
 ### Command Line
 Use the main function in FlattenXmlRunner to run this on command line.
@@ -60,8 +63,36 @@ usage: FlattenXmlRunner XMLFile [OPTIONS]
                             Format: emp_ns.xsd,phone_ns.xsd,...
 ```
 
-    
+#### Output Definition
+For any record type(complex type) output fields and fields to cascade to child records,
+can be specified with 
+1) XSD
+2) Record Specification File
+
+##### Specifying the record definition file
+User can define either the output fields or fields to cascade from parent to child or both.
+1) Output fields for a record type can be specified with a call to `builder.setRecordOutputFieldsSeq(yamlFile2)`
+2) Similarly, fields to cascade for a record type can be specified with `builder.setRecordCascadeFieldsSeq(yamlFile1)`
+
+Both lists only support inclusion. 
+
+##### Effect of cascading fields, output fields and XSDs on the output
+
+|-f Output Def|-c Cascade Def|-x XSD| _Result:_ Output Fields                | _Result:_ Cascaded Fields              |
+|-------------|--------------|------|----------------------------------------|----------------------------------------|
+|    No       |       No     |  No  |All simple tags as they appear in XML   |No cascading from parent record         |
+|    No       |      "ALL"   |  No  |All simple tags as they appear in XML   |All tags cascade to child record        |
+|    No       |       No     | Yes  |All simple tags in same seq as in XSD   |All XSD mandatory tags cascade to child |
+|    No       |      "ALL"   | Yes  |All simple tags in same seq as in XSD   |All tags cascade to child record        |
+|    Yes      |       No     | Yes  |Simple tags & their seq as in Output Def|All XSD mandatory tags cascade to child |
+|    No       |       Yes    | Yes  |All simple tags, but in XSD seq         |Specified tags & seq as in Cascade Def  |
+|    Yes      |       No     |  No  |Simple tags & their seq as in Output Def|No cascading from parent record         |
+|    No       |       Yes    |  No  |All simple tags as their appear in XML  |Specified tags & seq as in Cascade Def  |
+|    Yes      |       Yes    |  No  |Simple tags & their seq as in Output Def|Specified tags & seq as in Cascade Def  |
+|    Yes      |       Yes    | Yes  |Simple tags & their seq as in Output Def|Specified tags & seq as in Cascade Def  |
+
 ## Examples
+
 #### Example 1
 An example of extracting information into CSV files about employees in an organization:
 ```xml
@@ -103,12 +134,13 @@ An example of extracting information into CSV files about employees in an organi
 
 ```
 
-If "record identifying" tag is not provided, it infers it as the tag that immediately follows the root tag.
+If "record identifying" tag is unavailable then it infers it as the tag that immediately follows the root tag.
 In this case it is `<employee>`.
 
-##### Record Fields Output Specification
-The output fields for any record type can be specified via an XSD or explicitly with a record specification file.
-An example of the file is in order:
+##### Record Definition File
+An example of the record specification file used is in order.
+
+The same file has been used for specifying output fields and cascading fields to child records.
 
 ```
 # Namespace prefixes defined here can be used to define record fields
@@ -124,7 +156,7 @@ records:
   "{http://kbps.com/emp}address":        # Record name itsel should form a QName
     - "address-type"                     # Record's fields do not need a prefix or NS URI
     - "line1"
-    - "emp:state"                        # With NS prefix
+    - "emp:state"                        # With NS prefixAML
     - "zip"
 ```
 

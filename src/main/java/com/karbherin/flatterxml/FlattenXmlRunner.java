@@ -36,8 +36,8 @@ public class FlattenXmlRunner {
     private int numWorkers = 1;
     private String recordTag = null;
     private CascadePolicy cascadePolicy = CascadePolicy.NONE;
-    private RecordsDefinitionRegistry recordCascadesRegistry = RecordsDefinitionRegistry.newInstance();
-    private RecordsDefinitionRegistry outputRecordFieldsSeq = RecordsDefinitionRegistry.newInstance();
+    private File recordCascadeFieldsDefFile = null;
+    private File recordOutputFieldsDefFile = null;
     private List<XmlSchema> xsds = Collections.emptyList();
     private long firstNRecs;
     private long batchSize;
@@ -121,12 +121,12 @@ public class FlattenXmlRunner {
                 cascadePolicy = CascadePolicy.XSD;
             } else {
                 // Is a filename
-                recordCascadesRegistry = XmlHelpers.parseTagValueCascades(cmd.getOptionValue("c"));
+                recordCascadeFieldsDefFile = new File(cmd.getOptionValue("c"));
             }
         }
 
         if (cmd.hasOption("f")) {
-            outputRecordFieldsSeq = RecordsDefinitionRegistry.newInstance(new File(cmd.getOptionValue("f")));
+            recordOutputFieldsDefFile = new File(cmd.getOptionValue("f"));
         }
 
         if (cmd.hasOption("x")) {
@@ -157,8 +157,8 @@ public class FlattenXmlRunner {
 
         setup.setRecordTag(recordTag)
                 .setCascadePolicy(cascadePolicy)
-                .setRecordCascadesRegistry(recordCascadesRegistry)
-                .setOutputRecordFieldsSeq(outputRecordFieldsSeq)
+                .setRecordCascadeFieldsSeq(recordCascadeFieldsDefFile)
+                .setRecordOutputFieldsSeq(recordOutputFieldsDefFile)
                 .setXsdFiles(xsds);
 
         InputStream xmlStream = new FileInputStream(xmlFilePath);
@@ -216,7 +216,7 @@ public class FlattenXmlRunner {
         XmlEventEmitter emitter = new XmlEventEmitter(xmlFilePath);
         XmlFlattenerWorkerFactory workerFactory = XmlFlattenerWorkerFactory.newInstance(
                 xmlFilePath, outDir, delimiter,
-                recordTag, xsds, cascadePolicy, recordCascadesRegistry,
+                recordTag, xsds, cascadePolicy, recordCascadeFieldsDefFile, recordOutputFieldsDefFile,
                 batchSize, statusReporter);
 
         XmlEventWorkerPool workerPool = new XmlEventWorkerPool();

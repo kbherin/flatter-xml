@@ -11,6 +11,7 @@ import static com.karbherin.flatterxml.model.RecordFieldsCascade.CascadePolicy;
 
 import java.io.*;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 
@@ -22,14 +23,16 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
     private final String recordTag;
     private final List<XmlSchema> xsds;
     private final CascadePolicy cascadePolicy;
-    private final RecordsDefinitionRegistry recordCascadesReg;
+    private final RecordsDefinitionRegistry recordCascadeFieldsSeq;
+    private final RecordsDefinitionRegistry recordOutputFieldsSeq;
     private final long batchSize;
     private final StatusReporter statusReporter;
 
     private XmlFlattenerWorkerFactory(String xmlFilePath, String outDir, String delimiter,
                                       String recordTag, List<XmlSchema> xsds,
                                       CascadePolicy cascadePolicy,
-                                      RecordsDefinitionRegistry recordCascadesReg,
+                                      RecordsDefinitionRegistry recordCascadeFieldsSeq,
+                                      RecordsDefinitionRegistry recordOutputFieldsSeq,
                                       long batchSize, StatusReporter statusReporter) {
 
         this.xmlFileName = new File(xmlFilePath).getName(); // Extract base name from the XML file path
@@ -38,7 +41,8 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
         this.recordTag = recordTag;
         this.xsds = xsds;
         this.cascadePolicy = cascadePolicy;
-        this.recordCascadesReg = recordCascadesReg;
+        this.recordCascadeFieldsSeq = recordCascadeFieldsSeq;
+        this.recordOutputFieldsSeq = recordOutputFieldsSeq;
         this.batchSize = batchSize;
         this.statusReporter = statusReporter;
     }
@@ -46,11 +50,25 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
     public static XmlFlattenerWorkerFactory newInstance(String xmlFilePath, String outDir, String delimiter,
                                                         String recordTag, List<XmlSchema> xsds,
                                                         CascadePolicy cascadePolicy,
-                                                        RecordsDefinitionRegistry recordCascadesReg,
-                                                        long batchSize, StatusReporter statusReporter) {
+                                                        File recordCascadeFieldsDefFile,
+                                                        File recordOutputFieldsDefFile,
+                                                        long batchSize, StatusReporter statusReporter)
+            throws IOException {
+
+        RecordsDefinitionRegistry recordCascadeFieldsSeq = null, recordOutputFieldsSeq = null;
+        if (recordCascadeFieldsDefFile != null) {
+            recordCascadeFieldsSeq = RecordsDefinitionRegistry.newInstance(recordCascadeFieldsDefFile);
+        } else {
+            recordCascadeFieldsSeq = RecordsDefinitionRegistry.newInstance();
+        }
+        if (recordOutputFieldsDefFile != null) {
+            recordOutputFieldsSeq = RecordsDefinitionRegistry.newInstance(recordOutputFieldsDefFile);
+        } else {
+            recordOutputFieldsSeq = RecordsDefinitionRegistry.newInstance();
+        }
 
         return new XmlFlattenerWorkerFactory(xmlFilePath, outDir, delimiter, recordTag,
-                xsds, cascadePolicy, recordCascadesReg,
+                xsds, cascadePolicy, recordCascadeFieldsSeq, recordOutputFieldsSeq,
                 batchSize, statusReporter);
     }
 
@@ -63,7 +81,8 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
                 .setRecordTag(recordTag)
                 .setXsdFiles(xsds)
                 .setCascadePolicy(cascadePolicy)
-                .setRecordCascadesRegistry(recordCascadesReg)
+                .setRecordCascadeFieldsSeq(recordCascadeFieldsSeq)
+                .setRecordOutputFieldsSeq(recordOutputFieldsSeq)
                 .setRecordWriter(recordHandler)
                 .setXmlStream(new BufferedInputStream(channel));
 
