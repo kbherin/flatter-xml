@@ -2,7 +2,7 @@ package com.karbherin.flatterxml.feeder;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
-import java.io.PipedInputStream;
+import java.nio.channels.Pipe;
 import java.util.concurrent.CountDownLatch;
 
 public class XmlEventWorkerPool {
@@ -13,10 +13,10 @@ public class XmlEventWorkerPool {
 
         CountDownLatch workerCounter = new CountDownLatch(numWorkers);
 
-        for (int i = 1; i <= numWorkers; i++) {
-            PipedInputStream channel = new PipedInputStream();
-            xmlEventEmitter.registerChannel(channel);
-            Runnable worker = xmlEventWorkerFactory.newWorker(channel, i, workerCounter);
+        for (int i = 0; i < numWorkers; i++) {
+            Pipe pipe = Pipe.open();
+            xmlEventEmitter.registerChannel(pipe.sink());
+            Runnable worker = xmlEventWorkerFactory.newWorker(pipe.source(), workerCounter);
             new Thread(worker).start();
         }
 

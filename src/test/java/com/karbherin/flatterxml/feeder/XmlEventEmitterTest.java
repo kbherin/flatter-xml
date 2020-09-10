@@ -5,6 +5,8 @@ import org.junit.Test;
 
 import javax.xml.stream.*;
 import java.io.*;
+import java.nio.channels.Channels;
+import java.nio.channels.Pipe;
 import java.util.concurrent.CountDownLatch;
 
 public class XmlEventEmitterTest {
@@ -27,9 +29,9 @@ public class XmlEventEmitterTest {
         CountDownLatch workerCounter = new CountDownLatch(numWorkers);
         Thread[] workers = new Thread[numWorkers];
         for (int i = numWorkers; i > 0; i--) {
-            PipedInputStream channel = new PipedInputStream();
-            emitter.registerChannel(channel);
-            Thread worker = newWorkerThread(channel, numWorkers-i+1,
+            Pipe pipe = Pipe.open();
+            emitter.registerChannel(pipe.sink());
+            Thread worker = newWorkerThread(pipe.source(), numWorkers-i+1,
                     outDir, workerCounter);
             workers[i-1] = worker;
             worker.start();
@@ -40,12 +42,12 @@ public class XmlEventEmitterTest {
         return emitter.getRecCounter();
     }
 
-    private Thread newWorkerThread(final PipedInputStream channel, int channelNum, String outDir,
+    private Thread newWorkerThread(final Pipe.SourceChannel channel, int channelNum, String outDir,
                                    CountDownLatch workerCounter) {
         return new Thread(() -> {
             XMLEventReader reader;
             try {
-                reader = XMLInputFactory.newFactory().createXMLEventReader(channel);
+                reader = XMLInputFactory.newFactory().createXMLEventReader(Channels.newInputStream(channel));
                 XMLEventWriter os = XMLOutputFactory.newFactory().createXMLEventWriter(
                         new FileOutputStream(String.format("%s/part%d.xml", outDir, channelNum)));
 

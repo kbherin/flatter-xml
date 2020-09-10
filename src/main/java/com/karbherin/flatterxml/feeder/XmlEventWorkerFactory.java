@@ -1,10 +1,10 @@
 package com.karbherin.flatterxml.feeder;
 
-import java.io.PipedInputStream;
+import java.nio.channels.Pipe;
 import java.util.concurrent.CountDownLatch;
 
 public interface XmlEventWorkerFactory {
 
-    Runnable newWorker(PipedInputStream channel, int channelNum, CountDownLatch workerCounter);
+    Runnable newWorker(Pipe.SourceChannel channel, CountDownLatch workerCounter);
 
 }

@@ -3,7 +3,6 @@ package com.karbherin.flatterxml;
 import com.karbherin.flatterxml.feeder.XmlEventEmitter;
 import com.karbherin.flatterxml.feeder.XmlEventWorkerPool;
 import com.karbherin.flatterxml.feeder.XmlFlattenerWorkerFactory;
-import com.karbherin.flatterxml.model.RecordsDefinitionRegistry;
 import com.karbherin.flatterxml.output.DelimitedFileHandler;
 import com.karbherin.flatterxml.output.StatusReporter;
 import com.karbherin.flatterxml.xsd.XmlSchema;
@@ -11,6 +10,8 @@ import org.apache.commons.cli.*;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +30,7 @@ public class FlattenXmlRunner {
     private static final String INDENT = "  ";
     private static final HelpFormatter HELP_FORMATTER = new HelpFormatter();
 
-    private final Options OPTIONS = new Options();
+    private final Options options = new Options();
     private final FlattenXml.FlattenXmlBuilder setup;
     private String delimiter = "|";
     private String outDir = "csvs";
@@ -51,38 +52,39 @@ public class FlattenXmlRunner {
     private final StatusReporter statusReporter = new StatusReporter();
 
     private FlattenXmlRunner() {
-        OPTIONS.addOption("o", "output-dir", true,
+        options.addOption("o", "output-dir", true,
                 "Output directory for generating tabular files. Defaults to current directory");
-        OPTIONS.addOption("d", "delimiter", true,
+        options.addOption("d", "delimiter", true,
                 "Delimiter. Defaults to a comma(,)");
-        OPTIONS.addOption("r", "record-tag", true,
+        options.addOption("r", "record-tag", true,
                 "Primary record tag from where parsing begins. If not provided entire file will be parsed");
-        OPTIONS.addOption("n", "n-records", true,
+        options.addOption("n", "n-records", true,
                 "Number of records to process in the XML document");
-        OPTIONS.addOption("p", "progress", true,
+        options.addOption("p", "progress", true,
                 "Report progress after a batch. Defaults to 100");
-        OPTIONS.addOption("f", "output-fields", true,
+        options.addOption("f", "output-fields", true,
                 "Desired output fields for each record(complex) type in a YAML file");
-        OPTIONS.addOption("c", "cascades", true,
+        options.addOption("c", "cascades", true,
                 "Data for tags under a record(complex) type element is cascaded to child records."
                 +"\nNONE|ALL|XSD|<record-fields-yaml>.\nDefaults to NONE");
-        OPTIONS.addOption("x", "xsd", true,
+        options.addOption("x", "xsd", true,
                 "XSD files. Comma separated list.\nFormat: emp_ns.xsd,phone_ns.xsd,...");
-        OPTIONS.addOption("w", "workers", true,
+        options.addOption("w", "workers", true,
                 "Number of parallel workers. Defaults to 1");
 
         setup = new FlattenXml.FlattenXmlBuilder();
     }
 
     private void printHelp() {
-        HELP_FORMATTER.printHelp( "FlattenXmlRunner XMLFile [OPTIONS]", OPTIONS);
+        HELP_FORMATTER.printHelp( "FlattenXmlRunner [OPTIONS] XMLFile", options);
     }
 
     private CommandLine parseCliArgs(String[] args) {
         CommandLineParser parser = new DefaultParser();
         try {
-            return parser.parse(OPTIONS, args);
+            return parser.parse(options, args);
         } catch (ParseException ex) {
+            System.err.println(ex.getMessage());
             printHelp();
             throw new IllegalArgumentException("Could not understand the options provided to the program");
         }
@@ -297,13 +299,9 @@ public class FlattenXmlRunner {
     }
 
 
-    private static void createOutputDirectory(String outDir) throws FileNotFoundException {
-        // Create output directory
-        if (!new File(outDir).isDirectory()) {
-            if (new File(outDir).mkdirs()) {
-                throw new FileNotFoundException("Could not create the output directory");
-            }
-        }
+    private static void createOutputDirectory(String outDir) throws IOException {
+        // Create output directory path
+        Files.createDirectories(Paths.get(outDir));
     }
 
 }

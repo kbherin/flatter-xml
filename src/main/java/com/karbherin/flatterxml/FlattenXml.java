@@ -64,7 +64,7 @@ public class FlattenXml {
             throws XMLStreamException {
 
         this.recordTagGiven = recordTag;
-        this.reader = XMLInputFactory.newFactory().createXMLEventReader(xmlStream);
+        this.reader = XMLInputFactory.newFactory().createXMLEventReader(new BufferedInputStream(xmlStream));
         this.recordCascadesRegistry = recordCascadesRegistry;
         this.cascadePolicy = cascadePolicy;
         this.recordHandler = recordHandler;
@@ -341,21 +341,6 @@ public class FlattenXml {
             recordHandler.write(recordTagName, fieldValueList, cascadingStack.peek(), currLevel, previousFile());
         }
     }
-
-    /*private List<FieldValue<String, String>> alignFieldsToOutputFieldsSeq(
-            List<FieldValue<QName, String>> fieldValueStack, List<QName> outFieldsSeq) {
-
-        // Make a field-value map first.
-        Map<String, FieldValue<QName, String>> fv = fieldValueStack.stream()
-                .collect(Collectors.toMap(o -> o.getField().getLocalPart(), o -> o));
-
-        Stack<String[]> aligned = new Stack<>();
-        return outFieldsSeq.stream()
-                .map( tagName -> tagName.getLocalPart() )
-                .map( tagName -> new FieldValue<>(tagName,
-                        XmlHelpers.emptyIfNull(fv.get(tagName))) )
-                .collect(Collectors.toList());
-    }*/
 
     private List<FieldValue<String, String>> alignFieldsToSchema(
             List<FieldValue<QName, String>> fieldValueStack, List<QName> schemaFields) {

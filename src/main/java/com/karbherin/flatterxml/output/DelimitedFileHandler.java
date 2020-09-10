@@ -48,7 +48,9 @@ public class DelimitedFileHandler implements RecordHandler {
     public void closeAllFileStreams() {
         for (Map.Entry<String, OutputStream> entry: fileStreams.entrySet()) {
             try {
-                entry.getValue().close();
+                OutputStream out = entry.getValue();
+                out.flush();
+                out.close();
             } catch (IOException ex) {
                 ;
             }

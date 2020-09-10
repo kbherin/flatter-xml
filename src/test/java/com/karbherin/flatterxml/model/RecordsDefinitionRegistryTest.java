@@ -63,7 +63,7 @@ public class RecordsDefinitionRegistryTest {
         assertTrue(recSpec.getRecords().contains(QName.valueOf("{http://kbps.com/emp}employee")));
         Collection<QName> empFields = recSpec.getRecordFields(QName.valueOf("{http://kbps.com/emp}employee"));
         assertTrue(empFields.contains(QName.valueOf("employee-no")));
-        assertTrue(empFields.contains(QName.valueOf("employee-name")));
+        assertFalse(empFields.contains(QName.valueOf("employee-name")));
         assertTrue(empFields.contains(QName.valueOf("{http://kbps.com/emp}department")));
         assertFalse(empFields.contains(QName.valueOf("salary")));
 

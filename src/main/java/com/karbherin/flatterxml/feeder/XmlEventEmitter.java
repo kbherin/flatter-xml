@@ -4,6 +4,8 @@ import javax.xml.namespace.QName;
 import javax.xml.stream.*;
 import javax.xml.stream.events.XMLEvent;
 import java.io.*;
+import java.nio.channels.Channels;
+import java.nio.channels.Pipe;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -58,13 +60,14 @@ public class XmlEventEmitter {
 
     /**
      * Register a pipe to an events worker.
-     * @param worker
+     * @param channel
      * @throws IOException
      * @throws XMLStreamException
      */
-    public void registerChannel(PipedInputStream worker) throws IOException, XMLStreamException {
-        OutputStream pipe = new BufferedOutputStream(new PipedOutputStream(worker));
-        channels.add(outputFactory.createXMLEventWriter(pipe));
+    public void registerChannel(Pipe.SinkChannel channel) throws IOException, XMLStreamException {
+        OutputStream pipe = new BufferedOutputStream(Channels.newOutputStream(channel));
+        XMLEventWriter writer = outputFactory.createXMLEventWriter(pipe);
+        channels.add(writer);
         pipes.add(pipe);
     }
 

@@ -10,8 +10,9 @@ import com.karbherin.flatterxml.xsd.XmlSchema;
 import static com.karbherin.flatterxml.model.RecordFieldsCascade.CascadePolicy;
 
 import java.io.*;
+import java.nio.channels.Channels;
+import java.nio.channels.Pipe;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 
@@ -27,6 +28,7 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
     private final RecordsDefinitionRegistry recordOutputFieldsSeq;
     private final long batchSize;
     private final StatusReporter statusReporter;
+    private int workerNumber = 0;
 
     private XmlFlattenerWorkerFactory(String xmlFilePath, String outDir, String delimiter,
                                       String recordTag, List<XmlSchema> xsds,
@@ -73,7 +75,10 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
     }
 
     @Override
-    public Runnable newWorker(PipedInputStream channel, int workerNum, CountDownLatch workerCounter) {
+    public Runnable newWorker(Pipe.SourceChannel channel, CountDownLatch workerCounter) {
+        this.workerNumber++;
+
+        final int workerNum = this.workerNumber;
         RecordHandler recordHandler = new DelimitedFileHandler(delimiter, outDir, "_part" + workerNum);
 
         // Create XML flattener
@@ -84,9 +89,10 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
                 .setRecordCascadeFieldsSeq(recordCascadeFieldsSeq)
                 .setRecordOutputFieldsSeq(recordOutputFieldsSeq)
                 .setRecordWriter(recordHandler)
-                .setXmlStream(new BufferedInputStream(channel));
+                .setXmlStream(Channels.newInputStream(channel));
 
-        return new Thread(() -> {
+        // Return the worker to run in a thread
+        return () -> {
 
             long totalRecs = 0L;
             FlattenXml flattener = null;
@@ -132,6 +138,6 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
                     }).collect(Collectors.toList()));
             workerCounter.countDown();
 
-        });
+        };
     }
 }
