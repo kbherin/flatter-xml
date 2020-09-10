@@ -3,11 +3,9 @@ package com.karbherin.flatterxml.output;
 import com.karbherin.flatterxml.model.RecordFieldsCascade;
 import com.karbherin.flatterxml.model.FieldValue;
 
-import java.io.BufferedOutputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 public class DelimitedFileHandler implements RecordHandler {
@@ -16,7 +14,7 @@ public class DelimitedFileHandler implements RecordHandler {
     private final String outDir;
     private final String fileSuffix;
     private final List<String[]> filesWritten = new ArrayList<>();
-    private final Map<String, OutputStream> fileStreams = new HashMap<>();
+    private final ConcurrentHashMap<String, OutputStream> fileStreams = new ConcurrentHashMap<>();
 
     private enum KeyValuePart {FIELD_PART, VALUE_PART};
 
@@ -30,16 +28,28 @@ public class DelimitedFileHandler implements RecordHandler {
                       RecordFieldsCascade cascadedData, int currLevel, String previousFileName)
             throws IOException {
 
-        OutputStream out = fileStreams.get(fileName);
-        if (out == null) {
-            out = new BufferedOutputStream(
-                    new FileOutputStream(String.format("%s/%s%s.csv", outDir, fileName, fileSuffix)));
-            // Register the new file stream.
-            fileStreams.put(fileName, out);
-            filesWritten.add(new String[]{ String.valueOf(currLevel), fileName, previousFileName });
+        final IOException[] exceptions = new IOException[1];
+        OutputStream out = fileStreams.computeIfAbsent(fileName, (fName) -> {
+            OutputStream newOut = null;
+            try {
+                newOut = new BufferedOutputStream(
+                        new FileOutputStream(String.format("%s/%s%s.csv", outDir, fName, fileSuffix)));
 
-            // Writer header record into a newly opened file.
-            writeDelimited(out, fieldValueStack, KeyValuePart.FIELD_PART, cascadedData.getParentCascadedFieldValueList());
+                // Register the new file stream.
+                filesWritten.add(new String[]{String.valueOf(currLevel), fName, previousFileName});
+
+
+                // Writer header record into a newly opened file.
+                writeDelimited(newOut, fieldValueStack, KeyValuePart.FIELD_PART, cascadedData.getParentCascadedFieldValueList());
+            } catch (IOException ex) {
+                exceptions[0] = ex;
+            }
+
+            return newOut;
+        });
+
+        if (exceptions[0] != null) {
+            throw exceptions[0];
         }
 
         writeDelimited(out, fieldValueStack, KeyValuePart.VALUE_PART, cascadedData.getParentCascadedFieldValueList());
