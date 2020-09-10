@@ -128,9 +128,6 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
                 }
             }
 
-            statusReporter.logInfo(String.format(
-                    "\nWorker %d: Total number of records processed by the worker = %d", workerNum, totalRecs));
-
             statusReporter.addFilesGenerated(recordHandler.getFilesWritten());
             workerCounter.countDown();
 
