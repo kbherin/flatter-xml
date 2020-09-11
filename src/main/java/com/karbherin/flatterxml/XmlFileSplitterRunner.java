@@ -1,8 +1,8 @@
 package com.karbherin.flatterxml;
 
 import com.karbherin.flatterxml.feeder.XmlEventEmitter;
-import com.karbherin.flatterxml.feeder.XmlEventWorkerPool;
-import com.karbherin.flatterxml.feeder.XmlFileSplitterFactory;
+import com.karbherin.flatterxml.consumer.XmlEventWorkerPool;
+import com.karbherin.flatterxml.consumer.XmlFileSplitterFactory;
 import org.apache.commons.cli.*;
 
 import javax.xml.stream.XMLStreamException;

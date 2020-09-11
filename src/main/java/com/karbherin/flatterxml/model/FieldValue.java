@@ -1,6 +1,6 @@
 package com.karbherin.flatterxml.model;
 
-public class FieldValue<K, V> {
+public final class FieldValue<K, V> {
     private final K field;
     private V value;
 
@@ -19,5 +19,10 @@ public class FieldValue<K, V> {
 
     public void setValue(V value) {
         this.value = value;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%s => %s", field.toString(), value.toString());
     }
 }

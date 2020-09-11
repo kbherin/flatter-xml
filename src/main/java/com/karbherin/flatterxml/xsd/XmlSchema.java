@@ -1,7 +1,7 @@
 package com.karbherin.flatterxml.xsd;
 
-import static com.karbherin.flatterxml.XmlHelpers.extractAttrValue;
-import static com.karbherin.flatterxml.XmlHelpers.parsePrefixTag;
+import static com.karbherin.flatterxml.helper.XmlHelpers.extractAttrValue;
+import static com.karbherin.flatterxml.helper.XmlHelpers.parsePrefixTag;
 
 import javax.xml.XMLConstants;
 import javax.xml.namespace.QName;

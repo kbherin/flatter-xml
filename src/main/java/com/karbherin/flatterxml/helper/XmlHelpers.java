@@ -1,4 +1,4 @@
-package com.karbherin.flatterxml;
+package com.karbherin.flatterxml.helper;
 
 import com.karbherin.flatterxml.model.RecordsDefinitionRegistry;
 import com.karbherin.flatterxml.xsd.XmlSchema;

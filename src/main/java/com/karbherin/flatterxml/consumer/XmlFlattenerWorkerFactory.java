@@ -1,4 +1,4 @@
-package com.karbherin.flatterxml.feeder;
+package com.karbherin.flatterxml.consumer;
 
 import com.karbherin.flatterxml.FlattenXml;
 import com.karbherin.flatterxml.model.RecordsDefinitionRegistry;

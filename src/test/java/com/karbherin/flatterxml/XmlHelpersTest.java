@@ -1,5 +1,6 @@
 package com.karbherin.flatterxml;
 
+import com.karbherin.flatterxml.helper.XmlHelpers;
 import org.junit.Test;
 import org.xml.sax.SAXException;
 

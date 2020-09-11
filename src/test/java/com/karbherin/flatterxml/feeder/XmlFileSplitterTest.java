@@ -1,5 +1,7 @@
 package com.karbherin.flatterxml.feeder;
 
+import com.karbherin.flatterxml.consumer.XmlEventWorkerPool;
+import com.karbherin.flatterxml.consumer.XmlFileSplitterFactory;
 import org.junit.Assert;
 import org.junit.Test;
 

@@ -1,8 +1,9 @@
 package com.karbherin.flatterxml;
 
 import com.karbherin.flatterxml.feeder.XmlEventEmitter;
-import com.karbherin.flatterxml.feeder.XmlEventWorkerPool;
-import com.karbherin.flatterxml.feeder.XmlFlattenerWorkerFactory;
+import com.karbherin.flatterxml.consumer.XmlEventWorkerPool;
+import com.karbherin.flatterxml.consumer.XmlFlattenerWorkerFactory;
+import com.karbherin.flatterxml.helper.XmlHelpers;
 import com.karbherin.flatterxml.output.DelimitedFileHandler;
 import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.output.StatusReporter;

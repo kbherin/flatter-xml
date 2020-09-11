@@ -2,9 +2,9 @@ package com.karbherin.flatterxml.xsd;
 
 import static org.junit.Assert.*;
 
-import static com.karbherin.flatterxml.XmlHelpers.iteratorStream;
+import static com.karbherin.flatterxml.helper.XmlHelpers.iteratorStream;
 
-import com.karbherin.flatterxml.XmlHelpers;
+import com.karbherin.flatterxml.helper.XmlHelpers;
 import org.junit.BeforeClass;
 import org.junit.Test;
 

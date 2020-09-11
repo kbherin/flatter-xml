@@ -2,7 +2,7 @@ package com.karbherin.flatterxml.model;
 
 import org.yaml.snakeyaml.Yaml;
 
-import static com.karbherin.flatterxml.XmlHelpers.*;
+import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 
 import javax.xml.namespace.QName;
 import java.io.*;

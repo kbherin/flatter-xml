@@ -1,5 +1,6 @@
 package com.karbherin.flatterxml;
 
+import com.karbherin.flatterxml.helper.XmlHelpers;
 import com.karbherin.flatterxml.model.FieldValue;
 import com.karbherin.flatterxml.model.RecordFieldsCascade;
 import com.karbherin.flatterxml.model.RecordsDefinitionRegistry;
@@ -7,7 +8,7 @@ import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.xsd.XmlSchema;
 import com.karbherin.flatterxml.xsd.XsdElement;
 
-import static com.karbherin.flatterxml.XmlHelpers.*;
+import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 
 import javax.xml.namespace.QName;
 import javax.xml.stream.*;

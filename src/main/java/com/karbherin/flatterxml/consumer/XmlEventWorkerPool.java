@@ -1,4 +1,6 @@
-package com.karbherin.flatterxml.feeder;
+package com.karbherin.flatterxml.consumer;
+
+import com.karbherin.flatterxml.feeder.XmlEventEmitter;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;

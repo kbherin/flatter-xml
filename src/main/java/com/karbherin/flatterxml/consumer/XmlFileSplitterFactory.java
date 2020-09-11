@@ -1,4 +1,4 @@
-package com.karbherin.flatterxml.feeder;
+package com.karbherin.flatterxml.consumer;
 
 import javax.xml.namespace.QName;
 import javax.xml.stream.*;

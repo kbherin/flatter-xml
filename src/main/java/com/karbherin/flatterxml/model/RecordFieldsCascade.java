@@ -1,6 +1,6 @@
 package com.karbherin.flatterxml.model;
 
-import com.karbherin.flatterxml.XmlHelpers;
+import com.karbherin.flatterxml.helper.XmlHelpers;
 import com.karbherin.flatterxml.xsd.XmlSchema;
 import com.karbherin.flatterxml.xsd.XsdElement;
 

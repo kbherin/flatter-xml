@@ -1,4 +1,4 @@
-package com.karbherin.flatterxml.feeder;
+package com.karbherin.flatterxml.consumer;
 
 import java.nio.channels.Pipe;
 import java.util.concurrent.CountDownLatch;

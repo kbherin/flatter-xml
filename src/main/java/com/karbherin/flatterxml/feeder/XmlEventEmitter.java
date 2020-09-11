@@ -12,7 +12,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 
-public class XmlEventEmitter {
+public class XmlEventEmitter implements XmlRecordEmitter {
 
     private final XMLOutputFactory outputFactory = XMLOutputFactory.newFactory();
     private final List<XMLEventWriter> channels = new ArrayList<>();
@@ -67,7 +67,7 @@ public class XmlEventEmitter {
      * @throws IOException
      * @throws XMLStreamException
      */
-    public void registerChannel(Pipe.SinkChannel channel) throws IOException, XMLStreamException {
+    public void registerChannel(Pipe.SinkChannel channel) throws XMLStreamException {
         OutputStream pipe = new BufferedOutputStream(Channels.newOutputStream(channel));
         XMLEventWriter writer = outputFactory.createXMLEventWriter(pipe);
         channels.add(writer);
@@ -75,7 +75,7 @@ public class XmlEventEmitter {
     }
 
     /**
-     * Start events feed after skipping a few records and limited to a few records after that.
+     * Start events feed into the pipes.
      * @throws XMLStreamException
      * @throws IOException
      */
@@ -84,6 +84,23 @@ public class XmlEventEmitter {
             feed();
         } finally {
             closeAllChannels();
+        }
+    }
+
+    /**
+     * Flush and close channels to all the workers.
+     * @throws XMLStreamException
+     * @throws IOException
+     */
+    @Override
+    public void closeAllChannels() throws XMLStreamException, IOException {
+        for(XMLEventWriter channel: channels) {
+            channel.flush();
+            channel.close();
+        }
+        for(OutputStream pipe: pipes) {
+            pipe.flush();
+            pipe.close();
         }
     }
 
@@ -187,19 +204,4 @@ public class XmlEventEmitter {
         }
     }
 
-    /**
-     * Flush and close channels to all the workers.
-     * @throws XMLStreamException
-     * @throws IOException
-     */
-    private void closeAllChannels() throws XMLStreamException, IOException {
-        for(XMLEventWriter channel: channels) {
-            channel.flush();
-            channel.close();
-        }
-        for(OutputStream pipe: pipes) {
-            pipe.flush();
-            pipe.close();
-        }
-    }
 }
