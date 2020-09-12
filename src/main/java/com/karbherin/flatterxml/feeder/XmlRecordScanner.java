@@ -1,7 +1,7 @@
 package com.karbherin.flatterxml.feeder;
 
 import com.karbherin.flatterxml.helper.ParsingHelpers;
-import com.karbherin.flatterxml.model.FieldValue;
+import com.karbherin.flatterxml.model.Pair;
 import static com.karbherin.flatterxml.helper.ParsingHelpers.*;
 
 import javax.xml.stream.XMLStreamException;
@@ -32,15 +32,21 @@ public class XmlRecordScanner implements XmlRecordEmitter {
     private char[] rootEndTag = null;
     private char[] recordEndTag = null;
 
+    // Buffer state
+    private final ByteBuffer buffer = ByteBuffer.allocate(READ_BUFFER_SIZE);
+    // Remaining data bytes in readBuf
+    private int remaining = 0;
 
     private final ReadableByteChannel reader;
     private final List<Pipe.SinkChannel> pipes = new ArrayList<>();
     private final CharsetDecoder decoder;
 
     private final List<WritableByteChannel> channels = new ArrayList<>();
-    private final WritableByteChannel outChannel;
+    private WritableByteChannel channel;
+    private int channelNum = 0;
 
     private static final int READ_BUFFER_SIZE = 337;
+    private static final String END_TAG_FORMAT = "</%s>";
 
     public XmlRecordScanner(String xmlFile, long skipRecs, long firstNRecs, CharsetDecoder decoder) throws IOException {
         this.xmlFile = xmlFile;
@@ -59,7 +65,7 @@ public class XmlRecordScanner implements XmlRecordEmitter {
 
         reader = Files.newByteChannel(xmlFilePath, StandardOpenOption.READ);
 
-        outChannel = Files.newByteChannel(
+        channel = Files.newByteChannel(
                 Paths.get("target/test/resources/out_"+xmlFilePath.getFileName()),
                 StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
     }
@@ -91,7 +97,7 @@ public class XmlRecordScanner implements XmlRecordEmitter {
 
             reader.close();
             closeAllChannels();
-            outChannel.close();
+            channel.close();
         }
     }
 
@@ -109,76 +115,115 @@ public class XmlRecordScanner implements XmlRecordEmitter {
 
     private void feed() throws IOException {
 
-        ByteBuffer readBuf = ByteBuffer.allocate(READ_BUFFER_SIZE);
-        int readCount = 0;
+        while ((remaining += reader.read(buffer)) > 0) {
 
-        while ((readCount += reader.read(readBuf)) > 0) {
-
-            CharBuffer charBuf = CharBuffer.allocate(readCount);
-            readBuf.rewind();
-            decoder.decode(readBuf, charBuf, false);
-
+            CharBuffer charBuf = CharBuffer.allocate(remaining);
             char[] str = charBuf.array();
             int limit = charBuf.limit();
+            buffer.rewind();
+            decoder.decode(buffer, charBuf, false);
 
-            // Works only in the first iteration of the loop.
-            // Capture the locations of first record start tag and last record end tag in the buffer
-            FieldValue<Integer, Integer> leftEdge, rightEdge;
-            leftEdge = findRootAndRecordTags(str, limit);
+            Pair<Integer, Integer> leftEdge, rightEdge, rootCoords;
+
+            // FIND ROOT: Find root tag name in the document. Operates in first iteration of the loop.
+            rootCoords = findRecordTag(str, limit);
             if (recordTag == null) {
-                // If only the root tag is found so far then record tag may be available in the next read
-                // Write out the root element
+                // Write out the root element and skip to next iteration of the loop to find the record tag
                 //sendToAllChannels();
-                sendToChannel(readBuf, outChannel, 0, leftEdge.getValue()+1);
-                readCount = moveRemaining(readBuf, readCount);
-                continue;
-            }
-            // Write everything before the first record's start tag in the buffer
-            sendToChannel(readBuf, outChannel, 0, leftEdge.getField());
-
-            // Write everything from the first record's start tag to the last record's end tag in the buffer
-            rightEdge = ParsingHelpers.lastIndexOf(recordEndTag, str, leftEdge.getField(), limit);
-            sendToChannel(readBuf, outChannel,
-                    leftEdge.getField(), 1 + rightEdge.getValue() - leftEdge.getField());
-
-            // No end record tag was found in this buffer
-            if (rightEdge == TAG_NOTFOUND_COORDS && leftEdge == TAG_NOTFOUND_COORDS) {
-                sendToChannel(readBuf, outChannel, 0, readCount);
-                readCount = moveRemaining(readBuf, readCount);
+                sendToChannel( 0, 1 + rootCoords.getVal());
+                moveRemaining();
                 continue;
             }
 
-            // Find root tag after the last record in the buffer
-            FieldValue<Integer, Integer> rootEndTagCoords = ParsingHelpers.lastIndexOf(rootEndTag, str,
-                    1 + rightEdge.getValue(), limit);
-            // Root end tag is present. Write it out to all channels and return
-            if (rootEndTagCoords != TAG_NOTFOUND_COORDS) {
-                sendToChannel(readBuf, outChannel,
-                        1 + rightEdge.getValue(), rootEndTagCoords.getField() - rightEdge.getValue());
-                //sendToAllChannels();
-                sendToChannel(readBuf, outChannel,
-                        rootEndTagCoords.getField(), 1 + rootEndTagCoords.getValue() - rootEndTagCoords.getField());
-                readCount = moveRemaining(readBuf, readCount);
-                continue;
-            }
+            // FIND RECORD: Capture the location of first record start tag in the buffer
+            leftEdge = findRecordTag(str, limit);
 
-            // Find any start or end tag near the end of the doc and write it out till there
-            rightEdge = lastTagCoords(str, rightEdge.getValue()+1, limit);
+            // PRE RECORD: Write everything before the first record's start tag in the buffer
+            sendToChannel( 0, leftEdge.getKey());
+
+            // CLOSE RECORD: Write everything from the first record's start tag to the last record's end tag in the buffer
+            rightEdge = ParsingHelpers.lastIndexOf(recordEndTag, str, leftEdge.getKey(), limit);
             if (rightEdge != TAG_NOTFOUND_COORDS) {
-                sendToChannel(readBuf, outChannel,
-                        leftEdge.getField(), 1 + rightEdge.getValue() - leftEdge.getField());
+                sendToChannel(leftEdge.getKey(), 1 + rightEdge.getVal() - leftEdge.getKey());
+
+                // Change pipe
+                channelNum = (channelNum+1) % channels.size();
+                channel = channels.get(channelNum);
+            }
+            else if (leftEdge == TAG_NOTFOUND_COORDS) { //rightEdge == TAG_NOTFOUND_COORDS
+                // INSIDE RECORD: Neither the end tag nor the start tag for a record was found in this buffer.
+                sendToChannel( 0, remaining);
+                moveRemaining();
+                continue;
             }
 
-            readCount = moveRemaining(readBuf, readCount);
+            // END ROOT: After the last record in the buffer find root tag. If found write and finish.
+            if (findAndWriteAroundEndRootTag(rightEdge, str)) {
+                return;
+            }
+
+            // UNCLOSED RECORD: Find any start or end tag near the end of the doc and write it out till there
+            rightEdge = lastTagCoords(str, rightEdge.getVal()+1, limit);
+            if (rightEdge != TAG_NOTFOUND_COORDS) {
+                sendToChannel(leftEdge.getKey(), 1 + rightEdge.getVal() - leftEdge.getKey());
+            }
+
+            moveRemaining();
         }
     }
 
-    private int moveRemaining(ByteBuffer buf, int limit) {
-        byte[] bytes = new byte[limit - buf.position()];
-        buf.get(bytes);
-        buf.rewind();
-        buf.put(bytes);
-        return buf.position();
+    /**
+     * Adjusts pointers to the start of remaining unwritten bytes in the buffer.
+     */
+    private void moveRemaining() {
+        byte[] bytes = new byte[remaining - buffer.position()];
+        buffer.get(bytes);
+        buffer.rewind();
+        buffer.put(bytes);
+        remaining = buffer.position();
+    }
+
+    private boolean findAndWriteAroundEndRootTag(Pair<Integer, Integer> edge, char[] str)
+            throws IOException {
+
+        // Find root tag after the last record in the buffer
+        Pair<Integer, Integer> rootEndTagCoords = ParsingHelpers.lastIndexOf(
+                rootEndTag, str, 1 + edge.getVal(), str.length);
+
+        // Root end tag is present. Write it out to all channels and return
+        if (rootEndTagCoords != TAG_NOTFOUND_COORDS) {
+            sendToChannel(1 + edge.getVal(), rootEndTagCoords.getKey() - edge.getVal());
+            //sendToAllChannels();
+            sendToChannel(rootEndTagCoords.getKey(), 1 + rootEndTagCoords.getVal() - rootEndTagCoords.getKey());
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Finds the root tag and returns the location of the root tag.
+     * @param str - buffer to search in
+     * @param limit  - last position in the buffer to search within
+     * @return
+     */
+    private Pair<Integer, Integer> findRootTag(char[] str, int limit) {
+        Pair<Integer, Integer> tagCoords = TAG_NOTFOUND_COORDS;
+
+        if (rootTag == null) {
+            int recordStartPos = 0;
+            // Locate root tag
+            tagCoords = locateRootTag(str, limit);
+            if (tagCoords == TAG_NOTFOUND_COORDS) {
+                throw new IllegalStateException("Cannot find root element. Buffer may be too small");
+            }
+            // Includes the delimiters < and >
+            rootTag = String.valueOf(str, tagCoords.getKey(), 1 + tagCoords.getVal() - tagCoords.getKey());
+            recordStartPos = tagCoords.getVal() + 1;
+            // End tag including </ and >
+            rootEndTag = String.format(END_TAG_FORMAT, rootTag.substring(1).split("\\s|\\>")[0]).toCharArray();
+        }
+        return tagCoords;
     }
 
     /**
@@ -187,37 +232,21 @@ public class XmlRecordScanner implements XmlRecordEmitter {
      * @param limit  - last position in the buffer to search within
      * @return
      */
-    private FieldValue<Integer, Integer> findRootAndRecordTags(char[] str, int limit) {
-        FieldValue<Integer, Integer> tagCoords = TAG_NOTFOUND_COORDS, rootTagCoords = TAG_NOTFOUND_COORDS;
-        int recordStartPos = 0;
-        String endTagFormat = "</%s>";
-
-        if (rootTag == null) {
-            // Locate root tag
-            tagCoords = locateRootTag(str, limit);
-            if (tagCoords == TAG_NOTFOUND_COORDS) {
-                throw new IllegalStateException("Cannot find root element. Buffer may be too small");
-            }
-            rootTagCoords = tagCoords;
-            // Includes the delimiters < and >
-            rootTag = String.valueOf(str, tagCoords.getField(), 1 + tagCoords.getValue() - tagCoords.getField());
-            recordStartPos = tagCoords.getValue() + 1;
-            // End tag including </ and >
-            rootEndTag = String.format(endTagFormat, rootTag.substring(1).split("\\s|\\>")[0]).toCharArray();
-        }
+    private Pair<Integer, Integer> findRecordTag(char[] str, int limit) {
+        Pair<Integer, Integer> tagCoords = TAG_NOTFOUND_COORDS;
 
         if (recordTag == null) {
+            int recordStartPos = 0;
             // Locate record tag
             tagCoords = nextTagCoords(str, recordStartPos, limit);
             if (tagCoords == TAG_NOTFOUND_COORDS) {
-                return rootTagCoords;
+                return TAG_NOTFOUND_COORDS;
             }
             // Includes the delimiters < and >
-            recordTag = String.valueOf(str, tagCoords.getField(),1 + tagCoords.getValue() - tagCoords.getField());
+            recordTag = String.valueOf(str, tagCoords.getKey(),1 + tagCoords.getVal() - tagCoords.getKey());
             // End tag including </ and >
-            recordEndTag = String.format(endTagFormat, recordTag.substring(1).split("\\s|\\>")[0]).toCharArray();
+            recordEndTag = String.format(END_TAG_FORMAT, recordTag.substring(1).split("\\s|\\>")[0]).toCharArray();
         }
-
         return tagCoords;
     }
 
@@ -226,19 +255,25 @@ public class XmlRecordScanner implements XmlRecordEmitter {
      * @param
      * @throws IOException
      */
-    private void sendToAllChannels(ByteBuffer buf, int start, int count) throws IOException {
+    private void sendToAllChannels(int start, int count) throws IOException {
         for (WritableByteChannel pipe: pipes) {
-            sendToChannel(buf, pipe, start, count);
+            sendToChannel(pipe, start, count);
         }
     }
 
-    private void sendToChannel(ByteBuffer buf, WritableByteChannel pipe, int start, int count) throws IOException {
-        if (count < 1) return;
+    private void sendToChannel(int start, int count) throws IOException {
+        sendToChannel(channel, start, count);
+    }
 
-        buf.position(start);
-        ByteBuffer subBuffer = buf.slice();
+    private void sendToChannel(WritableByteChannel pipe, int start, int count) throws IOException {
+        if (count < 1) {
+            return;
+        }
+
+        buffer.position(start);
+        ByteBuffer subBuffer = buffer.slice();
         subBuffer.limit(count);
         pipe.write(subBuffer);
-        buf.position(start + count);
+        buffer.position(start + count);
     }
 }

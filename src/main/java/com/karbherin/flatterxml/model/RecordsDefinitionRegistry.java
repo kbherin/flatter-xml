@@ -44,7 +44,7 @@ public final class RecordsDefinitionRegistry {
 
         recordFieldsMap = recordSpecs.entrySet().stream()
                 .map(ent -> parseRecordSpec(ent.getKey(), ent.getValue()))
-                .collect(Collectors.toMap(fv -> fv.getField(), fv->fv.getValue()));
+                .collect(Collectors.toMap(fv -> fv.getKey(), fv->fv.getVal()));
     }
 
     /**
@@ -56,12 +56,12 @@ public final class RecordsDefinitionRegistry {
      * @param fieldsListStr - Each element in the list should be of the form as recordTagStr is.
      * @return
      */
-    private FieldValue<QName, List<QName>> parseRecordSpec(String recordTagStr, List<String> fieldsListStr) {
+    private Pair<QName, List<QName>> parseRecordSpec(String recordTagStr, List<String> fieldsListStr) {
         List<QName> fieldTagNames = fieldsListStr.stream()
                 .map(tag -> parseTagAddPrefix(tag, uriPrefixMap, prefixUriMap))
                 .collect(Collectors.toList());
         QName recordTagName = parseTagAddPrefix(recordTagStr, uriPrefixMap, prefixUriMap);
-        return new FieldValue<>(recordTagName, Collections.unmodifiableList(fieldTagNames));
+        return new Pair<>(recordTagName, Collections.unmodifiableList(fieldTagNames));
     }
 
     /**

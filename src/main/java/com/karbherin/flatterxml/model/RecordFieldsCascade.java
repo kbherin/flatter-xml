@@ -12,10 +12,10 @@ import java.util.stream.Stream;
 
 public final class RecordFieldsCascade {
     private final QName recordName;
-    private final List<FieldValue<QName, String>> cascadeFieldValueList = new ArrayList<>();
+    private final List<Pair<QName, String>> cascadePairList = new ArrayList<>();
     private final Map<String, Integer> positions;
     private final RecordFieldsCascade parent;
-    private List<FieldValue<String, String>> toCascadeToChild = null;
+    private List<Pair<String, String>> toCascadeToChild = null;
 
     public enum CascadePolicy {NONE, ALL, XSD};
 
@@ -36,11 +36,11 @@ public final class RecordFieldsCascade {
         Integer pos = positions.get(tagName.getLocalPart());
         if (pos != null) {
             // Capture the data value at the designated location
-            cascadeFieldValueList.get(pos).setValue(tagValue);
+            cascadePairList.get(pos).setVal(tagValue);
         } else if (policy == CascadePolicy.ALL) {
-            positions.put(tagName.getLocalPart(), cascadeFieldValueList.size());
+            positions.put(tagName.getLocalPart(), cascadePairList.size());
             // Append the tag-value pair only if policy is cascade ALL
-            cascadeFieldValueList.add(new FieldValue<>(tagName, tagValue));
+            cascadePairList.add(new Pair<>(tagName, tagValue));
         }
     }
 
@@ -62,7 +62,7 @@ public final class RecordFieldsCascade {
                     .filter(tag -> !primaryTagList.containsKey(tag))
                     .forEach(tag -> {
                         primaryTagList.put(tag.getLocalPart(), mutablePos[0]++);
-                        cascadeFieldValueList.add(new FieldValue<>(tag, XmlHelpers.EMPTY));
+                        cascadePairList.add(new Pair<>(tag, XmlHelpers.EMPTY));
                     });
             return primaryTagList;
         }
@@ -86,7 +86,7 @@ public final class RecordFieldsCascade {
                 .filter(tag -> !primaryTagList.containsKey(tag.getLocalPart()))
                 .forEach(tag -> {
                     primaryTagList.put(tag.getLocalPart(), mutablePos[0]++);
-                    cascadeFieldValueList.add(new FieldValue<>(tag, XmlHelpers.EMPTY));
+                    cascadePairList.add(new Pair<>(tag, XmlHelpers.EMPTY));
                 });
 
         return primaryTagList;
@@ -104,9 +104,9 @@ public final class RecordFieldsCascade {
 
         // Current record fields are formatted as RecordName.RecordField
         parent.toCascadeToChild = parent.getCascadeFieldValueList().stream()
-                .map(fv -> new FieldValue<>(
+                .map(fv -> new Pair<>(
                     String.format("%s.%s", XmlHelpers.toPrefixedTag(parent.recordName),
-                        fv.getField().getLocalPart()), fv.getValue()))
+                        fv.getKey().getLocalPart()), fv.getVal()))
                 .collect(Collectors.toList());
 
         // Parent record fields were already formatted as ParentRecordName.ParentRecordField
@@ -118,8 +118,8 @@ public final class RecordFieldsCascade {
      * @return
      */
     public RecordFieldsCascade clearCurrentRecordCascades() {
-        for (int i = 0; i < cascadeFieldValueList.size(); i++) {
-            cascadeFieldValueList.get(i).setValue(XmlHelpers.EMPTY);
+        for (int i = 0; i < cascadePairList.size(); i++) {
+            cascadePairList.get(i).setVal(XmlHelpers.EMPTY);
         }
         return this;
     }
@@ -132,11 +132,11 @@ public final class RecordFieldsCascade {
         return this;
     }
 
-    public List<FieldValue<QName, String>> getCascadeFieldValueList() {
-        return cascadeFieldValueList;
+    public List<Pair<QName, String>> getCascadeFieldValueList() {
+        return cascadePairList;
     }
 
-    public List<FieldValue<String, String>> getParentCascadedFieldValueList() {
+    public List<Pair<String, String>> getParentCascadedFieldValueList() {
         return parent.toCascadeToChild;
     }
 

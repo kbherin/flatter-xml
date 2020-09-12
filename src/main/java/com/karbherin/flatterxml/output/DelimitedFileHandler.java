@@ -1,7 +1,7 @@
 package com.karbherin.flatterxml.output;
 
 import com.karbherin.flatterxml.model.RecordFieldsCascade;
-import com.karbherin.flatterxml.model.FieldValue;
+import com.karbherin.flatterxml.model.Pair;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -28,7 +28,7 @@ public class DelimitedFileHandler implements RecordHandler {
         this.outDir = outDir;
     }
 
-    public void write(String fileName, Iterable<FieldValue<String, String>> fieldValueStack,
+    public void write(String fileName, Iterable<Pair<String, String>> fieldValueStack,
                       RecordFieldsCascade cascadedData, int currLevel, String previousFileName)
             throws IOException {
 
@@ -76,11 +76,11 @@ public class DelimitedFileHandler implements RecordHandler {
     }
 
     private void writeDelimited(ByteChannel out,
-                                Iterable<FieldValue<String, String>> data,
-                                KeyValuePart part, Iterable<FieldValue<String, String>> appendList)
+                                Iterable<Pair<String, String>> data,
+                                KeyValuePart part, Iterable<Pair<String, String>> appendList)
             throws IOException {
 
-        Iterator<FieldValue<String, String>> dataIt = data.iterator();
+        Iterator<Pair<String, String>> dataIt = data.iterator();
         if (!dataIt.hasNext()) {
             return;
         }
@@ -89,29 +89,29 @@ public class DelimitedFileHandler implements RecordHandler {
         buf.clear();
 
         if (part == KeyValuePart.FIELD_PART) {
-            buf.put(dataIt.next().getField().getBytes());
+            buf.put(dataIt.next().getKey().getBytes());
             while (dataIt.hasNext()) {
                 buf.put(delimiter)
-                        .put(dataIt.next().getField().getBytes());
+                        .put(dataIt.next().getKey().getBytes());
             }
 
             // Appendix
-            for (FieldValue<String, String> appendData: appendList) {
+            for (Pair<String, String> appendData: appendList) {
                 buf.put(delimiter)
-                        .put(appendData.getField().getBytes());
+                        .put(appendData.getKey().getBytes());
             }
 
         } else {
-            buf.put(dataIt.next().getValue().getBytes());
+            buf.put(dataIt.next().getVal().getBytes());
             while (dataIt.hasNext()) {
                 buf.put(delimiter)
-                        .put(dataIt.next().getValue().getBytes());
+                        .put(dataIt.next().getVal().getBytes());
             }
 
             // Appendix
-            for (FieldValue<String, String> appendData: appendList) {
+            for (Pair<String, String> appendData: appendList) {
                 buf.put(delimiter)
-                        .put(appendData.getValue().getBytes());
+                        .put(appendData.getVal().getBytes());
             }
         }
 

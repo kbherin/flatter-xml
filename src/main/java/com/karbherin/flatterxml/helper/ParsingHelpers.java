@@ -1,25 +1,25 @@
 package com.karbherin.flatterxml.helper;
 
-import com.karbherin.flatterxml.model.FieldValue;
+import com.karbherin.flatterxml.model.Pair;
 
 public class ParsingHelpers {
 
     /**
      * Denotes that a tag was not found
      */
-    public static final FieldValue<Integer, Integer> TAG_NOTFOUND_COORDS = new FieldValue<>(0, -1);
+    public static final Pair<Integer, Integer> TAG_NOTFOUND_COORDS = new Pair<>(0, -1);
 
     /**
      * Locates the root tag.
      * @param str   - character sequence to search root tag in
      * @param limit - end of search window
      */
-    public static FieldValue<Integer, Integer> locateRootTag(char[] str, int limit) {
-        FieldValue<Integer, Integer> coords = nextTagCoords(str, 0, limit);
+    public static Pair<Integer, Integer> locateRootTag(char[] str, int limit) {
+        Pair<Integer, Integer> coords = nextTagCoords(str, 0, limit);
         while (coords != TAG_NOTFOUND_COORDS
-                && !isStartTag(str, coords.getField(), 1+coords.getValue())) {
+                && !isStartTag(str, coords.getKey(), 1+coords.getVal())) {
 
-            coords = nextTagCoords(str, 1 + coords.getValue(), limit);
+            coords = nextTagCoords(str, 1 + coords.getVal(), limit);
         }
         return coords;
     }
@@ -30,13 +30,13 @@ public class ParsingHelpers {
      * @param start  - stop searching at this position
      * @param limit  - search starting from limit-1 position
      */
-    public static FieldValue<Integer, Integer> nextTagCoords(final char[] str, final int start, final int limit) {
+    public static Pair<Integer, Integer> nextTagCoords(final char[] str, final int start, final int limit) {
         int endDelimPos   = indexOf(str, '>', start, limit);
         if (endDelimPos < 0) {
             return TAG_NOTFOUND_COORDS;
         }
         int startDelimPos = lastIndexOf(str, '<', start, endDelimPos);
-        return new FieldValue<Integer, Integer>(startDelimPos, endDelimPos);
+        return new Pair<Integer, Integer>(startDelimPos, endDelimPos);
     }
 
     /**
@@ -45,13 +45,13 @@ public class ParsingHelpers {
      * @param start  - stop searching at this position
      * @param limit  - search starting from limit-1 position
      */
-    public static FieldValue<Integer, Integer> lastTagCoords(final char[] str, final int start, final int limit) {
+    public static Pair<Integer, Integer> lastTagCoords(final char[] str, final int start, final int limit) {
         int startDelimPos   = lastIndexOf(str, '<', start, limit);
         if (startDelimPos < 0) {
             return TAG_NOTFOUND_COORDS;
         }
         int endDelimPos = indexOf(str, '>', startDelimPos, limit);
-        return new FieldValue<Integer, Integer>(startDelimPos, endDelimPos);
+        return new Pair<Integer, Integer>(startDelimPos, endDelimPos);
     }
 
     /**
@@ -61,8 +61,8 @@ public class ParsingHelpers {
      * @param start  - stop searching at this position
      * @param limit  - start searching from limit-1 position
      */
-    public static FieldValue<Integer, Integer> lastIndexOf(char[] searchStr,
-                                                           final char[] str, final int start, final int limit) {
+    public static Pair<Integer, Integer> lastIndexOf(char[] searchStr,
+                                                     final char[] str, final int start, final int limit) {
         int endTagLastIdx = searchStr.length-1;
         int j = endTagLastIdx;
 
@@ -70,7 +70,7 @@ public class ParsingHelpers {
             char t = searchStr[j], s = str[i];
             if (t == s) {
                 if (j == 0) {      // Full match
-                    return new FieldValue<>(i, i+searchStr.length);
+                    return new Pair<>(i, i+searchStr.length);
                 }
                 j--;               // Continue matching
             } else {
@@ -91,15 +91,15 @@ public class ParsingHelpers {
      * @param start  - start searching at this position
      * @param limit  - stop searching from limit-1 position
      */
-    public static FieldValue<Integer, Integer> indexOf(char[] searchStr,
-                                                       final char[] str, final int start, final int limit) {
+    public static Pair<Integer, Integer> indexOf(char[] searchStr,
+                                                 final char[] str, final int start, final int limit) {
         int j = 0;
         for (int i = indexOf(str, searchStr[0], start, limit); i < limit; i++) {
             char t = searchStr[j], s = str[i];
             if (t == s) {
                 j++;                   // Continue matching
                 if (j == limit) {      // Full match
-                    return new FieldValue<>(i, i+searchStr.length);
+                    return new Pair<>(i, i+searchStr.length);
                 }
             } else {
                 // Matching stopped

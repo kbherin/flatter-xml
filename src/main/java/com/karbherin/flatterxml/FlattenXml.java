@@ -1,7 +1,7 @@
 package com.karbherin.flatterxml;
 
 import com.karbherin.flatterxml.helper.XmlHelpers;
-import com.karbherin.flatterxml.model.FieldValue;
+import com.karbherin.flatterxml.model.Pair;
 import com.karbherin.flatterxml.model.RecordFieldsCascade;
 import com.karbherin.flatterxml.model.RecordsDefinitionRegistry;
 import com.karbherin.flatterxml.output.RecordHandler;
@@ -252,7 +252,7 @@ public class FlattenXml {
             return;
         }
         XMLEvent ev;
-        Stack<FieldValue<QName, String>> fieldValueStack = new Stack<>();
+        Stack<Pair<QName, String>> pairStack = new Stack<>();
 
         // Read one part of an XML element at a time.
         while (!(ev = tagStack.pop()).isStartElement()) {
@@ -273,7 +273,7 @@ public class FlattenXml {
                 startElement = ev.asStartElement();
             }
 
-            fieldValueStack.push(new FieldValue<>(startElement.getName(), data));
+            pairStack.push(new Pair<>(startElement.getName(), data));
 
             // Capture the entire record if a parsing error has occurred in the record.
             if (captureRecordOnError != null) {
@@ -289,7 +289,7 @@ public class FlattenXml {
         tagStack.push(ev);     // Add it back on to tag stack.
 
         // Final sequence of fields will be captured in this list
-        List<FieldValue<String, String>> fieldValueList = null;
+        List<Pair<String, String>> pairList = null;
 
         // User specified list of output fields takes the top priority
         List<QName> outputFieldsSeq = outputRecordFieldsSeq.getRecordFields(envelope.getName());
@@ -297,7 +297,7 @@ public class FlattenXml {
         // Goal: Align XML tags and data with desired field sequence or XSD field sequence or fallback to dump all
         if (!outputFieldsSeq.isEmpty()) {
             // 1. Align data from XML with the desired output fields sequence
-            fieldValueList = alignFieldsToSchema(fieldValueStack, outputFieldsSeq);
+            pairList = alignFieldsToSchema(pairStack, outputFieldsSeq);
 
         } else {
             // 2: Align data from XML with the sequence of fields in XSDs
@@ -315,17 +315,17 @@ public class FlattenXml {
                         .map(ch -> ch.getName()).collect(Collectors.toList());
 
                 // Align with fields sequence in XSD
-                fieldValueList = alignFieldsToSchema(fieldValueStack, recordSchemaFields);
+                pairList = alignFieldsToSchema(pairStack, recordSchemaFields);
             }
         }
 
         // 2. Final fallback - dump all XML fields and values
-        if (fieldValueList == null) {
+        if (pairList == null) {
             // Fallback. Dump everything in the sequence they appear in the XML file
-            fieldValueList = new ArrayList<>();
-            while (!fieldValueStack.isEmpty()) {
-                FieldValue<QName, String> fv = fieldValueStack.pop();
-                fieldValueList.add(new FieldValue<String, String>(toPrefixedTag(fv.getField()), fv.getValue()));
+            pairList = new ArrayList<>();
+            while (!pairStack.isEmpty()) {
+                Pair<QName, String> fv = pairStack.pop();
+                pairList.add(new Pair<String, String>(toPrefixedTag(fv.getKey()), fv.getVal()));
             }
         }
 
@@ -334,16 +334,16 @@ public class FlattenXml {
             captureRecordOnError.push(ev);
         } else {
             // Write record to file if there are no errors.
-            recordHandler.write(recordTagName, fieldValueList, cascadingStack.peek(), currLevel, previousFile());
+            recordHandler.write(recordTagName, pairList, cascadingStack.peek(), currLevel, previousFile());
         }
     }
 
-    private List<FieldValue<String, String>> alignFieldsToSchema(
-            List<FieldValue<QName, String>> fieldValueStack, List<QName> schemaFields) {
+    private List<Pair<String, String>> alignFieldsToSchema(
+            List<Pair<QName, String>> pairStack, List<QName> schemaFields) {
 
         // Make a field-value map first.
-        Map<String, FieldValue<QName, String>> fv = fieldValueStack.stream()
-                .collect(Collectors.toMap(o -> o.getField().getLocalPart(), o -> o));
+        Map<String, Pair<QName, String>> fv = pairStack.stream()
+                .collect(Collectors.toMap(o -> o.getKey().getLocalPart(), o -> o));
 
         // Align header and data according to the order of fields defined in XSD for the record.
         // Force print fields that are missing for the record in the XML file.
@@ -351,11 +351,11 @@ public class FlattenXml {
         return schemaFields.stream()
                 .map( tagName -> tagName.getLocalPart() )
                 .map( tagName -> {
-                    FieldValue<QName, String> data =  fv.get(tagName);
+                    Pair<QName, String> data =  fv.get(tagName);
                     if (data == null) {
-                        return new FieldValue<>(tagName, EMPTY);
+                        return new Pair<>(tagName, EMPTY);
                     } else {
-                        return new FieldValue<>(toPrefixedTag(data.getField()), data.getValue());
+                        return new Pair<>(toPrefixedTag(data.getKey()), data.getVal());
                     }
                 } )
                 .collect(Collectors.toList());
