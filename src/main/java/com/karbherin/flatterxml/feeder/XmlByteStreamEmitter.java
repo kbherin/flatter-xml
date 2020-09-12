@@ -19,7 +19,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 
-public class XmlRecordScanner implements XmlRecordEmitter {
+public class XmlByteStreamEmitter implements XmlRecordEmitter {
 
     private final String xmlFile;
     private final Path xmlFilePath;
@@ -48,7 +48,7 @@ public class XmlRecordScanner implements XmlRecordEmitter {
     private static final int READ_BUFFER_SIZE = 337;
     private static final String END_TAG_FORMAT = "</%s>";
 
-    public XmlRecordScanner(String xmlFile, long skipRecs, long firstNRecs, CharsetDecoder decoder) throws IOException {
+    public XmlByteStreamEmitter(String xmlFile, long skipRecs, long firstNRecs, CharsetDecoder decoder) throws IOException {
         this.xmlFile = xmlFile;
         this.skipRecs = skipRecs;
         this.firstNRecs = firstNRecs;
@@ -70,7 +70,7 @@ public class XmlRecordScanner implements XmlRecordEmitter {
                 StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
     }
 
-    public XmlRecordScanner(String xmlFile, long skipRecs, long firstNRecs) throws IOException {
+    public XmlByteStreamEmitter(String xmlFile, long skipRecs, long firstNRecs) throws IOException {
         this(xmlFile, skipRecs, firstNRecs, null);
     }
 
