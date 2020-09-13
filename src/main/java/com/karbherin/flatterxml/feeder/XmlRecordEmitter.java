@@ -21,6 +21,8 @@ public interface XmlRecordEmitter {
      */
     void startStream() throws XMLStreamException, IOException;
 
+    long getRecCounter();
+
     /**
      * Flush and close channels to all the workers.
      * @throws XMLStreamException

@@ -1,6 +1,6 @@
 package com.karbherin.flatterxml.consumer;
 
-import com.karbherin.flatterxml.feeder.XmlEventEmitter;
+import com.karbherin.flatterxml.feeder.XmlRecordEmitter;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
@@ -10,7 +10,7 @@ import java.util.concurrent.CountDownLatch;
 public class XmlEventWorkerPool {
 
     public long execute(int numWorkers,
-                        XmlEventEmitter xmlEventEmitter, XmlEventWorkerFactory xmlEventWorkerFactory)
+                        XmlRecordEmitter xmlEventEmitter, XmlEventWorkerFactory xmlEventWorkerFactory)
             throws IOException, XMLStreamException, InterruptedException {
 
         CountDownLatch workerCounter = new CountDownLatch(numWorkers);

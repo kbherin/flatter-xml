@@ -31,11 +31,14 @@ public class ParsingHelpers {
      * @param limit  - search starting from limit-1 position
      */
     public static Pair<Integer, Integer> nextTagCoords(final char[] str, final int start, final int limit) {
-        int endDelimPos   = indexOf(str, '>', start, limit);
+        int startDelimPos = indexOf('<', str, start, limit);
+        if (startDelimPos < 0) {
+            return TAG_NOTFOUND_COORDS;
+        }
+        int endDelimPos   = indexOf('>', str, startDelimPos, limit);
         if (endDelimPos < 0) {
             return TAG_NOTFOUND_COORDS;
         }
-        int startDelimPos = lastIndexOf(str, '<', start, endDelimPos);
         return new Pair<Integer, Integer>(startDelimPos, endDelimPos);
     }
 
@@ -46,38 +49,40 @@ public class ParsingHelpers {
      * @param limit  - search starting from limit-1 position
      */
     public static Pair<Integer, Integer> lastTagCoords(final char[] str, final int start, final int limit) {
-        int startDelimPos   = lastIndexOf(str, '<', start, limit);
+        int endDelimPos = lastIndexOf('>', str, start, limit);
+        if (endDelimPos < 0) {
+            return TAG_NOTFOUND_COORDS;
+        }
+        int startDelimPos = lastIndexOf('<', str, start, endDelimPos);
         if (startDelimPos < 0) {
             return TAG_NOTFOUND_COORDS;
         }
-        int endDelimPos = indexOf(str, '>', startDelimPos, limit);
         return new Pair<Integer, Integer>(startDelimPos, endDelimPos);
     }
 
     /**
      * Finds the position of the last occurrence of search string in the target string.
-     * @param searchStr - string to search for
-     * @param str    - target string to search in
+     * @param search - string to search for
+     * @param target    - target string to search in
      * @param start  - stop searching at this position
      * @param limit  - start searching from limit-1 position
      */
-    public static Pair<Integer, Integer> lastIndexOf(char[] searchStr,
-                                                     final char[] str, final int start, final int limit) {
-        int endTagLastIdx = searchStr.length-1;
-        int j = endTagLastIdx;
+    public static Pair<Integer, Integer> lastIndexOf(final char[] search,
+                                                     final char[] target, final int start, final int limit) {
+        int lastIdx = search.length-1;
+        int j = lastIdx;
 
-        for (int i = lastIndexOf(str, searchStr[searchStr.length-1], start, limit); i >= start; i--) {
-            char t = searchStr[j], s = str[i];
+        for (int i = lastIndexOf(search[search.length-1], target, start, limit); i >= start; i--) {
+            char t = search[j], s = target[i];
             if (t == s) {
-                if (j == 0) {      // Full match
-                    return new Pair<>(i, i+searchStr.length);
-                }
                 j--;               // Continue matching
+                if (j < 0) {       // Full match
+                    return new Pair<>(i, i+search.length-1);
+                }
             } else {
                 // Matching stopped
-                j = endTagLastIdx; // reset to last index of limit tag
-
-                i = lastIndexOf(str, searchStr[searchStr.length-1], start, i);
+                j = lastIdx; // reset to last index of limit tag
+                i = 1+lastIndexOf(search[search.length-1], target, start, i);
             }
         }
 
@@ -86,25 +91,26 @@ public class ParsingHelpers {
 
     /**
      * Finds the position of the first occurrence of search string in the target string.
-     * @param searchStr - string to search for
-     * @param str    - target string to search in
+     * @param search - string to search for
+     * @param target    - target string to search in
      * @param start  - start searching at this position
      * @param limit  - stop searching from limit-1 position
      */
-    public static Pair<Integer, Integer> indexOf(char[] searchStr,
-                                                 final char[] str, final int start, final int limit) {
+    public static Pair<Integer, Integer> indexOf(final char[] search,
+                                                 final char[] target, final int start, final int limit) {
         int j = 0;
-        for (int i = indexOf(str, searchStr[0], start, limit); i < limit; i++) {
-            char t = searchStr[j], s = str[i];
+
+        for (int i = indexOf(search[0], target, start, limit); i >= 0 && i < limit; i++) {
+            char t = search[j], s = target[i];
             if (t == s) {
-                j++;                   // Continue matching
-                if (j == limit) {      // Full match
-                    return new Pair<>(i, i+searchStr.length);
+                j++;                              // Continue matching
+                if (j == search.length) {      // Full match
+                    return new Pair<>(i - search.length + 1, i);
                 }
             } else {
                 // Matching stopped
                 j = 0; // reset to last index of limit tag
-                i = indexOf(str, searchStr[0], i, limit);
+                i = indexOf(search[0], target, i, limit) - 1;
             }
         }
         return TAG_NOTFOUND_COORDS;
@@ -157,29 +163,29 @@ public class ParsingHelpers {
 
     /**
      * Find location of a character in a string between start and limit-1 positions in the string.
-     * @param str
-     * @param ch
+     * @param target
+     * @param search
      * @param start
      * @param limit
      * @return
      */
-    public static int indexOf(final char[] str, final char ch, final int start, final int limit) {
+    public static int indexOf(final char search, final char[] target, final int start, final int limit) {
         int pos = start;
-        for (; pos < limit && ch != str[pos]; pos++);
-        return pos == str.length ? -1 : pos;
+        for (; pos < limit && search != target[pos]; pos++);
+        return pos == target.length ? -1 : pos;
     }
 
     /**
      * Find location of a character in a string starting from limit-1 position up to start position.
-     * @param str
-     * @param ch
+     * @param target
+     * @param search
      * @param start
      * @param limit
      * @return
      */
-    public static int lastIndexOf(final char[] str, final char ch, final int start, final int limit) {
+    public static int lastIndexOf(final char search, final char[] target, final int start, final int limit) {
         int pos = limit - 1;
-        for (; pos >= start && ch != str[pos]; pos--);
+        for (; pos >= start && search != target[pos]; pos--);
         return pos;
     }
 

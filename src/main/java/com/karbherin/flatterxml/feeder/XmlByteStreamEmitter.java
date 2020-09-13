@@ -1,13 +1,10 @@
 package com.karbherin.flatterxml.feeder;
 
-import com.karbherin.flatterxml.helper.ParsingHelpers;
 import com.karbherin.flatterxml.model.Pair;
 import static com.karbherin.flatterxml.helper.ParsingHelpers.*;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
 import java.nio.channels.*;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
@@ -25,6 +22,10 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
     private final Path xmlFilePath;
     private long skipRecs;
     private long firstNRecs;
+    private final int numProducers;
+
+    // Return number of records processed
+    private long recCounter = 0;
 
     // Includes the delimiters < and >
     private String rootTag = null;
@@ -32,26 +33,20 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
     private char[] rootEndTag = null;
     private char[] recordEndTag = null;
 
-    // Buffer state
-    private final ByteBuffer buffer = ByteBuffer.allocate(READ_BUFFER_SIZE);
-    // Remaining data bytes in readBuf
-    private int remaining = 0;
-
-    private final ReadableByteChannel reader;
-    private final List<Pipe.SinkChannel> pipes = new ArrayList<>();
+    private final List<Pipe.SinkChannel> channels = new ArrayList<>();
     private final CharsetDecoder decoder;
 
-    private final List<WritableByteChannel> channels = new ArrayList<>();
-    private WritableByteChannel channel;
-    private int channelNum = 0;
+    private final List<SeekableByteChannel> readers = new ArrayList<>();
 
-    private static final int READ_BUFFER_SIZE = 337;
     private static final String END_TAG_FORMAT = "</%s>";
+    private static final int UNTIL_END = -1;
 
-    public XmlByteStreamEmitter(String xmlFile, long skipRecs, long firstNRecs, CharsetDecoder decoder) throws IOException {
+    public XmlByteStreamEmitter(String xmlFile, long skipRecs, long firstNRecs, CharsetDecoder decoder,
+                                int numProducers) throws IOException {
         this.xmlFile = xmlFile;
         this.skipRecs = skipRecs;
         this.firstNRecs = firstNRecs;
+        this.numProducers = numProducers;
 
         xmlFilePath = Paths.get(xmlFile);
 
@@ -63,15 +58,21 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
             this.decoder = decoder;
         }
 
-        reader = Files.newByteChannel(xmlFilePath, StandardOpenOption.READ);
+        for (int i = 0; i < numProducers; i++) {
+            readers.add(Files.newByteChannel(xmlFilePath, StandardOpenOption.READ));
+        }
+    }
 
-        channel = Files.newByteChannel(
-                Paths.get("target/test/resources/out_"+xmlFilePath.getFileName()),
-                StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+    public XmlByteStreamEmitter(String xmlFile) throws IOException {
+        this(xmlFile, 0, Long.MAX_VALUE, null, 1);
     }
 
     public XmlByteStreamEmitter(String xmlFile, long skipRecs, long firstNRecs) throws IOException {
-        this(xmlFile, skipRecs, firstNRecs, null);
+        this(xmlFile, skipRecs, firstNRecs, null, 1);
+    }
+
+    public XmlByteStreamEmitter(String xmlFile, long skipRecs) throws IOException {
+        this(xmlFile, skipRecs, Long.MAX_VALUE, null, 1);
     }
 
     /**
@@ -81,7 +82,7 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
      */
     @Override
     public void registerChannel(Pipe.SinkChannel channel) throws XMLStreamException {
-        pipes.add(channel);
+        channels.add(channel);
     }
 
     /**
@@ -92,12 +93,9 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
     @Override
     public void startStream() throws XMLStreamException, IOException {
         try {
-            feed();
+            docFeed();
         } finally {
-
-            reader.close();
             closeAllChannels();
-            channel.close();
         }
     }
 
@@ -108,172 +106,150 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
      */
     @Override
     public void closeAllChannels() throws XMLStreamException, IOException {
-        for (Pipe.SinkChannel pipe : pipes) {
+        for (Pipe.SinkChannel pipe : channels) {
             pipe.close();
         };
-    }
 
-    private void feed() throws IOException {
-
-        while ((remaining += reader.read(buffer)) > 0) {
-
-            CharBuffer charBuf = CharBuffer.allocate(remaining);
-            char[] str = charBuf.array();
-            int limit = charBuf.limit();
-            buffer.rewind();
-            decoder.decode(buffer, charBuf, false);
-
-            Pair<Integer, Integer> leftEdge, rightEdge, rootCoords;
-
-            // FIND ROOT: Find root tag name in the document. Operates in first iteration of the loop.
-            rootCoords = findRecordTag(str, limit);
-            if (recordTag == null) {
-                // Write out the root element and skip to next iteration of the loop to find the record tag
-                //sendToAllChannels();
-                sendToChannel( 0, 1 + rootCoords.getVal());
-                moveRemaining();
-                continue;
-            }
-
-            // FIND RECORD: Capture the location of first record start tag in the buffer
-            leftEdge = findRecordTag(str, limit);
-
-            // PRE RECORD: Write everything before the first record's start tag in the buffer
-            sendToChannel( 0, leftEdge.getKey());
-
-            // CLOSE RECORD: Write everything from the first record's start tag to the last record's end tag in the buffer
-            rightEdge = ParsingHelpers.lastIndexOf(recordEndTag, str, leftEdge.getKey(), limit);
-            if (rightEdge != TAG_NOTFOUND_COORDS) {
-                sendToChannel(leftEdge.getKey(), 1 + rightEdge.getVal() - leftEdge.getKey());
-
-                // Change pipe
-                channelNum = (channelNum+1) % channels.size();
-                channel = channels.get(channelNum);
-            }
-            else if (leftEdge == TAG_NOTFOUND_COORDS) { //rightEdge == TAG_NOTFOUND_COORDS
-                // INSIDE RECORD: Neither the end tag nor the start tag for a record was found in this buffer.
-                sendToChannel( 0, remaining);
-                moveRemaining();
-                continue;
-            }
-
-            // END ROOT: After the last record in the buffer find root tag. If found write and finish.
-            if (findAndWriteAroundEndRootTag(rightEdge, str)) {
-                return;
-            }
-
-            // UNCLOSED RECORD: Find any start or end tag near the end of the doc and write it out till there
-            rightEdge = lastTagCoords(str, rightEdge.getVal()+1, limit);
-            if (rightEdge != TAG_NOTFOUND_COORDS) {
-                sendToChannel(leftEdge.getKey(), 1 + rightEdge.getVal() - leftEdge.getKey());
-            }
-
-            moveRemaining();
+        for (ReadableByteChannel reader: readers) {
+            reader.close();
         }
     }
 
     /**
-     * Adjusts pointers to the start of remaining unwritten bytes in the buffer.
+     * Returns the number of records emitted.
+     * @return
      */
-    private void moveRemaining() {
-        byte[] bytes = new byte[remaining - buffer.position()];
-        buffer.get(bytes);
-        buffer.rewind();
-        buffer.put(bytes);
-        remaining = buffer.position();
+    public long getRecCounter() {
+        return recCounter;
     }
 
-    private boolean findAndWriteAroundEndRootTag(Pair<Integer, Integer> edge, char[] str)
-            throws IOException {
+    private void docFeed() throws IOException {
+        XmlScanner scanner = new XmlScanner(readers.get(0), decoder, channels);
+        char[] str = scanner.next();
 
-        // Find root tag after the last record in the buffer
-        Pair<Integer, Integer> rootEndTagCoords = ParsingHelpers.lastIndexOf(
-                rootEndTag, str, 1 + edge.getVal(), str.length);
-
-        // Root end tag is present. Write it out to all channels and return
-        if (rootEndTagCoords != TAG_NOTFOUND_COORDS) {
-            sendToChannel(1 + edge.getVal(), rootEndTagCoords.getKey() - edge.getVal());
-            //sendToAllChannels();
-            sendToChannel(rootEndTagCoords.getKey(), 1 + rootEndTagCoords.getVal() - rootEndTagCoords.getKey());
-            return true;
+        Pair<Integer, Integer> coord = findRootTag(str);
+        str = scanner.compose(coord.getVal());
+        scanner.sendToAllChannels();
+        str = scanner.readNext();
+        coord = findFirstRecordTag(str);
+        if (coord == TAG_NOTFOUND_COORDS) {
+            throw new IllegalStateException("Record tag could not be found under the XML root");
         }
 
-        return false;
+        do {
+            coord = indexOf(recordEndTag, str, coord.getVal()+1, str.length);
+
+            if (coord != TAG_NOTFOUND_COORDS) {
+                str = scanner.compose(coord.getVal());
+                // Write the record to active channel
+                scanner.sendToChannel();
+                recCounter++;
+
+            } else {
+                // If root element's end tag is detected and write it and exit
+                coord = indexOf(rootEndTag, str, coord.getVal()+1, str.length);
+                if (coord != TAG_NOTFOUND_COORDS) {
+                    str = writeAroundRootEndTag(scanner, coord);
+                    return;
+                }
+                str = scanner.compose(coord.getVal());
+            }
+
+        } while (scanner.hasRemaining());
+    }
+
+    private char[] writeAroundRootEndTag(XmlScanner scanner,  Pair<Integer, Integer> coord) throws IOException {
+        char[] str = scanner.compose(coord.getKey()-1);
+        scanner.sendToChannel();
+        str = scanner.compose(UNTIL_END);
+        scanner.sendToAllChannels();
+        return str;
     }
 
     /**
      * Finds the root tag and returns the location of the root tag.
      * @param str - buffer to search in
-     * @param limit  - last position in the buffer to search within
      * @return
      */
-    private Pair<Integer, Integer> findRootTag(char[] str, int limit) {
-        Pair<Integer, Integer> tagCoords = TAG_NOTFOUND_COORDS;
+    private Pair<Integer, Integer> findRootTag(char[] str) {
+        Pair<Integer, Integer> tagCoord = TAG_NOTFOUND_COORDS;
 
         if (rootTag == null) {
             int recordStartPos = 0;
             // Locate root tag
-            tagCoords = locateRootTag(str, limit);
-            if (tagCoords == TAG_NOTFOUND_COORDS) {
+            tagCoord = locateRootTag(str, str.length);
+            if (tagCoord == TAG_NOTFOUND_COORDS) {
                 throw new IllegalStateException("Cannot find root element. Buffer may be too small");
             }
             // Includes the delimiters < and >
-            rootTag = String.valueOf(str, tagCoords.getKey(), 1 + tagCoords.getVal() - tagCoords.getKey());
-            recordStartPos = tagCoords.getVal() + 1;
+            rootTag = String.valueOf(str, tagCoord.getKey(), 1 + tagCoord.getVal() - tagCoord.getKey());
+            recordStartPos = tagCoord.getVal() + 1;
             // End tag including </ and >
             rootEndTag = String.format(END_TAG_FORMAT, rootTag.substring(1).split("\\s|\\>")[0]).toCharArray();
         }
-        return tagCoords;
+
+        return tagCoord;
     }
 
     /**
      * Finds the root tag and the record tag and returns the location of the first record tag.
      * @param str - buffer to search in
-     * @param limit  - last position in the buffer to search within
      * @return
      */
-    private Pair<Integer, Integer> findRecordTag(char[] str, int limit) {
-        Pair<Integer, Integer> tagCoords = TAG_NOTFOUND_COORDS;
+    private Pair<Integer, Integer> findFirstRecordTag(char[] str) {
+        Pair<Integer, Integer> tagCoord = TAG_NOTFOUND_COORDS;
 
         if (recordTag == null) {
             int recordStartPos = 0;
             // Locate record tag
-            tagCoords = nextTagCoords(str, recordStartPos, limit);
-            if (tagCoords == TAG_NOTFOUND_COORDS) {
+            tagCoord = nextTagCoords(str, recordStartPos, str.length);
+            if (tagCoord == TAG_NOTFOUND_COORDS) {
                 return TAG_NOTFOUND_COORDS;
             }
             // Includes the delimiters < and >
-            recordTag = String.valueOf(str, tagCoords.getKey(),1 + tagCoords.getVal() - tagCoords.getKey());
+            recordTag = String.valueOf(str, tagCoord.getKey(),1 + tagCoord.getVal() - tagCoord.getKey());
             // End tag including </ and >
             recordEndTag = String.format(END_TAG_FORMAT, recordTag.substring(1).split("\\s|\\>")[0]).toCharArray();
         }
-        return tagCoords;
+
+        return tagCoord;
     }
 
-    /**
-     * Start document and end document events are sent to all workers.
-     * @param
-     * @throws IOException
-     */
-    private void sendToAllChannels(int start, int count) throws IOException {
-        for (WritableByteChannel pipe: pipes) {
-            sendToChannel(pipe, start, count);
+    public static class XmlByteStreamEmitterBuilder {
+        private String xmlFile;
+        private long skipRecs = 0;
+        private long firstNRecs = Long.MAX_VALUE;
+        private CharsetDecoder decoder = null;
+        private int numProducers = 1;
+
+        public XmlByteStreamEmitterBuilder setXmlFile(String xmlFile) {
+            this.xmlFile = xmlFile;
+            return this;
+        }
+
+        public XmlByteStreamEmitterBuilder setSkipRecs(long skipRecs) {
+            this.skipRecs = skipRecs;
+            return this;
+        }
+
+        public XmlByteStreamEmitterBuilder setFirstNRecs(long firstNRecs) {
+            this.firstNRecs = firstNRecs;
+            return this;
+        }
+
+        public XmlByteStreamEmitterBuilder setDecoder(CharsetDecoder decoder) {
+            this.decoder = decoder;
+            return this;
+        }
+
+        public XmlByteStreamEmitterBuilder setNumProducers(int numProducers) {
+            this.numProducers = numProducers;
+            return this;
+        }
+
+        public XmlByteStreamEmitter create() throws IOException {
+            return new XmlByteStreamEmitter(xmlFile, skipRecs, firstNRecs, decoder, numProducers);
         }
     }
 
-    private void sendToChannel(int start, int count) throws IOException {
-        sendToChannel(channel, start, count);
-    }
-
-    private void sendToChannel(WritableByteChannel pipe, int start, int count) throws IOException {
-        if (count < 1) {
-            return;
-        }
-
-        buffer.position(start);
-        ByteBuffer subBuffer = buffer.slice();
-        subBuffer.limit(count);
-        pipe.write(subBuffer);
-        buffer.position(start + count);
-    }
 }
