@@ -80,8 +80,8 @@ public class XmlByteStreamEmitterTest {
 
         assertEquals("emp:employees", XmlHelpers.toPrefixedTag(emitter.getRootTag()));
         assertEquals("emp:employee", XmlHelpers.toPrefixedTag(emitter.getRecordTag()));
-        assertEquals("emp:employees", emitter.getRootTag().getLocalPart());
-        assertEquals("emp:employee", emitter.getRecordTag().getLocalPart());
+        assertEquals("employees", emitter.getRootTag().getLocalPart());
+        assertEquals("employee", emitter.getRecordTag().getLocalPart());
     }
 
     private static class XmlPipeToFileWriter implements XmlEventWorkerFactory {
