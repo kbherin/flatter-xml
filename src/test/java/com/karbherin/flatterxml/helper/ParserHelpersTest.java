@@ -29,16 +29,16 @@ public class ParserHelpersTest {
     public void testLastIndexOf() {
         /*assertNotEquals(TAG_NOTFOUND_COORDS, lastIndexOf("</emp:employee>".toCharArray(), targetStr.toCharArray(), 0, targetStr.length()));
         assertEquals(TAG_NOTFOUND_COORDS, lastIndexOf("</emp:employee>".toCharArray(), junkStr.toCharArray(), 0, junkStr.length()));*/
-        Pair<Integer, Integer> coord =  lastIndexOf("abc".toCharArray(), "123abc456abc789".toCharArray(), 1, 12);
+        Pair<Integer, Integer> coord =  lastIndexOf("abc", "123abc456abc789", 1);
         assertEquals("9 => 11", coord.toString());
     }
 
     @Test
     public void testIndexOf() {
-        assertNotEquals(TAG_NOTFOUND_COORDS, indexOf("</emp:employee>".toCharArray(), targetStr.toCharArray(), 0, targetStr.length()));
-        assertEquals(TAG_NOTFOUND_COORDS, indexOf("</emp:employee>".toCharArray(), junkStr.toCharArray(), 0, junkStr.length()));
+        assertNotEquals(TAG_NOTFOUND_COORDS, indexOf("</emp:employee>", targetStr, 0));
+        assertEquals(TAG_NOTFOUND_COORDS, indexOf("</emp:employee>", junkStr, 0));
 
-        Pair<Integer, Integer> coord =  indexOf("abc".toCharArray(), "123abc456abc789".toCharArray(), 1, 7);
+        Pair<Integer, Integer> coord =  indexOf("abc", "123abc456abc789", 1);
         assertEquals("3 => 5", coord.toString());
     }
 

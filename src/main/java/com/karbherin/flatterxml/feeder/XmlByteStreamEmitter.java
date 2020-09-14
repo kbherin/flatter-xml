@@ -1,8 +1,10 @@
 package com.karbherin.flatterxml.feeder;
 
+import com.karbherin.flatterxml.helper.XmlHelpers;
 import com.karbherin.flatterxml.model.Pair;
 import static com.karbherin.flatterxml.helper.ParsingHelpers.*;
 
+import javax.xml.namespace.QName;
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
 import java.nio.channels.*;
@@ -30,8 +32,8 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
     // Includes the delimiters < and >
     private String rootTag = null;
     private String recordTag = null;
-    private char[] rootEndTag = null;
-    private char[] recordEndTag = null;
+    private String rootEndTag = null;
+    private String recordEndTag = null;
 
     private final List<Pipe.SinkChannel> channels = new ArrayList<>();
     private final CharsetDecoder decoder;
@@ -39,7 +41,6 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
     private final List<SeekableByteChannel> readers = new ArrayList<>();
 
     private static final String END_TAG_FORMAT = "</%s>";
-    private static final int UNTIL_END = -1;
 
     public XmlByteStreamEmitter(String xmlFile, long skipRecs, long firstNRecs, CharsetDecoder decoder,
                                 int numProducers) throws IOException {
@@ -119,51 +120,69 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
      * Returns the number of records emitted.
      * @return
      */
+    @Override
     public long getRecCounter() {
         return recCounter;
     }
 
+    @Override
+    public QName getRootTag() {
+        return XmlHelpers.parsePrefixTag(rootEndTag.replaceAll("[<>/]", XmlHelpers.EMPTY));
+    }
+
+    @Override
+    public QName getRecordTag() {
+        return XmlHelpers.parsePrefixTag(recordEndTag.replaceAll("[<>/]", XmlHelpers.EMPTY));
+    }
+
     private void docFeed() throws IOException {
         XmlScanner scanner = new XmlScanner(readers.get(0), decoder, channels);
-        char[] str = scanner.next();
+        String str = scanner.next();
 
         Pair<Integer, Integer> coord = findRootTag(str);
-        str = scanner.compose(coord.getVal());
+        str = scanner.compose(str, coord.getVal());
         scanner.sendToAllChannels();
-        str = scanner.readNext();
         coord = findFirstRecordTag(str);
         if (coord == TAG_NOTFOUND_COORDS) {
             throw new IllegalStateException("Record tag could not be found under the XML root");
         }
 
-        do {
-            coord = indexOf(recordEndTag, str, coord.getVal()+1, str.length);
+        while (scanner.hasNext() || !str.isEmpty()) {
 
+            // Detect record's end tag
+            coord = indexOf(recordEndTag, str, 0);
             if (coord != TAG_NOTFOUND_COORDS) {
-                str = scanner.compose(coord.getVal());
-                // Write the record to active channel
-                scanner.sendToChannel();
-                recCounter++;
+                str = scanner.compose(str, coord.getVal());
+
+                if (skipRecs == 0 && firstNRecs-- > 0) {
+                    // Write the record to active channel
+                    scanner.sendToChannel();
+                    recCounter++;
+                    scanner.switchOutputChannel();
+                }
+
+                if (skipRecs > 0) {
+                    skipRecs--;
+                }
 
             } else {
+
                 // If root element's end tag is detected and write it and exit
-                coord = indexOf(rootEndTag, str, coord.getVal()+1, str.length);
+                coord = indexOf(rootEndTag, str, coord.getVal() + 1);
                 if (coord != TAG_NOTFOUND_COORDS) {
-                    str = writeAroundRootEndTag(scanner, coord);
+                    writeAroundRootEndTag(scanner, str, coord);
                     return;
                 }
-                str = scanner.compose(coord.getVal());
+                str = scanner.compose(str, coord.getVal());
             }
-
-        } while (scanner.hasRemaining());
+        }
     }
 
-    private char[] writeAroundRootEndTag(XmlScanner scanner,  Pair<Integer, Integer> coord) throws IOException {
-        char[] str = scanner.compose(coord.getKey()-1);
+    private void writeAroundRootEndTag(XmlScanner scanner,  String activeStr, Pair<Integer, Integer> coord) throws IOException {
+        String str = scanner.compose(activeStr, coord.getKey()-1);
         scanner.sendToChannel();
-        str = scanner.compose(UNTIL_END);
+        str = scanner.compose(str, str.length()-1);
         scanner.sendToAllChannels();
-        return str;
     }
 
     /**
@@ -171,21 +190,21 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
      * @param str - buffer to search in
      * @return
      */
-    private Pair<Integer, Integer> findRootTag(char[] str) {
+    private Pair<Integer, Integer> findRootTag(String str) {
         Pair<Integer, Integer> tagCoord = TAG_NOTFOUND_COORDS;
 
         if (rootTag == null) {
             int recordStartPos = 0;
             // Locate root tag
-            tagCoord = locateRootTag(str, str.length);
+            tagCoord = locateRootTag(str);
             if (tagCoord == TAG_NOTFOUND_COORDS) {
                 throw new IllegalStateException("Cannot find root element. Buffer may be too small");
             }
             // Includes the delimiters < and >
-            rootTag = String.valueOf(str, tagCoord.getKey(), 1 + tagCoord.getVal() - tagCoord.getKey());
+            rootTag = str.substring(tagCoord.getKey(), tagCoord.getVal() + 1);
             recordStartPos = tagCoord.getVal() + 1;
             // End tag including </ and >
-            rootEndTag = String.format(END_TAG_FORMAT, rootTag.substring(1).split("\\s|\\>")[0]).toCharArray();
+            rootEndTag = String.format(END_TAG_FORMAT, rootTag.substring(1).split("\\s|\\>")[0]);
         }
 
         return tagCoord;
@@ -196,20 +215,20 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
      * @param str - buffer to search in
      * @return
      */
-    private Pair<Integer, Integer> findFirstRecordTag(char[] str) {
+    private Pair<Integer, Integer> findFirstRecordTag(String str) {
         Pair<Integer, Integer> tagCoord = TAG_NOTFOUND_COORDS;
 
         if (recordTag == null) {
             int recordStartPos = 0;
             // Locate record tag
-            tagCoord = nextTagCoords(str, recordStartPos, str.length);
+            tagCoord = nextTagCoord(str, recordStartPos);
             if (tagCoord == TAG_NOTFOUND_COORDS) {
                 return TAG_NOTFOUND_COORDS;
             }
             // Includes the delimiters < and >
-            recordTag = String.valueOf(str, tagCoord.getKey(),1 + tagCoord.getVal() - tagCoord.getKey());
+            recordTag = str.substring(tagCoord.getKey(), 1 + tagCoord.getVal());
             // End tag including </ and >
-            recordEndTag = String.format(END_TAG_FORMAT, recordTag.substring(1).split("\\s|\\>")[0]).toCharArray();
+            recordEndTag = String.format(END_TAG_FORMAT, recordTag.substring(1).split("\\s|\\>")[0]);
         }
 
         return tagCoord;

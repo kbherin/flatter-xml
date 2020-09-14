@@ -96,40 +96,43 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
         // Return the worker to run in a thread
         return () -> {
 
-            long totalRecs = 0L;
-            FlattenXml flattener = null;
             try {
-                flattener = setup.create();
-            } catch (Throwable ex) {
-                statusReporter.logError(new Exception("Exception occurred. Could not start worker"), workerNum);
-                ex.printStackTrace();
-            }
-
-            while(flattener != null) {
-                long recsInBatch; // Number of records processed in current batch
-
+                long totalRecs = 0L;
+                FlattenXml flattener = null;
                 try {
-                    recsInBatch = flattener.parseFlatten(batchSize);
-                    statusReporter.incrementRecordCounter(recsInBatch);
-                    totalRecs += recsInBatch;
+                    flattener = setup.create();
                 } catch (Throwable ex) {
-                    statusReporter.logError( new Exception(String.format(
-                            "\nException occurred after processing %d records in total",
-                            workerNum, flattener.getTotalRecordCounter()), ex), workerNum );
-                    statusReporter.incrementRecordCounter(flattener.getBatchRecCounter());
-                    break;
+                    statusReporter.logError(new Exception("Exception occurred. Could not start worker"), workerNum);
+                    ex.printStackTrace();
                 }
 
-                statusReporter.showProgress();
+                while (flattener != null) {
+                    long recsInBatch; // Number of records processed in current batch
 
-                // If previous batch processed 0 records then the processing is complete.
-                if (recsInBatch == 0 || recsInBatch < batchSize) {
-                    break;
+                    try {
+                        recsInBatch = flattener.parseFlatten(batchSize);
+                        statusReporter.incrementRecordCounter(recsInBatch);
+                        totalRecs += recsInBatch;
+                    } catch (Throwable ex) {
+                        statusReporter.logError(new Exception(String.format(
+                                "\nException occurred after processing %d records in total",
+                                workerNum, flattener.getTotalRecordCounter()), ex), workerNum);
+                        statusReporter.incrementRecordCounter(flattener.getBatchRecCounter());
+                        break;
+                    }
+
+                    statusReporter.showProgress();
+
+                    // If previous batch processed 0 records then the processing is complete.
+                    if (recsInBatch == 0 || recsInBatch < batchSize) {
+                        break;
+                    }
                 }
+
+                statusReporter.addFilesGenerated(recordHandler.getFilesWritten());
+            } finally {
+                workerCounter.countDown();
             }
-
-            statusReporter.addFilesGenerated(recordHandler.getFilesWritten());
-            workerCounter.countDown();
 
         };
     }

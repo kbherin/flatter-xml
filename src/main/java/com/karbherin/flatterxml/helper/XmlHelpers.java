@@ -125,6 +125,18 @@ public class XmlHelpers {
         }
     }
 
+    public static QName parsePrefixTag(String input) {
+        String[] parts = input.split(":");
+        if (parts.length > 1) {
+            String prefix = parts[0];
+            String tagName = parts[1];
+            return new QName("", tagName, prefix);
+        } else {
+            String tagName = parts[0];
+            return new QName(tagName);
+        }
+    }
+
     public static String toPrefixedTag(QName qname) {
         if (qname.getPrefix() != null && qname.getPrefix().length() > 0) {
             return String.format("%s:%s", qname.getPrefix(), qname.getLocalPart());

@@ -10,21 +10,21 @@ import java.util.concurrent.CountDownLatch;
 public class XmlEventWorkerPool {
 
     public long execute(int numWorkers,
-                        XmlRecordEmitter xmlEventEmitter, XmlEventWorkerFactory xmlEventWorkerFactory)
+                        XmlRecordEmitter xmlRecordEmitter, XmlEventWorkerFactory xmlEventWorkerFactory)
             throws IOException, XMLStreamException, InterruptedException {
 
         CountDownLatch workerCounter = new CountDownLatch(numWorkers);
 
         for (int i = 0; i < numWorkers; i++) {
             Pipe pipe = Pipe.open();
-            xmlEventEmitter.registerChannel(pipe.sink());
+            xmlRecordEmitter.registerChannel(pipe.sink());
             Runnable worker = xmlEventWorkerFactory.newWorker(pipe.source(), workerCounter);
             new Thread(worker).start();
         }
 
-        xmlEventEmitter.startStream();
+        xmlRecordEmitter.startStream();
 
         workerCounter.await();
-        return xmlEventEmitter.getRecCounter();
+        return xmlRecordEmitter.getRecCounter();
     }
 }

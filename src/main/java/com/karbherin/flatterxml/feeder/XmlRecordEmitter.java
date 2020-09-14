@@ -1,5 +1,6 @@
 package com.karbherin.flatterxml.feeder;
 
+import javax.xml.namespace.QName;
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
 import java.nio.channels.Pipe;
@@ -21,13 +22,15 @@ public interface XmlRecordEmitter {
      */
     void startStream() throws XMLStreamException, IOException;
 
-    long getRecCounter();
-
     /**
      * Flush and close channels to all the workers.
      * @throws XMLStreamException
      * @throws IOException
      */
     void closeAllChannels() throws XMLStreamException, IOException;
+
+    long getRecCounter();
+    QName getRootTag();
+    QName getRecordTag();
 
 }

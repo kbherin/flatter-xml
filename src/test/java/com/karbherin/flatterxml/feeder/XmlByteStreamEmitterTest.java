@@ -6,23 +6,19 @@ import com.karbherin.flatterxml.consumer.XmlEventWorkerFactory;
 import com.karbherin.flatterxml.consumer.XmlEventWorkerPool;
 import com.karbherin.flatterxml.consumer.XmlFileSplitterFactory;
 import static com.karbherin.flatterxml.feeder.XmlByteStreamEmitter.XmlByteStreamEmitterBuilder;
-import org.junit.Assert;
-import org.junit.Ignore;
+
+import com.karbherin.flatterxml.helper.XmlHelpers;
 import org.junit.Test;
 
 import javax.xml.stream.XMLStreamException;
-import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.Pipe;
-import java.nio.channels.WritableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.concurrent.CountDownLatch;
 
 public class XmlByteStreamEmitterTest {
@@ -53,31 +49,60 @@ public class XmlByteStreamEmitterTest {
         XmlEventWorkerPool workerPool = new XmlEventWorkerPool();
         XmlFileSplitterFactory workerFactory = XmlFileSplitterFactory.newInstance(outDir, xmlFilePath);
 
-        Assert.assertEquals("Entire file", 21,
-                workerPool.execute(1,
-                        new XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath).create(), new Abc()));
-        /*Assert.assertEquals("Skip 5 records", 16,
+        assertEquals("Entire file single threaded", 21,
+                workerPool.execute(1, new XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath).create(),
+                        new XmlPipeToFileWriter(outDir, "emp_bytestream.xml")));
+        assertEquals("Skip 5 records", 16,
                 workerPool.execute(3, new XmlByteStreamEmitter(xmlFilePath, 5), workerFactory));
-        Assert.assertEquals("Skip 5 and pick first 4", 4,
+        assertEquals("Skip 5 records", 16,
+                workerPool.execute(3, new XmlByteStreamEmitter(xmlFilePath, 5), workerFactory));
+        assertEquals("Skip 5 and pick first 4", 4,
                 workerPool.execute(3, new XmlByteStreamEmitter(xmlFilePath, 5, 4), workerFactory));
-        Assert.assertEquals("First 4 records", 4,
+        assertEquals("First 4 records", 4,
                 workerPool.execute(3, new XmlByteStreamEmitter(xmlFilePath, 0, 4), workerFactory));
-        Assert.assertEquals("Overshoot the end", 3,
-                workerPool.execute(3, new XmlByteStreamEmitter(xmlFilePath, 18, 10), workerFactory));*/
+        XmlRecordEmitter emitter = new XmlByteStreamEmitter(xmlFilePath, 18, 10);
+        assertEquals("Overshoot the end", 3,
+                workerPool.execute(3, emitter, workerFactory));
+
+        assertEquals("employees", XmlHelpers.toPrefixedTag(emitter.getRootTag()));
+        assertEquals("employee", XmlHelpers.toPrefixedTag(emitter.getRecordTag()));
     }
 
-    private static class Abc implements XmlEventWorkerFactory {
+    @Test
+    public void splitterNSXml_test() throws IOException, XMLStreamException, InterruptedException {
+        String xmlFilePath = "src/test/resources/emp.xml";
+        String outDir = "target/test/resources/emp_tables/splits";
+        XmlRecordEmitter emitter = new XmlByteStreamEmitter("src/test/resources/emp_ns.xml", 1, 10);
+        XmlFileSplitterFactory workerFactory = XmlFileSplitterFactory.newInstance(outDir, xmlFilePath);
+        XmlEventWorkerPool workerPool = new XmlEventWorkerPool();
+        assertEquals("Overshoot the end", 2,
+                workerPool.execute(3, emitter, workerFactory));
+
+        assertEquals("emp:employees", XmlHelpers.toPrefixedTag(emitter.getRootTag()));
+        assertEquals("emp:employee", XmlHelpers.toPrefixedTag(emitter.getRecordTag()));
+        assertEquals("emp:employees", emitter.getRootTag().getLocalPart());
+        assertEquals("emp:employee", emitter.getRecordTag().getLocalPart());
+    }
+
+    private static class XmlPipeToFileWriter implements XmlEventWorkerFactory {
+
+        private Path outputFilePath;
+        public XmlPipeToFileWriter(String outDir, String outputFile) {
+            this.outputFilePath = Paths.get(outDir + "/" + outputFile);
+        }
 
         @Override
         public Runnable newWorker(Pipe.SourceChannel channel, CountDownLatch workerCounter) {
+
             return () -> {
                 try {
-                    OutputStream out = Files.newOutputStream(Paths.get("target/test/resources/emp_out.xml"));
+                    OutputStream out = Files.newOutputStream(outputFilePath);
                     InputStream ist = Channels.newInputStream(channel);
                     byte[] bytes = new byte[1024];
 
-                    while (ist.read(bytes) > 0) {
-                        out.write(bytes);
+                    int count;
+                    while ((count = ist.read(bytes)) > -1) {
+                        out.write(bytes, 0, count);
                     }
 
                 } catch (IOException e) {
