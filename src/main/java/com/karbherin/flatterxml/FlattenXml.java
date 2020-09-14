@@ -16,6 +16,7 @@ import javax.xml.stream.events.EndElement;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import java.io.*;
+import java.lang.reflect.Array;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -38,9 +39,9 @@ public class FlattenXml {
     private final RecordsDefinitionRegistry outputRecordFieldsSeq;
 
     // Parsing state
-    private final Stack<XMLEvent> tagStack = new Stack<>();
-    private final Stack<RecordFieldsCascade> cascadingStack = new Stack<>();
-    private final Stack<StartElement> tagPath = new Stack<>();
+    private final Deque<XMLEvent> tagStack = new ArrayDeque<>();
+    private final Deque<RecordFieldsCascade> cascadingStack = new ArrayDeque<>();
+    private final Deque<StartElement> tagPath = new ArrayDeque<>();
     private int currLevel = 0;
     private boolean rootElementVisited = false;
     private XMLEvent prevEv = null;
@@ -210,7 +211,7 @@ public class FlattenXml {
                 }
 
                 // Reached the end of the top level record.
-                if (tagStack.empty() || endElement.getName().equals(recordTag)) {
+                if (tagStack.isEmpty() || endElement.getName().equals(recordTag)) {
                     tracking = false;
                     ++batchRecCounter;
                     ++totalRecordCounter;
@@ -247,12 +248,12 @@ public class FlattenXml {
     }
 
 
-    private void writeRecord(Stack<XMLEvent> captureRecordOnError) throws IOException {
+    private void writeRecord(Deque<XMLEvent> captureRecordOnError) throws IOException {
         if (tagStack.isEmpty()) {
             return;
         }
         XMLEvent ev;
-        Stack<Pair<QName, String>> pairStack = new Stack<>();
+        Deque<Pair<QName, String>> pairStack = new ArrayDeque<>();
 
         // Read one part of an XML element at a time.
         while (!(ev = tagStack.pop()).isStartElement()) {
@@ -339,7 +340,7 @@ public class FlattenXml {
     }
 
     private List<Pair<String, String>> alignFieldsToSchema(
-            List<Pair<QName, String>> pairStack, List<QName> schemaFields) {
+            Collection<Pair<QName, String>> pairStack, List<QName> schemaFields) {
 
         // Make a field-value map first.
         Map<String, Pair<QName, String>> fv = pairStack.stream()
@@ -347,7 +348,7 @@ public class FlattenXml {
 
         // Align header and data according to the order of fields defined in XSD for the record.
         // Force print fields that are missing for the record in the XML file.
-        Stack<String[]> aligned = new Stack<>();
+        Deque<String[]> aligned = new ArrayDeque<>();
         return schemaFields.stream()
                 .map( tagName -> tagName.getLocalPart() )
                 .map( tagName -> {
@@ -378,7 +379,7 @@ public class FlattenXml {
     }
 
     private XMLStreamException decorateParseError(XMLStreamException ex) throws IOException {
-        Stack<XMLEvent> errorRec = new Stack<>();
+        Deque<XMLEvent> errorRec = new ArrayDeque<>();
         writeRecord(errorRec);
         javax.xml.stream.Location loc = ex.getLocation();
         ex.initCause(new XMLStreamException("Excerpt of text before the error location:\n"+

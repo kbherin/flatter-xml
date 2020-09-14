@@ -19,7 +19,7 @@ public class XmlSchema {
 
     private String targetNamespace;
     private StartElement schema;
-    private final Stack<XMLEvent> elStack = new Stack<>();
+    private final Deque<XMLEvent> elStack = new ArrayDeque<>();
     private Map<QName, List<XsdElement>> complexTypes = new HashMap<>();
     private final Map<QName, XsdElement> elementTypes = new HashMap<>();
     public static final QName ELEMENT = new QName(XMLConstants.W3C_XML_SCHEMA_NS_URI,"element"),
