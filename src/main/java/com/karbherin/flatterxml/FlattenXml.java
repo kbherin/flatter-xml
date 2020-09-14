@@ -13,10 +13,10 @@ import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 import javax.xml.namespace.QName;
 import javax.xml.stream.*;
 import javax.xml.stream.events.EndElement;
+import javax.xml.stream.events.Namespace;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import java.io.*;
-import java.lang.reflect.Array;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -37,6 +37,9 @@ public class FlattenXml {
     private StartElement rootElement;
     private final RecordsDefinitionRegistry recordCascadesRegistry;
     private final RecordsDefinitionRegistry outputRecordFieldsSeq;
+
+    // Maps namespace URIs in the xmlns declarations to prefixes
+    private final Map<String, Namespace> xmlnsUriToPrefix = new HashMap<>();
 
     // Parsing state
     private final Deque<XMLEvent> tagStack = new ArrayDeque<>();
@@ -139,6 +142,9 @@ public class FlattenXml {
                 } else {
                     rootElementVisited = true;
                     rootElement = el;
+                    iteratorStream((Iterator<Namespace>) rootElement.getNamespaces()).forEach(ns -> {
+                        xmlnsUriToPrefix.put(ns.getNamespaceURI(), ns);
+                    });
                     // The actual record tag string is parsed here as we now have the namespace context
                     if (recordTag != null) {
                         recordTag = XmlHelpers.parsePrefixTag(recordTagGiven,
@@ -350,11 +356,11 @@ public class FlattenXml {
         // Force print fields that are missing for the record in the XML file.
         Deque<String[]> aligned = new ArrayDeque<>();
         return schemaFields.stream()
-                .map( tagName -> tagName.getLocalPart() )
                 .map( tagName -> {
-                    Pair<QName, String> data =  fv.get(tagName);
+                    Pair<QName, String> data =  fv.get(tagName.getLocalPart());
                     if (data == null) {
-                        return new Pair<>(tagName, EMPTY);
+                        String prefix = xmlnsUriToPrefix.get(tagName.getNamespaceURI()).getPrefix();
+                        return new Pair<>(prefix+":"+tagName.getLocalPart(), EMPTY);
                     } else {
                         return new Pair<>(toPrefixedTag(data.getKey()), data.getVal());
                     }
