@@ -276,7 +276,8 @@ public class FlattenXmlRunner {
 
         FlattenXmlRunner runner = new FlattenXmlRunner();
         Collection<String[]> filesWritten = runner.run(args);
-        System.out.printf("Total number of files produced in %s: %d", runner.outDir, filesWritten.size());
+        System.out.printf("Total number of files produced in %s: %d%n---------------------------%n",
+                runner.outDir, filesWritten.size());
     }
 
     private static void displayFilesGenerated(Collection<String[]> filesWritten, String rootTagName) {
