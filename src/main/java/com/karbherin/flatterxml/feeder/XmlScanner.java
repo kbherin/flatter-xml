@@ -73,8 +73,9 @@ public class XmlScanner {
      * @throws IOException
      */
     public XmlScanner sendToChannel() throws IOException {
-        ByteBuffer writeBuffer = prepareWriteBuffer();
-        channel.write(writeBuffer);
+        composeBuffer.flip();
+        channel.write(composeBuffer);
+        composeBuffer.clear();
         return this;
     }
 
@@ -86,12 +87,11 @@ public class XmlScanner {
      * @throws IOException
      */
     public XmlScanner sendToAllChannels() throws IOException {
-        ByteBuffer writeBuffer = prepareWriteBuffer();
-
         for (WritableByteChannel channel : channels) {
-            channel.write(writeBuffer);
-            writeBuffer.rewind();
+            composeBuffer.flip();
+            channel.write(composeBuffer);
         }
+        composeBuffer.clear();
         return this;
     }
 
@@ -122,15 +122,6 @@ public class XmlScanner {
         buffer.rewind();
         decoder.decode(buffer, charBuf, buffer.position() < buffer.capacity());
         return charBuf.array();
-    }
-
-    private ByteBuffer prepareWriteBuffer() {
-        int count = composeBuffer.position();
-        composeBuffer.rewind();
-        ByteBuffer writeBuffer = composeBuffer.slice();
-        writeBuffer.limit(count).rewind();
-        composeBuffer.clear();
-        return writeBuffer;
     }
 
     private void resizeComposeBuffer(int dataLength) {

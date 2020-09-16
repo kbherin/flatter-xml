@@ -92,7 +92,7 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
      * @throws IOException
      */
     @Override
-    public void startStream() throws XMLStreamException, IOException {
+    public void startStream() throws IOException {
         try {
             docFeed();
         } finally {
@@ -106,7 +106,7 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
      * @throws IOException
      */
     @Override
-    public void closeAllChannels() throws XMLStreamException, IOException {
+    public void closeAllChannels() throws IOException {
         for (Pipe.SinkChannel pipe : channels) {
             pipe.close();
         };
