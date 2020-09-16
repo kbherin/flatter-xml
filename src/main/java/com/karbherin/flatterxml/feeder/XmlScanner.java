@@ -27,8 +27,8 @@ public class XmlScanner {
     private int channelNum = 0;
     private ByteBuffer composeBuffer = ByteBuffer.allocate(COMPOSE_BUFFER_SIZE); // Buffer to compose a writing
 
-    private static final int READ_BUFFER_SIZE = 8192;
-    private static final int COMPOSE_BUFFER_SIZE = 4096;
+    private static final int READ_BUFFER_SIZE = 2048;
+    private static final int COMPOSE_BUFFER_SIZE = 2048;
     private static final int UNTIL_END = -1;
 
     protected XmlScanner(ReadableByteChannel reader, CharsetDecoder decoder, List<Pipe.SinkChannel> channels) {
