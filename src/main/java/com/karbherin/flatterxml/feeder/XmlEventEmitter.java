@@ -35,31 +35,11 @@ public class XmlEventEmitter implements XmlRecordEmitter {
      * @throws IOException
      * @throws XMLStreamException
      */
-    public XmlEventEmitter(String xmlFile, long skipRecs, long firstNRecs) {
+    private XmlEventEmitter(String xmlFile, long skipRecs, long firstNRecs) {
         this.xmlFile = xmlFile;
         this.skipRecs = skipRecs;
         this.firstNRecs = firstNRecs;
     }
-
-    /**
-     * Start events feed. The entire XML file is processed.
-     * @throws XMLStreamException
-     * @throws IOException
-     */
-    public XmlEventEmitter(String xmlFile) {
-        this(xmlFile, 0, Long.MAX_VALUE);
-    }
-
-    /**
-     * Start events feed after skipping a few records.
-     * @param skipRecs - 0 disables skipping records
-     * @throws XMLStreamException
-     * @throws IOException
-     */
-    public XmlEventEmitter(String xmlFile, long skipRecs) {
-        this(xmlFile, skipRecs, Long.MAX_VALUE);
-    }
-
 
     /**
      * Register a pipe to an events worker.
@@ -201,6 +181,31 @@ public class XmlEventEmitter implements XmlRecordEmitter {
     private void sendToAllChannels(XMLEvent ev) throws XMLStreamException {
         for (XMLEventWriter channel: channels) {
             channel.add(ev);
+        }
+    }
+
+    public static class XmlEventEmitterBuilder {
+        private String xmlFile;
+        private long skipRecs = 0;
+        private long firstNRecs = Long.MAX_VALUE;
+
+        public XmlEventEmitterBuilder setXmlFile(String xmlFile) {
+            this.xmlFile = xmlFile;
+            return this;
+        }
+
+        public XmlEventEmitterBuilder setSkipRecs(long skipRecs) {
+            this.skipRecs = skipRecs;
+            return this;
+        }
+
+        public XmlEventEmitterBuilder setFirstNRecs(long firstNRecs) {
+            this.firstNRecs = firstNRecs;
+            return this;
+        }
+
+        public XmlEventEmitter create() {
+            return new XmlEventEmitter(xmlFile, skipRecs, firstNRecs);
         }
     }
 

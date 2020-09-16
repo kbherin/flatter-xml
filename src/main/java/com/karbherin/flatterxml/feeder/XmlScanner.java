@@ -17,6 +17,11 @@ public class XmlScanner {
     private final CharsetDecoder decoder;
     private final ReadableByteChannel reader;
     private boolean endOfFile = false;
+    private final long bytesReadLimit;
+
+    // Reading management
+    private long bytesRead = 0L;
+    private int extendRead = 0;
 
     // Working buffer
     private ByteBuffer buffer = ByteBuffer.allocate(READ_BUFFER_SIZE);   // Read buffer
@@ -31,22 +36,51 @@ public class XmlScanner {
     private static final int COMPOSE_BUFFER_SIZE = 2048;
     private static final int UNTIL_END = -1;
 
-    protected XmlScanner(ReadableByteChannel reader, CharsetDecoder decoder, List<Pipe.SinkChannel> channels) {
+    protected XmlScanner(ReadableByteChannel reader, CharsetDecoder decoder, List<Pipe.SinkChannel> channels,
+                         long bytesReadLimit) {
 
         this.decoder = decoder;
         this.reader = reader;
         this.channels = channels;
         this.channel = channels.get(channelNum);
+        this.bytesReadLimit = bytesReadLimit;
     }
 
+    protected XmlScanner(ReadableByteChannel reader, CharsetDecoder decoder, List<Pipe.SinkChannel> channels) {
+        this(reader, decoder, channels, 0L);
+        extendRead = 1;
+    }
+
+    /**
+     * Reads next buffer of bytes from input, up to the bytes limit.
+     * @return
+     * @throws IOException
+     */
     public String next() throws IOException {
         buffer.rewind();
+
+        // Calculate buffer size based on read boundary
+        int bufferSize = (int) Math.min(bytesReadLimit - bytesRead - extendRead, buffer.capacity());
+        buffer.limit(bufferSize < 0 ? buffer.capacity() : bufferSize);
+
+        // Read
         int count = reader.read(buffer);
         if (count <= 0) {
             endOfFile = count < 0;
             return XmlHelpers.EMPTY;
         }
+        bytesRead += count;
         return String.valueOf(decodeChars());
+    }
+
+    /**
+     * Reads beyond the bytes limit.
+     * @return
+     * @throws IOException
+     */
+    public String hardNext() throws IOException {
+        extendRead = 1;
+        return next();
     }
 
     /**
@@ -110,7 +144,7 @@ public class XmlScanner {
      * @return
      */
     public boolean hasNext() {
-        return !endOfFile;
+        return !endOfFile && bytesRead < bytesReadLimit;
     }
 
     /**
@@ -119,7 +153,7 @@ public class XmlScanner {
      */
     private char[] decodeChars() {
         CharBuffer charBuf = CharBuffer.allocate(buffer.position());
-        buffer.rewind();
+        buffer.flip();
         decoder.decode(buffer, charBuf, buffer.position() < buffer.capacity());
         return charBuf.array();
     }

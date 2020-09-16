@@ -1,9 +1,9 @@
 package com.karbherin.flatterxml;
 
 import com.karbherin.flatterxml.feeder.XmlByteStreamEmitter;
-import com.karbherin.flatterxml.feeder.XmlEventEmitter;
 import com.karbherin.flatterxml.consumer.XmlEventWorkerPool;
 import com.karbherin.flatterxml.consumer.XmlFlattenerWorkerFactory;
+import com.karbherin.flatterxml.feeder.XmlEventEmitter;
 import com.karbherin.flatterxml.feeder.XmlRecordEmitter;
 import com.karbherin.flatterxml.helper.XmlHelpers;
 import com.karbherin.flatterxml.output.DelimitedFileHandler;
@@ -226,10 +226,21 @@ public class FlattenXmlRunner {
         XmlRecordEmitter emitter;
         if (System.getenv(ENV_BYTE_STREAM_EMITTER) != null) {
             System.out.println("Employing XML byte stream for dispatching to workers");
-            emitter = new XmlByteStreamEmitter(xmlFilePath);
+            int numProducers = 1;
+            if (numWorkers / 4 > 1) {
+                numProducers = numWorkers / 4;
+                System.out.printf("Using %d parallel stream emitters%n", numProducers);
+            }
+
+            emitter = new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder()
+                    .setXmlFile(xmlFilePath)
+                    .setNumProducers(numProducers)
+                    .create();
         } else {
             System.out.println("Employing XML event stream for dispatching to workers");
-            emitter = new XmlEventEmitter(xmlFilePath);
+            emitter = new XmlEventEmitter.XmlEventEmitterBuilder()
+                    .setXmlFile(xmlFilePath)
+                    .create();
         }
         XmlFlattenerWorkerFactory workerFactory = XmlFlattenerWorkerFactory.newInstance(
                 xmlFilePath, outDir, delimiter, recordTag, recordHandler,

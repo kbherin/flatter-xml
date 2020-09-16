@@ -17,6 +17,8 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class XmlByteStreamEmitter implements XmlRecordEmitter {
 
@@ -27,7 +29,7 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
     private final int numProducers;
 
     // Return number of records processed
-    private long recCounter = 0;
+    private final AtomicLong recCounter = new AtomicLong(0);
 
     // Includes the delimiters < and >
     private String rootTag = null;
@@ -38,11 +40,13 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
     private final List<Pipe.SinkChannel> channels = new ArrayList<>();
     private final CharsetDecoder decoder;
 
-    private final List<SeekableByteChannel> readers = new ArrayList<>();
+    private final long fileSize;
+    private final long chunkSize;
 
     private static final String END_TAG_FORMAT = "</%s>";
+    private static final int ALIGN_WORD_SIZE = 4;
 
-    public XmlByteStreamEmitter(String xmlFile, long skipRecs, long firstNRecs, CharsetDecoder decoder,
+    private XmlByteStreamEmitter(String xmlFile, long skipRecs, long firstNRecs, CharsetDecoder decoder,
                                 int numProducers) throws IOException {
         this.xmlFile = xmlFile;
         this.skipRecs = skipRecs;
@@ -59,21 +63,8 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
             this.decoder = decoder;
         }
 
-        for (int i = 0; i < numProducers; i++) {
-            readers.add(Files.newByteChannel(xmlFilePath, StandardOpenOption.READ));
-        }
-    }
-
-    public XmlByteStreamEmitter(String xmlFile) throws IOException {
-        this(xmlFile, 0, Long.MAX_VALUE, null, 1);
-    }
-
-    public XmlByteStreamEmitter(String xmlFile, long skipRecs, long firstNRecs) throws IOException {
-        this(xmlFile, skipRecs, firstNRecs, null, 1);
-    }
-
-    public XmlByteStreamEmitter(String xmlFile, long skipRecs) throws IOException {
-        this(xmlFile, skipRecs, Long.MAX_VALUE, null, 1);
+        fileSize = xmlFilePath.toFile().length();
+        chunkSize = fileSize / numProducers + (ALIGN_WORD_SIZE - fileSize % numProducers);
     }
 
     /**
@@ -110,10 +101,6 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
         for (Pipe.SinkChannel pipe : channels) {
             pipe.close();
         };
-
-        for (ReadableByteChannel reader: readers) {
-            reader.close();
-        }
     }
 
     /**
@@ -122,7 +109,7 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
      */
     @Override
     public long getRecCounter() {
-        return recCounter;
+        return recCounter.longValue();
     }
 
     @Override
@@ -136,32 +123,81 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
     }
 
     private void docFeed() throws IOException {
-        XmlScanner scanner = new XmlScanner(readers.get(0), decoder, channels);
+        SeekableByteChannel reader = Files.newByteChannel(xmlFilePath, StandardOpenOption.READ);
+        XmlScanner scanner = new XmlScanner(reader, decoder, channels, chunkSize);
         String str = scanner.next();
 
+        // Identify root tag
         Pair<Integer, Integer> coord = findRootTag(str);
         str = scanner.compose(str, coord.getVal());
         scanner.sendToAllChannels();
+        // Identify record tag
         coord = findFirstRecordTag(str);
         if (coord == TAG_NOTFOUND_COORDS) {
             throw new IllegalStateException("Record tag could not be found under the XML root");
         }
 
+        // Last scanner will write concluding XML root tag to all pipes
+        XmlScanner workerScanner = null;
+
+        final CountDownLatch workerCounter = new CountDownLatch(numProducers - 1);
+        for (int t = 2; t <= numProducers; t++) {
+            reader = Files.newByteChannel(xmlFilePath, StandardOpenOption.READ);
+            long startPoint = (t-1) * chunkSize;
+            long chunkLength = t == numProducers
+                    ? fileSize -  startPoint
+                    : chunkSize;
+
+            reader.position(startPoint);
+            workerScanner = new XmlScanner(reader, decoder, channels, chunkLength);
+
+            new Thread(recordsWorker(workerScanner, workerCounter)).start();
+        }
+
+        feedRecords(scanner, str);
+
+        try {
+            workerCounter.await();
+        } catch (InterruptedException ex) {
+            ex.printStackTrace();
+        }
+
+        // Write the ending root tag
+        if (workerScanner != null) {
+            // Scanner of last thread
+            workerScanner.sendToAllChannels();
+        } else {
+            // Single thread
+            scanner.sendToAllChannels();
+        }
+    }
+
+    private void feedRecords(XmlScanner scanner, String startingStr) throws IOException {
+        String str = startingStr;
+
+        Pair<Integer, Integer> recordStartTagCoord = indexOf(recordTag, str, 0);
+        while (recordStartTagCoord == TAG_NOTFOUND_COORDS && scanner.hasNext()) {
+            str += scanner.next();
+            recordStartTagCoord = indexOf(recordTag, str, 0);
+        }
+
+        int startPos = recordStartTagCoord.getKey() - 1;
+        str = str.substring(startPos);
+        boolean unclosedTag = false;
+
         while (scanner.hasNext() || !str.isEmpty()) {
 
             // Detect record's end tag
-            coord = indexOf(recordEndTag, str, 0);
+            Pair<Integer, Integer>  coord = indexOf(recordEndTag, str, 0);
             if (coord != TAG_NOTFOUND_COORDS) {
                 str = scanner.compose(str, coord.getVal());
 
                 if (skipRecs == 0 && firstNRecs-- > 0) {
                     // Write the record to active channel
                     scanner.sendToChannel();
-                    recCounter++;
+                    recCounter.incrementAndGet();
                     scanner.switchOutputChannel();
-                }
-
-                if (skipRecs > 0) {
+                } else if (skipRecs > 0) {
                     skipRecs--;
                 }
 
@@ -170,19 +206,52 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
                 // If root element's end tag is detected and write it and exit
                 coord = indexOf(rootEndTag, str, coord.getVal() + 1);
                 if (coord != TAG_NOTFOUND_COORDS) {
-                    writeAroundRootEndTag(scanner, str, coord);
+                    writeUptoRootEndTag(scanner, str, coord);
                     return;
                 }
+                recordStartTagCoord = indexOf(recordTag, str, 0);
+                unclosedTag = lastIndexOf(">", str, 0).getKey()
+                        < lastIndexOf("<", str, 0).getKey();
                 str = scanner.compose(str, coord.getVal());
+            }
+        }
+
+        // Does this block start a record, but not conclude it?  Ex: ...<employee><contact>...|
+        // Does the chunk bound truncate a tag? Ex: ...<contact><addre|
+        if (unclosedTag || recordStartTagCoord != TAG_NOTFOUND_COORDS) {
+            Pair<Integer, Integer>  coord;
+
+            // Hard the next blocks until broken record's end tag is found
+            do {
+                str += scanner.hardNext();
+                coord = indexOf(recordEndTag, str, 0);
+            } while (coord == TAG_NOTFOUND_COORDS);
+
+            if (coord != TAG_NOTFOUND_COORDS) {
+                scanner.compose(str, coord.getVal());
+                scanner.sendToChannel();
+                recCounter.incrementAndGet();
             }
         }
     }
 
-    private void writeAroundRootEndTag(XmlScanner scanner,  String activeStr, Pair<Integer, Integer> coord) throws IOException {
+    private Runnable recordsWorker(XmlScanner scanner, CountDownLatch workerCounter) {
+        return () -> {
+            try {
+                feedRecords(scanner, XmlHelpers.EMPTY);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            } finally {
+                workerCounter.countDown();
+            }
+        };
+    }
+
+    private void writeUptoRootEndTag(XmlScanner scanner, String activeStr, Pair<Integer, Integer> coord)
+            throws IOException {
         String str = scanner.compose(activeStr, coord.getKey()-1);
         scanner.sendToChannel();
-        str = scanner.compose(str, str.length()-1);
-        scanner.sendToAllChannels();
+        scanner.compose(str, str.length() - 1);
     }
 
     /**

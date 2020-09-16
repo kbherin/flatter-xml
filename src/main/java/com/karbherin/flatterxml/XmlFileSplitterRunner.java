@@ -59,7 +59,8 @@ public class XmlFileSplitterRunner {
         XmlEventWorkerPool workerPool = new XmlEventWorkerPool();
         XmlFileSplitterFactory workerFactory = XmlFileSplitterFactory.newInstance(outDir, xmlFilePath);
 
-        workerPool.execute(numSplits, new XmlByteStreamEmitter(xmlFilePath), workerFactory);
+        workerPool.execute(numSplits, new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder()
+                .setXmlFile(xmlFilePath).create(), workerFactory);
 
         Long[] recCountsBySplit = workerFactory.getRecordsCount();
         for (int splitNum = 0; splitNum < recCountsBySplit.length; splitNum++) {

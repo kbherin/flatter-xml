@@ -14,11 +14,21 @@ public class XmlEventEmitterTest {
     @Test
     public void test() throws IOException, XMLStreamException, InterruptedException {
         String xmlFile = "src/test/resources/emp.xml";
-        Assert.assertEquals("Entire file", 21, run(new XmlEventEmitter(xmlFile)));
-        Assert.assertEquals("Skip 5 records", 16, run(new XmlEventEmitter(xmlFile, 5)));
-        Assert.assertEquals("Skip 5 and pick first 4", 4, run(new XmlEventEmitter(xmlFile, 5, 4)));
-        Assert.assertEquals("First 4 records", 4, run(new XmlEventEmitter(xmlFile, 0, 4)));
-        Assert.assertEquals("Overshoot the end", 3, run(new XmlEventEmitter(xmlFile, 18, 10)));
+        Assert.assertEquals("Entire file", 21, run(
+                new XmlEventEmitter.XmlEventEmitterBuilder()
+                .setXmlFile(xmlFile).create()));
+        Assert.assertEquals("Skip 5 records", 16, run(
+                new XmlEventEmitter.XmlEventEmitterBuilder()
+                .setXmlFile(xmlFile).setSkipRecs(5).create()));
+        Assert.assertEquals("Skip 5 and pick first 4", 4, run(
+                new XmlEventEmitter.XmlEventEmitterBuilder()
+                .setXmlFile(xmlFile).setSkipRecs(5).setFirstNRecs(4).create()));
+        Assert.assertEquals("First 4 records", 4, run(
+                new XmlEventEmitter.XmlEventEmitterBuilder()
+                .setXmlFile(xmlFile).setSkipRecs(0).setFirstNRecs(4).create()));
+        Assert.assertEquals("Overshoot the end", 3, run(
+                new XmlEventEmitter.XmlEventEmitterBuilder()
+                .setXmlFile(xmlFile).setSkipRecs(18).setFirstNRecs(10).create()));
     }
     private long run(XmlEventEmitter emitter)
             throws IOException, XMLStreamException, InterruptedException {

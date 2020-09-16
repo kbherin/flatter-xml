@@ -53,14 +53,19 @@ public class XmlByteStreamEmitterTest {
                 workerPool.execute(1, new XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath).create(),
                         new XmlPipeToFileWriter(outDir, "emp_bytestream.xml")));
         assertEquals("Skip 5 records", 16,
-                workerPool.execute(3, new XmlByteStreamEmitter(xmlFilePath, 5), workerFactory));
+                workerPool.execute(3, new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath)
+                        .setSkipRecs(5).create(), workerFactory));
         assertEquals("Skip 5 records", 16,
-                workerPool.execute(3, new XmlByteStreamEmitter(xmlFilePath, 5), workerFactory));
+                workerPool.execute(3, new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath)
+                        .setSkipRecs(5).create(), workerFactory));
         assertEquals("Skip 5 and pick first 4", 4,
-                workerPool.execute(3, new XmlByteStreamEmitter(xmlFilePath, 5, 4), workerFactory));
+                workerPool.execute(3, new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath)
+                        .setSkipRecs(5).setFirstNRecs(4).create(), workerFactory));
         assertEquals("First 4 records", 4,
-                workerPool.execute(3, new XmlByteStreamEmitter(xmlFilePath, 0, 4), workerFactory));
-        XmlRecordEmitter emitter = new XmlByteStreamEmitter(xmlFilePath, 18, 10);
+                workerPool.execute(3, new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath)
+                        .setSkipRecs(0).setFirstNRecs(4).create(), workerFactory));
+        XmlRecordEmitter emitter = new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath)
+                .setSkipRecs(18).setFirstNRecs(10).create();
         assertEquals("Overshoot the end", 3,
                 workerPool.execute(3, emitter, workerFactory));
 
@@ -72,7 +77,8 @@ public class XmlByteStreamEmitterTest {
     public void splitterNSXml_test() throws IOException, XMLStreamException, InterruptedException {
         String xmlFilePath = "src/test/resources/emp.xml";
         String outDir = "target/test/resources/emp_tables/splits";
-        XmlRecordEmitter emitter = new XmlByteStreamEmitter("src/test/resources/emp_ns.xml", 1, 10);
+        XmlRecordEmitter emitter = new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder()
+                .setXmlFile("src/test/resources/emp_ns.xml").setSkipRecs(1).setFirstNRecs(10).create();
         XmlFileSplitterFactory workerFactory = XmlFileSplitterFactory.newInstance(outDir, xmlFilePath);
         XmlEventWorkerPool workerPool = new XmlEventWorkerPool();
         assertEquals("Overshoot the end", 2,
