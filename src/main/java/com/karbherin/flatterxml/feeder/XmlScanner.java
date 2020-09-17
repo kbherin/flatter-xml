@@ -120,7 +120,7 @@ public class XmlScanner {
      * @param
      * @throws IOException
      */
-    public XmlScanner sendToAllChannels() throws IOException {
+    public XmlScanner sendToAllChannels(List<? extends WritableByteChannel> channels) throws IOException {
         for (WritableByteChannel channel : channels) {
             composeBuffer.flip();
             channel.write(composeBuffer);

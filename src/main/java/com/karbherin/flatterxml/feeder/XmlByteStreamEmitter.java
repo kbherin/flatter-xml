@@ -16,11 +16,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.StringJoiner;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 public class XmlByteStreamEmitter implements XmlRecordEmitter {
 
@@ -28,6 +27,7 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
     private final Path xmlFilePath;
     private long skipRecs;
     private long firstNRecs;
+    private final Charset charset;
     private final int numProducers;
 
     // Return number of records processed
@@ -40,7 +40,6 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
     private String recordEndTag = null;
 
     private final List<Pipe.SinkChannel> channels = new ArrayList<>();
-    private final CharsetDecoder decoder;
 
     private final long fileSize;
     private final long chunkSize;
@@ -48,23 +47,15 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
     private static final String END_TAG_FORMAT = "</%s>";
     private static final int ALIGN_WORD_SIZE = 4;
 
-    private XmlByteStreamEmitter(String xmlFile, long skipRecs, long firstNRecs, CharsetDecoder decoder,
+    private XmlByteStreamEmitter(String xmlFile, long skipRecs, long firstNRecs, Charset charset,
                                 int numProducers) throws IOException {
         this.xmlFile = xmlFile;
         this.skipRecs = skipRecs;
         this.firstNRecs = firstNRecs;
+        this.charset = charset;
         this.numProducers = numProducers;
 
         xmlFilePath = Paths.get(xmlFile);
-
-        if (decoder == null) {
-            this.decoder = Charset.defaultCharset().newDecoder();
-            this.decoder.onMalformedInput(CodingErrorAction.IGNORE);
-            this.decoder.onUnmappableCharacter(CodingErrorAction.IGNORE);
-        } else {
-            this.decoder = decoder;
-        }
-
         fileSize = xmlFilePath.toFile().length();
         chunkSize = fileSize / numProducers + (ALIGN_WORD_SIZE - fileSize % numProducers);
     }
@@ -130,6 +121,7 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
      * @throws IOException
      */
     private void docFeed() throws IOException {
+        CharsetDecoder decoder = newDecoder();
         SeekableByteChannel reader = Files.newByteChannel(xmlFilePath, StandardOpenOption.READ);
         int workersPerProducer = channels.size() / numProducers;
         XmlScanner scanner = new XmlScanner(reader, decoder, allocateWorkers(0), chunkSize);
@@ -138,7 +130,8 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
         // Identify root tag
         Pair<Integer, Integer> coord = findRootTag(str);
         str = scanner.compose(str, coord.getVal());
-        scanner.sendToAllChannels();
+        scanner.sendToAllChannels(channels);
+
         // Identify record tag
         coord = findFirstRecordTag(str);
         if (coord == TAG_NOTFOUND_COORDS) {
@@ -146,21 +139,24 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
         }
 
         // Last scanner will write concluding XML root tag to all pipes
-        XmlScanner workerScanner = null;
+        XmlScanner lastWorkerScanner = null;
 
         final CountDownLatch workerCounter = new CountDownLatch(numProducers - 1);
         for (int t = 1; t < numProducers; t++) {
-            reader = Files.newByteChannel(xmlFilePath, StandardOpenOption.READ);
+            SeekableByteChannel workerReader = Files.newByteChannel(xmlFilePath, StandardOpenOption.READ);
+            CharsetDecoder workerDecoder = newDecoder();
+
             long startPoint = t * chunkSize;
             long chunkLength = t == numProducers - 1
                     ? fileSize -  startPoint
                     : chunkSize;
 
-            reader.position(startPoint);
-            workerScanner = new XmlScanner(reader, decoder, allocateWorkers(t), chunkLength);
+            workerReader.position(startPoint);
+            XmlScanner workerScanner = new XmlScanner(workerReader, workerDecoder, allocateWorkers(t), chunkLength);
+            lastWorkerScanner = workerScanner;
 
             Thread worker = new Thread(recordsWorker(workerScanner, workerCounter));
-            worker.setPriority(Thread.NORM_PRIORITY + 1);
+            worker.setPriority(Thread.MAX_PRIORITY-1);
             worker.start();
         }
 
@@ -173,12 +169,12 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
         }
 
         // Write the ending root tag
-        if (workerScanner != null) {
+        if (lastWorkerScanner != null) {
             // Scanner of last thread
-            workerScanner.sendToAllChannels();
+            lastWorkerScanner.sendToAllChannels(channels);
         } else {
             // Single thread
-            scanner.sendToAllChannels();
+            scanner.sendToAllChannels(channels);
         }
     }
 
@@ -193,11 +189,12 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
 
         Pair<Integer, Integer> recordStartTagCoord = indexOf(recordTag, str, 0);
         while (recordStartTagCoord == TAG_NOTFOUND_COORDS && scanner.hasNext()) {
-            str += scanner.next();
+            // Retain the last few characters of the data read in the current file read operation
+            str = str.substring(Math.max(0, str.length() - 2 * recordTag.length())) + scanner.next();
             recordStartTagCoord = indexOf(recordTag, str, 0);
         }
 
-        int startPos = recordStartTagCoord.getKey() - 1;
+        int startPos = recordStartTagCoord.getKey();
         str = str.substring(startPos);
         boolean unclosedTag = false;
 
@@ -280,7 +277,7 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
     private List<Pipe.SinkChannel> allocateWorkers(int producerNum) {
         List<Pipe.SinkChannel> subList = new ArrayList<>(channels.size() / numProducers);
         for (int ch = 0; ch < channels.size(); ch++) {
-            if (0 == (ch - producerNum) % numProducers) {
+            if (producerNum == ch % numProducers) {
                 subList.add(channels.get(ch));
             }
         }
@@ -311,6 +308,16 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
     }
 
     /**
+     * Creates a new character decoder
+     * @return
+     */
+    private CharsetDecoder newDecoder() {
+        return charset.newDecoder()
+            .onMalformedInput(CodingErrorAction.IGNORE)
+            .onUnmappableCharacter(CodingErrorAction.IGNORE);
+    }
+
+    /**
      * Finds the root tag and returns the location of the root tag.
      * @param str - buffer to search in
      * @return
@@ -329,7 +336,7 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
             rootTag = str.substring(tagCoord.getKey(), tagCoord.getVal() + 1);
             recordStartPos = tagCoord.getVal() + 1;
             // End tag including </ and >
-            rootEndTag = String.format(END_TAG_FORMAT, rootTag.substring(1).split("\\s|\\>")[0]);
+            rootEndTag = String.format(END_TAG_FORMAT, rootTag.substring(1).split("\\s|>")[0]);
         }
 
         return tagCoord;
@@ -350,10 +357,10 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
             if (tagCoord == TAG_NOTFOUND_COORDS) {
                 return TAG_NOTFOUND_COORDS;
             }
-            // Includes the delimiters < and >
-            recordTag = str.substring(tagCoord.getKey(), 1 + tagCoord.getVal());
+            // Includes the tag opener <
+            recordTag = str.substring(tagCoord.getKey(), 1 + tagCoord.getVal()).split("\\s|>")[0];
             // End tag including </ and >
-            recordEndTag = String.format(END_TAG_FORMAT, recordTag.substring(1).split("\\s|\\>")[0]);
+            recordEndTag = String.format(END_TAG_FORMAT, recordTag.substring(1));
         }
 
         return tagCoord;
@@ -363,7 +370,7 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
         private String xmlFile;
         private long skipRecs = 0;
         private long firstNRecs = Long.MAX_VALUE;
-        private CharsetDecoder decoder = null;
+        private Charset charset = Charset.defaultCharset();
         private int numProducers = 1;
 
         public XmlByteStreamEmitterBuilder setXmlFile(String xmlFile) {
@@ -381,8 +388,13 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
             return this;
         }
 
-        public XmlByteStreamEmitterBuilder setDecoder(CharsetDecoder decoder) {
-            this.decoder = decoder;
+        public XmlByteStreamEmitterBuilder setCharset(String charset) {
+            this.charset = Charset.forName(charset);
+            return this;
+        }
+
+        public XmlByteStreamEmitterBuilder setCharset(Charset charset) {
+            this.charset = charset;
             return this;
         }
 
@@ -392,7 +404,7 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
         }
 
         public XmlByteStreamEmitter create() throws IOException {
-            return new XmlByteStreamEmitter(xmlFile, skipRecs, firstNRecs, decoder, numProducers);
+            return new XmlByteStreamEmitter(xmlFile, skipRecs, firstNRecs, charset, numProducers);
         }
     }
 

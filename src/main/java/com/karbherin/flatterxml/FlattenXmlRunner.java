@@ -35,6 +35,7 @@ public class FlattenXmlRunner {
     private static final String INDENT = "  ";
     private static final HelpFormatter HELP_FORMATTER = new HelpFormatter();
     private static final String ENV_BYTE_STREAM_EMITTER = "BYTE_STREAM_EMITTER";
+    private static final String ENV_BYTE_STREAM_MULTI_EMITTER = "BYTE_STREAM_MULTI_EMITTER";
     private static final int EMITTER_LOAD_FACTOR = 4;
 
     private final Options options = new Options();
@@ -228,9 +229,12 @@ public class FlattenXmlRunner {
         if (System.getenv(ENV_BYTE_STREAM_EMITTER) != null) {
             System.out.println("Employing XML byte stream for dispatching to workers");
             int numProducers = 1;
-            if (numWorkers / EMITTER_LOAD_FACTOR > 1) {
-                numProducers = numWorkers / EMITTER_LOAD_FACTOR;
-                System.out.printf("Using %d parallel stream emitters%n", numProducers);
+
+            if (System.getenv(ENV_BYTE_STREAM_MULTI_EMITTER) != null) {
+                if (numWorkers / EMITTER_LOAD_FACTOR > 1) {
+                    numProducers = numWorkers / EMITTER_LOAD_FACTOR;
+                    System.out.printf("Using %d parallel XML byte stream emitters%n", numProducers);
+                }
             }
 
             emitter = new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder()
@@ -243,6 +247,7 @@ public class FlattenXmlRunner {
                     .setXmlFile(xmlFilePath)
                     .create();
         }
+
         XmlFlattenerWorkerFactory workerFactory = XmlFlattenerWorkerFactory.newInstance(
                 xmlFilePath, outDir, delimiter, recordTag, recordHandler,
                 cascadePolicy, xsds, recordCascadeFieldsDefFile, recordOutputFieldsDefFile,
