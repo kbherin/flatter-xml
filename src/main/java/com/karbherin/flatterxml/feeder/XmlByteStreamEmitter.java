@@ -124,6 +124,11 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
         return XmlHelpers.parsePrefixTag(recordEndTag.replaceAll("[<>/]", XmlHelpers.EMPTY));
     }
 
+    /**
+     * XML document feeder. The main loop that handles interactions between producers and workers.
+     * It takes care of breaking the XML into chunks for processing by separate producers.
+     * @throws IOException
+     */
     private void docFeed() throws IOException {
         SeekableByteChannel reader = Files.newByteChannel(xmlFilePath, StandardOpenOption.READ);
         int workersPerProducer = channels.size() / numProducers;
@@ -177,16 +182,12 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
         }
     }
 
-    private List<Pipe.SinkChannel> allocateWorkers(int producerNum) {
-        List<Pipe.SinkChannel> subList = new ArrayList<>(channels.size() / numProducers);
-        for (int ch = 0; ch < channels.size(); ch++) {
-            if (0 == (ch - producerNum) % numProducers) {
-                subList.add(channels.get(ch));
-            }
-        }
-        return subList;
-    }
-
+    /**
+     * Records processor writes XML records within the designated chunk to the assigned worker.
+     * @param scanner
+     * @param startingStr
+     * @throws IOException
+     */
     private void feedRecords(XmlScanner scanner, String startingStr) throws IOException {
         String str = startingStr;
 
@@ -234,22 +235,16 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
         // Does this block start a record, but not conclude it?  Ex: ...<employee><contact>...|
         // Does the chunk bound truncate a tag? Ex: ...<contact><addre|
         if (unclosedTag || recordStartTagCoord != TAG_NOTFOUND_COORDS) {
-            Pair<Integer, Integer>  coord;
-
-            // Hard the next blocks until broken record's end tag is found
-            do {
-                str += scanner.hardNext();
-                coord = indexOf(recordEndTag, str, 0);
-            } while (coord == TAG_NOTFOUND_COORDS);
-
-            if (coord != TAG_NOTFOUND_COORDS) {
-                scanner.compose(str, coord.getVal());
-                scanner.sendToChannel();
-                recCounter.incrementAndGet();
-            }
+            lookAheadChunkForRecordEnd(str, scanner);
         }
     }
 
+    /**
+     * Work executor.
+     * @param scanner
+     * @param workerCounter
+     * @return
+     */
     private Runnable recordsWorker(XmlScanner scanner, CountDownLatch workerCounter) {
         return () -> {
             try {
@@ -262,11 +257,57 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
         };
     }
 
+    /**
+     * Write up to the beginning of terminal root tag to the assigned worker.
+     * @param scanner
+     * @param activeStr
+     * @param coord
+     * @throws IOException
+     */
     private void writeUptoRootEndTag(XmlScanner scanner, String activeStr, Pair<Integer, Integer> coord)
             throws IOException {
         String str = scanner.compose(activeStr, coord.getKey()-1);
         scanner.sendToChannel();
         scanner.compose(str, str.length() - 1);
+    }
+
+
+    /**
+     * Allocates an exclusive set of workers for each producer.
+     * @param producerNum
+     * @return
+     */
+    private List<Pipe.SinkChannel> allocateWorkers(int producerNum) {
+        List<Pipe.SinkChannel> subList = new ArrayList<>(channels.size() / numProducers);
+        for (int ch = 0; ch < channels.size(); ch++) {
+            if (0 == (ch - producerNum) % numProducers) {
+                subList.add(channels.get(ch));
+            }
+        }
+        return subList;
+    }
+
+    /**
+     * Looks into next chunk to find the closing record tag.
+     * @param activeStr
+     * @param scanner
+     * @throws IOException
+     */
+    private void lookAheadChunkForRecordEnd(String activeStr, XmlScanner scanner) throws IOException {
+        Pair<Integer, Integer>  coord;
+        String str = activeStr;
+
+        // Look into next blocks until broken record's end tag is found
+        do {
+            str += scanner.hardNext();
+            coord = indexOf(recordEndTag, str, 0);
+        } while (coord == TAG_NOTFOUND_COORDS);
+
+        if (coord != TAG_NOTFOUND_COORDS) {
+            scanner.compose(str, coord.getVal());
+            scanner.sendToChannel();
+            recCounter.incrementAndGet();
+        }
     }
 
     /**
