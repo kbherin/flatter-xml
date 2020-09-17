@@ -57,7 +57,7 @@ public class XmlScanner {
      * @throws IOException
      */
     public String next() throws IOException {
-        buffer.rewind();
+        buffer.clear();
 
         // Calculate buffer size based on read boundary
         int bufferSize = (int) Math.min(bytesReadLimit - bytesRead - extendRead, buffer.capacity());

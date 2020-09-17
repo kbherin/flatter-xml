@@ -35,6 +35,7 @@ public class FlattenXmlRunner {
     private static final String INDENT = "  ";
     private static final HelpFormatter HELP_FORMATTER = new HelpFormatter();
     private static final String ENV_BYTE_STREAM_EMITTER = "BYTE_STREAM_EMITTER";
+    private static final int EMITTER_LOAD_FACTOR = 4;
 
     private final Options options = new Options();
     private final FlattenXml.FlattenXmlBuilder setup;
@@ -227,8 +228,8 @@ public class FlattenXmlRunner {
         if (System.getenv(ENV_BYTE_STREAM_EMITTER) != null) {
             System.out.println("Employing XML byte stream for dispatching to workers");
             int numProducers = 1;
-            if (numWorkers / 4 > 1) {
-                numProducers = numWorkers / 4;
+            if (numWorkers / EMITTER_LOAD_FACTOR > 1) {
+                numProducers = numWorkers / EMITTER_LOAD_FACTOR;
                 System.out.printf("Using %d parallel stream emitters%n", numProducers);
             }
 

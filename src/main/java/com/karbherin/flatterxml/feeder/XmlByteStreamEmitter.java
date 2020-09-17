@@ -16,9 +16,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 public class XmlByteStreamEmitter implements XmlRecordEmitter {
 
@@ -124,7 +126,8 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
 
     private void docFeed() throws IOException {
         SeekableByteChannel reader = Files.newByteChannel(xmlFilePath, StandardOpenOption.READ);
-        XmlScanner scanner = new XmlScanner(reader, decoder, channels, chunkSize);
+        int workersPerProducer = channels.size() / numProducers;
+        XmlScanner scanner = new XmlScanner(reader, decoder, allocateWorkers(0), chunkSize);
         String str = scanner.next();
 
         // Identify root tag
@@ -141,17 +144,19 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
         XmlScanner workerScanner = null;
 
         final CountDownLatch workerCounter = new CountDownLatch(numProducers - 1);
-        for (int t = 2; t <= numProducers; t++) {
+        for (int t = 1; t < numProducers; t++) {
             reader = Files.newByteChannel(xmlFilePath, StandardOpenOption.READ);
-            long startPoint = (t-1) * chunkSize;
-            long chunkLength = t == numProducers
+            long startPoint = t * chunkSize;
+            long chunkLength = t == numProducers - 1
                     ? fileSize -  startPoint
                     : chunkSize;
 
             reader.position(startPoint);
-            workerScanner = new XmlScanner(reader, decoder, channels, chunkLength);
+            workerScanner = new XmlScanner(reader, decoder, allocateWorkers(t), chunkLength);
 
-            new Thread(recordsWorker(workerScanner, workerCounter)).start();
+            Thread worker = new Thread(recordsWorker(workerScanner, workerCounter));
+            worker.setPriority(Thread.NORM_PRIORITY + 1);
+            worker.start();
         }
 
         feedRecords(scanner, str);
@@ -170,6 +175,16 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
             // Single thread
             scanner.sendToAllChannels();
         }
+    }
+
+    private List<Pipe.SinkChannel> allocateWorkers(int producerNum) {
+        List<Pipe.SinkChannel> subList = new ArrayList<>(channels.size() / numProducers);
+        for (int ch = 0; ch < channels.size(); ch++) {
+            if (0 == (ch - producerNum) % numProducers) {
+                subList.add(channels.get(ch));
+            }
+        }
+        return subList;
     }
 
     private void feedRecords(XmlScanner scanner, String startingStr) throws IOException {
