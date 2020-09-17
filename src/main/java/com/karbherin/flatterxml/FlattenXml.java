@@ -386,7 +386,7 @@ public class FlattenXml {
 
     private XMLStreamException decorateParseError(XMLStreamException ex) throws IOException {
         Deque<XMLEvent> errorRec = new ArrayDeque<>();
-        writeRecord(errorRec);
+        // writeRecord(errorRec);
         javax.xml.stream.Location loc = ex.getLocation();
         ex.initCause(new XMLStreamException("Excerpt of text before the error location:\n"+
                 XmlHelpers.eventsRecordToString(errorRec) +
