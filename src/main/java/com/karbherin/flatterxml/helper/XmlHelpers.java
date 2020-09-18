@@ -197,4 +197,12 @@ public class XmlHelpers {
         return defaultIfNull(str, EMPTY);
     }
 
+    public static int parseInt(String str, int defaultValue) {
+        try {
+            return Integer.valueOf(str);
+        } catch (NumberFormatException ex) {
+            return defaultValue;
+        }
+    }
+
 }

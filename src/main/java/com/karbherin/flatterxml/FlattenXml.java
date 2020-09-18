@@ -261,6 +261,10 @@ public class FlattenXml {
         XMLEvent ev;
         Deque<Pair<QName, String>> pairStack = new ArrayDeque<>();
 
+        if (tagStack.isEmpty()) {
+            return;
+        }
+
         // Read one part of an XML element at a time.
         while (!(ev = tagStack.pop()).isStartElement()) {
 

@@ -18,15 +18,20 @@ public class XmlFileSplitterTest {
         XmlFileSplitterFactory workerFactory = XmlFileSplitterFactory.newInstance(outDir, xmlFilePath);
 
         Assert.assertEquals("Entire file", 21,
-                workerPool.execute(3, new XmlEventEmitter(xmlFilePath), workerFactory));
+                workerPool.execute(3, new XmlEventEmitter.XmlEventEmitterBuilder()
+                        .setXmlFile(xmlFilePath).create(), workerFactory));
         Assert.assertEquals("Skip 5 records", 16,
-                workerPool.execute(3, new XmlEventEmitter(xmlFilePath, 5), workerFactory));
+                workerPool.execute(3, new XmlEventEmitter.XmlEventEmitterBuilder()
+                        .setXmlFile(xmlFilePath).setSkipRecs(5).create(), workerFactory));
         Assert.assertEquals("Skip 5 and pick first 4", 4,
-                workerPool.execute(3, new XmlEventEmitter(xmlFilePath, 5, 4), workerFactory));
+                workerPool.execute(3, new XmlEventEmitter.XmlEventEmitterBuilder()
+                        .setXmlFile(xmlFilePath).setSkipRecs(5).setFirstNRecs(4).create(), workerFactory));
         Assert.assertEquals("First 4 records", 4,
-                workerPool.execute(3, new XmlEventEmitter(xmlFilePath, 0, 4), workerFactory));
+                workerPool.execute(3, new XmlEventEmitter.XmlEventEmitterBuilder()
+                        .setXmlFile(xmlFilePath).setSkipRecs(0).setFirstNRecs(4).create(), workerFactory));
         Assert.assertEquals("Overshoot the end", 3,
-                workerPool.execute(3, new XmlEventEmitter(xmlFilePath, 18, 10), workerFactory));
+                workerPool.execute(3, new XmlEventEmitter.XmlEventEmitterBuilder()
+                        .setXmlFile(xmlFilePath).setSkipRecs(18).setFirstNRecs(10).create(), workerFactory));
     }
 
     @Test
@@ -37,14 +42,19 @@ public class XmlFileSplitterTest {
         XmlFileSplitterFactory workerFactory = XmlFileSplitterFactory.newInstance(outDir, xmlFilePath);
 
         Assert.assertEquals("Entire file", 21,
-                workerPool.execute(3, new XmlByteStreamEmitter(xmlFilePath), workerFactory));
+                workerPool.execute(3, new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder()
+                        .setXmlFile(xmlFilePath).create(), workerFactory));
         Assert.assertEquals("Skip 5 records", 16,
-                workerPool.execute(3, new XmlByteStreamEmitter(xmlFilePath, 5), workerFactory));
+                workerPool.execute(3, new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder()
+                        .setXmlFile(xmlFilePath).setSkipRecs(5).create(), workerFactory));
         Assert.assertEquals("Skip 5 and pick first 4", 4,
-                workerPool.execute(3, new XmlByteStreamEmitter(xmlFilePath, 5, 4), workerFactory));
+                workerPool.execute(3, new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder()
+                        .setXmlFile(xmlFilePath).setSkipRecs(5).setFirstNRecs(4).create(), workerFactory));
         Assert.assertEquals("First 4 records", 4,
-                workerPool.execute(3, new XmlByteStreamEmitter(xmlFilePath, 0, 4), workerFactory));
+                workerPool.execute(3, new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder()
+                        .setXmlFile(xmlFilePath).setSkipRecs(0).setFirstNRecs(4).create(), workerFactory));
         Assert.assertEquals("Overshoot the end", 3,
-                workerPool.execute(3, new XmlByteStreamEmitter(xmlFilePath, 18, 10), workerFactory));
+                workerPool.execute(3, new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder()
+                        .setXmlFile(xmlFilePath).setSkipRecs(18).setFirstNRecs(10).create(), workerFactory));
     }
 }

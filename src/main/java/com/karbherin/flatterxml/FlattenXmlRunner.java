@@ -1,11 +1,11 @@
 package com.karbherin.flatterxml;
 
 import com.karbherin.flatterxml.feeder.XmlByteStreamEmitter;
-import com.karbherin.flatterxml.feeder.XmlEventEmitter;
 import com.karbherin.flatterxml.consumer.XmlEventWorkerPool;
 import com.karbherin.flatterxml.consumer.XmlFlattenerWorkerFactory;
+import com.karbherin.flatterxml.feeder.XmlEventEmitter;
 import com.karbherin.flatterxml.feeder.XmlRecordEmitter;
-import com.karbherin.flatterxml.helper.XmlHelpers;
+import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 import com.karbherin.flatterxml.output.DelimitedFileHandler;
 import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.output.StatusReporter;
@@ -35,6 +35,8 @@ public class FlattenXmlRunner {
     private static final String INDENT = "  ";
     private static final HelpFormatter HELP_FORMATTER = new HelpFormatter();
     private static final String ENV_BYTE_STREAM_EMITTER = "BYTE_STREAM_EMITTER";
+    private static final String ENV_BYTE_STREAM_MULTI_EMITTER = "BYTE_STREAM_MULTI_EMITTER";
+    private static final int EMITTER_LOAD_FACTOR = 4;
 
     private final Options options = new Options();
     private final FlattenXml.FlattenXmlBuilder setup;
@@ -52,7 +54,7 @@ public class FlattenXmlRunner {
     private CommandLine cmd;
 
     private Collection<String[]> filesGenerated = Collections.emptyList();
-    private String rootTagName = XmlHelpers.EMPTY;
+    private String rootTagName = EMPTY;
 
     // Track status and progress
     private final StatusReporter statusReporter = new StatusReporter();
@@ -139,7 +141,7 @@ public class FlattenXmlRunner {
 
         if (cmd.hasOption("x")) {
             String[] xmlFiles = cmd.getOptionValue("x").split(",");
-            xsds = XmlHelpers.parseXsds(xmlFiles);
+            xsds = parseXsds(xmlFiles);
         }
 
         try {
@@ -199,7 +201,7 @@ public class FlattenXmlRunner {
             if (firstLoop && recordTag == null) {
                 firstLoop = false;
                 System.out.printf("Starting record tag not provided.\nIdentified primary record tag '%s'%n",
-                        XmlHelpers.toPrefixedTag(flattener.getRecordTag()));
+                        toPrefixedTag(flattener.getRecordTag()));
             }
 
             statusReporter.showProgress();
@@ -226,11 +228,27 @@ public class FlattenXmlRunner {
         XmlRecordEmitter emitter;
         if (System.getenv(ENV_BYTE_STREAM_EMITTER) != null) {
             System.out.println("Employing XML byte stream for dispatching to workers");
-            emitter = new XmlByteStreamEmitter(xmlFilePath);
+            int numProducers = 1;
+
+            if (System.getenv(ENV_BYTE_STREAM_MULTI_EMITTER) != null) {
+                int loadFactor = parseInt(System.getenv(ENV_BYTE_STREAM_MULTI_EMITTER), EMITTER_LOAD_FACTOR);
+                if (numWorkers / loadFactor > 1) {
+                    numProducers = numWorkers / loadFactor;
+                    System.out.printf("Using %d parallel XML byte stream emitters%n", numProducers);
+                }
+            }
+
+            emitter = new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder()
+                    .setXmlFile(xmlFilePath)
+                    .setNumProducers(numProducers)
+                    .create();
         } else {
             System.out.println("Employing XML event stream for dispatching to workers");
-            emitter = new XmlEventEmitter(xmlFilePath);
+            emitter = new XmlEventEmitter.XmlEventEmitterBuilder()
+                    .setXmlFile(xmlFilePath)
+                    .create();
         }
+
         XmlFlattenerWorkerFactory workerFactory = XmlFlattenerWorkerFactory.newInstance(
                 xmlFilePath, outDir, delimiter, recordTag, recordHandler,
                 cascadePolicy, xsds, recordCascadeFieldsDefFile, recordOutputFieldsDefFile,
@@ -245,7 +263,7 @@ public class FlattenXmlRunner {
         System.out.println();
         if (recordTag == null) {
             System.out.printf("Starting record tag not provided.\nIdentified primary record tag '%s'%n",
-                    XmlHelpers.toPrefixedTag(emitter.getRecordTag()));
+                    toPrefixedTag(emitter.getRecordTag()));
         }
 
         filesGenerated = statusReporter.getFilesGenerated();
