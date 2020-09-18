@@ -1,7 +1,9 @@
 package com.karbherin.flatterxml.output;
 
-import com.karbherin.flatterxml.model.RecordFieldsCascade;
+import com.karbherin.flatterxml.helper.XmlHelpers;
+import com.karbherin.flatterxml.model.CascadedAncestorFields;
 import com.karbherin.flatterxml.model.Pair;
+import com.karbherin.flatterxml.model.RecordTypeHierarchy;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -13,27 +15,32 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 
-public class DelimitedFileHandler implements RecordHandler {
+public class DelimitedFileWriter implements RecordHandler {
 
     private final byte[] delimiter;
     private final String outDir;
-    private final List<String[]> filesWritten = new ArrayList<>();
+    private final List<GeneratedResult> filesWritten = new ArrayList<>();
     private final ConcurrentHashMap<String, ByteChannel> fileStreams = new ConcurrentHashMap<>();
     private final ThreadLocal<ByteBuffer> buffer = ThreadLocal.withInitial(() -> ByteBuffer.allocate(8192));
 
-    private enum KeyValuePart {FIELD_PART, VALUE_PART};
+    private enum KeyValuePart {FIELD_PART, VALUE_PART}
 
-    public DelimitedFileHandler(String delimiter, String outDir) {
+    public DelimitedFileWriter(String delimiter, String outDir) {
         this.delimiter = delimiter.getBytes();
         this.outDir = outDir;
     }
 
+    @Override
     public void write(String fileName, Iterable<Pair<String, String>> fieldValueStack,
-                      RecordFieldsCascade cascadedData, int currLevel, String previousFileName)
+                      CascadedAncestorFields cascadedData, RecordTypeHierarchy recordTypeAncestry)
             throws IOException {
+
+        String previousFileName = previousFile(recordTypeAncestry, fileName);
+        int currLevel = recordTypeAncestry.recordLevel();
 
         final IOException[] exceptions = new IOException[1];
         ByteChannel out = fileStreams.computeIfAbsent(fileName, (fName) -> {
+
             ByteChannel newOut = null;
             try {
                 String filePath = String.format("%s/%s.csv", outDir, fName);
@@ -42,10 +49,10 @@ public class DelimitedFileHandler implements RecordHandler {
                         StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
 
                 // Register the new file stream.
-                filesWritten.add(new String[]{String.valueOf(currLevel), fName, previousFileName});
+                filesWritten.add(new GeneratedResult(currLevel, fName, previousFileName));
 
                 // Writer header record into a newly opened file.
-                writeDelimited(newOut, fieldValueStack, KeyValuePart.FIELD_PART, cascadedData.getParentCascadedFieldValueList());
+                writeDelimited(newOut, fieldValueStack, KeyValuePart.FIELD_PART, cascadedData.getCascadedAncestorFields());
             } catch (IOException ex) {
                 exceptions[0] = ex;
             }
@@ -57,21 +64,22 @@ public class DelimitedFileHandler implements RecordHandler {
             throw exceptions[0];
         }
 
-        writeDelimited(out, fieldValueStack, KeyValuePart.VALUE_PART, cascadedData.getParentCascadedFieldValueList());
+        writeDelimited(out, fieldValueStack, KeyValuePart.VALUE_PART, cascadedData.getCascadedAncestorFields());
     }
 
+    @Override
     public void closeAllFileStreams() {
         for (Map.Entry<String, ByteChannel> entry: fileStreams.entrySet()) {
+            ByteChannel out = entry.getValue();
             try {
-                ByteChannel out = entry.getValue();
                 out.close();
-            } catch (IOException ex) {
-                ;
+            } catch (IOException ignored) {
             }
         }
     }
 
-    public List<String[]> getFilesWritten() {
+    @Override
+    public List<GeneratedResult> getFilesWritten() {
         return filesWritten;
     }
 
@@ -121,6 +129,15 @@ public class DelimitedFileHandler implements RecordHandler {
         // Write to output channel
         buf.flip();
         out.write(buf);
+    }
+
+
+    private String previousFile(RecordTypeHierarchy recordTypeAncestry, String fileName) {
+        String previousFileName = recordTypeAncestry.parentRecordType().recordName().getLocalPart();
+        if (fileName.equals(previousFileName)) {
+            previousFileName = XmlHelpers.EMPTY;
+        }
+        return previousFileName;
     }
 
 }

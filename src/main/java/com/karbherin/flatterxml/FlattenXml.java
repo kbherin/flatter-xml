@@ -162,10 +162,10 @@ public class FlattenXml {
                     currRecordCascade = cascadingStack.peek();
 
                     // Add a cascading rule for a newly nested record.
-                    if (!currRecordCascade.getRecordName().equals( tagPath.peek().getName() )) {
+                    if (!currRecordCascade.recordName().equals( tagPath.peek().getName() )) {
 
                         if (reuseRecordCascade != null &&
-                                reuseRecordCascade.getRecordName().equals(tagPath.peek().getName())) {
+                                reuseRecordCascade.recordName().equals(tagPath.peek().getName())) {
                             // Reuse parent cascades if the record continues to be the same.
                             // The cascading templates will be reused.
                             currRecordCascade = reuseRecordCascade.clearCurrentRecordCascades();
@@ -345,7 +345,7 @@ public class FlattenXml {
             captureRecordOnError.push(ev);
         } else {
             // Write record to file if there are no errors.
-            recordHandler.write(recordTagName, pairList, cascadingStack.peek(), currLevel, previousFile());
+            recordHandler.write(recordTagName, pairList, cascadingStack.peek(), cascadingStack.peek());
         }
     }
 
@@ -370,16 +370,6 @@ public class FlattenXml {
                     }
                 } )
                 .collect(Collectors.toList());
-    }
-
-    private String previousFile() {
-        StartElement prevFile = tagPath.pop();
-        String prevFileName = "ROOT";
-        if (cascadingStack.size() > 1) {
-            prevFileName = tagPath.peek().getName().getLocalPart();
-        }
-        tagPath.push(prevFile);
-        return prevFileName;
     }
 
     private RecordFieldsCascade newRecordCascade(StartElement tag, RecordFieldsCascade parentRecCascade) {
