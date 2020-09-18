@@ -30,7 +30,7 @@ public class ParserHelpersTest {
         /*assertNotEquals(TAG_NOTFOUND_COORDS, lastIndexOf("</emp:employee>".toCharArray(), targetStr.toCharArray(), 0, targetStr.length()));
         assertEquals(TAG_NOTFOUND_COORDS, lastIndexOf("</emp:employee>".toCharArray(), junkStr.toCharArray(), 0, junkStr.length()));*/
         Pair<Integer, Integer> coord =  lastIndexOf("abc", "123abc456abc789", 1);
-        assertEquals("3 => 5", coord.toString());
+        assertEquals("\"3\" : \"5\"", coord.toString());
     }
 
     @Test
@@ -39,7 +39,7 @@ public class ParserHelpersTest {
         assertEquals(TAG_NOTFOUND_COORDS, indexOf("</emp:employee>", junkStr, 0));
 
         Pair<Integer, Integer> coord =  indexOf("abc", "123abc456abc789", 1);
-        assertEquals("3 => 5", coord.toString());
+        assertEquals("\"3\" : \"5\"", coord.toString());
     }
 
 
