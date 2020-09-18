@@ -5,7 +5,7 @@ import com.karbherin.flatterxml.consumer.XmlEventWorkerPool;
 import com.karbherin.flatterxml.consumer.XmlFlattenerWorkerFactory;
 import com.karbherin.flatterxml.feeder.XmlEventEmitter;
 import com.karbherin.flatterxml.feeder.XmlRecordEmitter;
-import com.karbherin.flatterxml.helper.XmlHelpers;
+import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 import com.karbherin.flatterxml.output.DelimitedFileHandler;
 import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.output.StatusReporter;
@@ -54,7 +54,7 @@ public class FlattenXmlRunner {
     private CommandLine cmd;
 
     private Collection<String[]> filesGenerated = Collections.emptyList();
-    private String rootTagName = XmlHelpers.EMPTY;
+    private String rootTagName = EMPTY;
 
     // Track status and progress
     private final StatusReporter statusReporter = new StatusReporter();
@@ -141,7 +141,7 @@ public class FlattenXmlRunner {
 
         if (cmd.hasOption("x")) {
             String[] xmlFiles = cmd.getOptionValue("x").split(",");
-            xsds = XmlHelpers.parseXsds(xmlFiles);
+            xsds = parseXsds(xmlFiles);
         }
 
         try {
@@ -201,7 +201,7 @@ public class FlattenXmlRunner {
             if (firstLoop && recordTag == null) {
                 firstLoop = false;
                 System.out.printf("Starting record tag not provided.\nIdentified primary record tag '%s'%n",
-                        XmlHelpers.toPrefixedTag(flattener.getRecordTag()));
+                        toPrefixedTag(flattener.getRecordTag()));
             }
 
             statusReporter.showProgress();
@@ -231,8 +231,9 @@ public class FlattenXmlRunner {
             int numProducers = 1;
 
             if (System.getenv(ENV_BYTE_STREAM_MULTI_EMITTER) != null) {
-                if (numWorkers / EMITTER_LOAD_FACTOR > 1) {
-                    numProducers = numWorkers / EMITTER_LOAD_FACTOR;
+                int loadFactor = parseInt(ENV_BYTE_STREAM_MULTI_EMITTER, EMITTER_LOAD_FACTOR);
+                if (numWorkers / loadFactor > 1) {
+                    numProducers = numWorkers / loadFactor;
                     System.out.printf("Using %d parallel XML byte stream emitters%n", numProducers);
                 }
             }
@@ -262,7 +263,7 @@ public class FlattenXmlRunner {
         System.out.println();
         if (recordTag == null) {
             System.out.printf("Starting record tag not provided.\nIdentified primary record tag '%s'%n",
-                    XmlHelpers.toPrefixedTag(emitter.getRecordTag()));
+                    toPrefixedTag(emitter.getRecordTag()));
         }
 
         filesGenerated = statusReporter.getFilesGenerated();
