@@ -54,13 +54,13 @@ public class XmlHelpers {
      *
      * @param eventsRec - One record of XML element events
      * */
-    public static String eventsRecordToString(Stack<XMLEvent> eventsRec) {
+    public static String eventsRecordToString(Deque<XMLEvent> eventsRec) {
         StringBuilder buf = new StringBuilder();
         String indent = EMPTY;
         boolean condenseToEllipsis = false;
 
         try {
-            while (!eventsRec.empty()) {
+            while (!eventsRec.isEmpty()) {
                 XMLEvent ev = eventsRec.pop();
 
                 if (ev.isStartElement()) {
@@ -70,7 +70,7 @@ public class XmlHelpers {
                     String tagName = (prefix.length() > 0 ? prefix + PREFIX_SEP : EMPTY)
                             + startEl.getName().getLocalPart();
 
-                    if (!eventsRec.empty() && !eventsRec.peek().isStartElement() &&
+                    if (!eventsRec.isEmpty() && !eventsRec.peek().isStartElement() &&
                             (eventsRec.peek().isEndElement() ||
                                     eventsRec.peek().asCharacters().getData().length() == 0)) {
 
@@ -80,7 +80,7 @@ public class XmlHelpers {
                         eventsRec.pop();     // End tag
 
 
-                        if (!eventsRec.empty() && eventsRec.peek().isStartElement() &&
+                        if (!eventsRec.isEmpty() && eventsRec.peek().isStartElement() &&
                                 eventsRec.peek().asStartElement().getName().equals(startEl.getName())) {
                             condenseToEllipsis = true;
                         }
@@ -93,7 +93,7 @@ public class XmlHelpers {
                     } else {
                         buf.append(String.format("%s<%s %s>", indent, tagName, attrStr));
 
-                        if (!eventsRec.empty() && eventsRec.peek().isStartElement()) {
+                        if (!eventsRec.isEmpty() && eventsRec.peek().isStartElement()) {
                             buf.append(System.lineSeparator());
                             indent = indent + "  ";
                         }
@@ -195,6 +195,14 @@ public class XmlHelpers {
 
     public static String emptyIfNull(String str) {
         return defaultIfNull(str, EMPTY);
+    }
+
+    public static int parseInt(String str, int defaultValue) {
+        try {
+            return Integer.valueOf(str);
+        } catch (NumberFormatException ex) {
+            return defaultValue;
+        }
     }
 
 }

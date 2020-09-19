@@ -17,6 +17,11 @@ public class XmlScanner {
     private final CharsetDecoder decoder;
     private final ReadableByteChannel reader;
     private boolean endOfFile = false;
+    private final long bytesReadLimit;
+
+    // Reading management
+    private long bytesRead = 0L;
+    private int extendRead = 0;
 
     // Working buffer
     private ByteBuffer buffer = ByteBuffer.allocate(READ_BUFFER_SIZE);   // Read buffer
@@ -28,25 +33,54 @@ public class XmlScanner {
     private ByteBuffer composeBuffer = ByteBuffer.allocate(COMPOSE_BUFFER_SIZE); // Buffer to compose a writing
 
     private static final int READ_BUFFER_SIZE = 2048;
-    private static final int COMPOSE_BUFFER_SIZE = 256;
+    private static final int COMPOSE_BUFFER_SIZE = 2048;
     private static final int UNTIL_END = -1;
 
-    protected XmlScanner(ReadableByteChannel reader, CharsetDecoder decoder, List<Pipe.SinkChannel> channels) {
+    protected XmlScanner(ReadableByteChannel reader, CharsetDecoder decoder, List<Pipe.SinkChannel> channels,
+                         long bytesReadLimit) {
 
         this.decoder = decoder;
         this.reader = reader;
         this.channels = channels;
         this.channel = channels.get(channelNum);
+        this.bytesReadLimit = bytesReadLimit;
     }
 
+    protected XmlScanner(ReadableByteChannel reader, CharsetDecoder decoder, List<Pipe.SinkChannel> channels) {
+        this(reader, decoder, channels, 0L);
+        extendRead = 1;
+    }
+
+    /**
+     * Reads next buffer of bytes from input, up to the bytes limit.
+     * @return
+     * @throws IOException
+     */
     public String next() throws IOException {
-        buffer.rewind();
+        buffer.clear();
+
+        // Calculate buffer size based on read boundary
+        int bufferSize = (int) Math.min(bytesReadLimit - bytesRead - extendRead, buffer.capacity());
+        buffer.limit(bufferSize < 0 ? buffer.capacity() : bufferSize);
+
+        // Read
         int count = reader.read(buffer);
         if (count <= 0) {
             endOfFile = count < 0;
             return XmlHelpers.EMPTY;
         }
+        bytesRead += count;
         return String.valueOf(decodeChars());
+    }
+
+    /**
+     * Reads beyond the bytes limit.
+     * @return
+     * @throws IOException
+     */
+    public String hardNext() throws IOException {
+        extendRead = 1;
+        return next();
     }
 
     /**
@@ -73,8 +107,9 @@ public class XmlScanner {
      * @throws IOException
      */
     public XmlScanner sendToChannel() throws IOException {
-        ByteBuffer writeBuffer = prepareWriteBuffer();
-        channel.write(writeBuffer);
+        composeBuffer.flip();
+        channel.write(composeBuffer);
+        composeBuffer.clear();
         return this;
     }
 
@@ -85,13 +120,12 @@ public class XmlScanner {
      * @param
      * @throws IOException
      */
-    public XmlScanner sendToAllChannels() throws IOException {
-        ByteBuffer writeBuffer = prepareWriteBuffer();
-
+    public XmlScanner sendToAllChannels(List<? extends WritableByteChannel> channels) throws IOException {
         for (WritableByteChannel channel : channels) {
-            channel.write(writeBuffer);
-            writeBuffer.rewind();
+            composeBuffer.flip();
+            channel.write(composeBuffer);
         }
+        composeBuffer.clear();
         return this;
     }
 
@@ -110,7 +144,7 @@ public class XmlScanner {
      * @return
      */
     public boolean hasNext() {
-        return !endOfFile;
+        return !endOfFile && bytesRead < bytesReadLimit;
     }
 
     /**
@@ -119,18 +153,9 @@ public class XmlScanner {
      */
     private char[] decodeChars() {
         CharBuffer charBuf = CharBuffer.allocate(buffer.position());
-        buffer.rewind();
+        buffer.flip();
         decoder.decode(buffer, charBuf, buffer.position() < buffer.capacity());
         return charBuf.array();
-    }
-
-    private ByteBuffer prepareWriteBuffer() {
-        int count = composeBuffer.position();
-        composeBuffer.rewind();
-        ByteBuffer writeBuffer = composeBuffer.slice();
-        writeBuffer.limit(count).rewind();
-        composeBuffer.clear();
-        return writeBuffer;
     }
 
     private void resizeComposeBuffer(int dataLength) {

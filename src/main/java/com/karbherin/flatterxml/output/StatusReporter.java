@@ -1,5 +1,7 @@
 package com.karbherin.flatterxml.output;
 
+import static com.karbherin.flatterxml.output.RecordHandler.GeneratedResult;
+
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -7,7 +9,7 @@ public class StatusReporter {
     long start = System.currentTimeMillis();
 
     private AtomicLong recordCounter = new AtomicLong(0L);
-    private Map<String, String[]> filesGenerated = new HashMap<>();
+    private Map<String, GeneratedResult> filesGenerated = new HashMap<>();
 
 
     public synchronized void logError(Throwable exception, int workerNum) {
@@ -23,8 +25,8 @@ public class StatusReporter {
         return recordCounter.addAndGet(increment);
     }
 
-    public synchronized void addFilesGenerated(List<String[]> filesGen) {
-        filesGen.stream().forEach(f -> this.filesGenerated.put(f[1], f));
+    public synchronized void addFilesGenerated(List<GeneratedResult> filesGen) {
+        filesGen.stream().forEach(f -> this.filesGenerated.put(f.recordType, f));
     }
 
     /**
@@ -52,7 +54,7 @@ public class StatusReporter {
         return recordCounter.get();
     }
 
-    public Collection<String[]> getFilesGenerated() {
+    public Collection<GeneratedResult> getFilesGenerated() {
         return filesGenerated.values();
     }
 

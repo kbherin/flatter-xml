@@ -1,12 +1,13 @@
 package com.karbherin.flatterxml;
 
 import com.karbherin.flatterxml.feeder.XmlByteStreamEmitter;
-import com.karbherin.flatterxml.feeder.XmlEventEmitter;
 import com.karbherin.flatterxml.consumer.XmlEventWorkerPool;
 import com.karbherin.flatterxml.consumer.XmlFlattenerWorkerFactory;
+import com.karbherin.flatterxml.feeder.XmlEventEmitter;
 import com.karbherin.flatterxml.feeder.XmlRecordEmitter;
-import com.karbherin.flatterxml.helper.XmlHelpers;
-import com.karbherin.flatterxml.output.DelimitedFileHandler;
+import static com.karbherin.flatterxml.helper.XmlHelpers.*;
+import static com.karbherin.flatterxml.output.RecordHandler.GeneratedResult;
+import com.karbherin.flatterxml.output.DelimitedFileWriter;
 import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.output.StatusReporter;
 import com.karbherin.flatterxml.xsd.XmlSchema;
@@ -35,6 +36,8 @@ public class FlattenXmlRunner {
     private static final String INDENT = "  ";
     private static final HelpFormatter HELP_FORMATTER = new HelpFormatter();
     private static final String ENV_BYTE_STREAM_EMITTER = "BYTE_STREAM_EMITTER";
+    private static final String ENV_BYTE_STREAM_MULTI_EMITTER = "BYTE_STREAM_MULTI_EMITTER";
+    private static final int EMITTER_LOAD_FACTOR = 4;
 
     private final Options options = new Options();
     private final FlattenXml.FlattenXmlBuilder setup;
@@ -51,8 +54,8 @@ public class FlattenXmlRunner {
     private String xmlFilePath;
     private CommandLine cmd;
 
-    private Collection<String[]> filesGenerated = Collections.emptyList();
-    private String rootTagName = XmlHelpers.EMPTY;
+    private Collection<GeneratedResult> filesGenerated = Collections.emptyList();
+    private String rootTagName = EMPTY;
 
     // Track status and progress
     private final StatusReporter statusReporter = new StatusReporter();
@@ -139,7 +142,7 @@ public class FlattenXmlRunner {
 
         if (cmd.hasOption("x")) {
             String[] xmlFiles = cmd.getOptionValue("x").split(",");
-            xsds = XmlHelpers.parseXsds(xmlFiles);
+            xsds = parseXsds(xmlFiles);
         }
 
         try {
@@ -173,7 +176,7 @@ public class FlattenXmlRunner {
         setup.setXmlStream(xmlStream);
 
         // Create XML flattener
-        DelimitedFileHandler recordHandler = new DelimitedFileHandler(delimiter, outDir);
+        DelimitedFileWriter recordHandler = new DelimitedFileWriter(delimiter, outDir);
         setup.setRecordWriter(recordHandler);
         final FlattenXml flattener = setup.create();
 
@@ -199,7 +202,7 @@ public class FlattenXmlRunner {
             if (firstLoop && recordTag == null) {
                 firstLoop = false;
                 System.out.printf("Starting record tag not provided.\nIdentified primary record tag '%s'%n",
-                        XmlHelpers.toPrefixedTag(flattener.getRecordTag()));
+                        toPrefixedTag(flattener.getRecordTag()));
             }
 
             statusReporter.showProgress();
@@ -220,17 +223,33 @@ public class FlattenXmlRunner {
         InputStream xmlStream = new FileInputStream(xmlFilePath);
         setup.setXmlStream(xmlStream);
 
-        RecordHandler recordHandler = new DelimitedFileHandler(delimiter, outDir);
+        RecordHandler recordHandler = new DelimitedFileWriter(delimiter, outDir);
 
         // Initiate concurrent workers
         XmlRecordEmitter emitter;
         if (System.getenv(ENV_BYTE_STREAM_EMITTER) != null) {
             System.out.println("Employing XML byte stream for dispatching to workers");
-            emitter = new XmlByteStreamEmitter(xmlFilePath);
+            int numProducers = 1;
+
+            if (System.getenv(ENV_BYTE_STREAM_MULTI_EMITTER) != null) {
+                int loadFactor = parseInt(System.getenv(ENV_BYTE_STREAM_MULTI_EMITTER), EMITTER_LOAD_FACTOR);
+                if (numWorkers / loadFactor > 1) {
+                    numProducers = numWorkers / loadFactor;
+                    System.out.printf("Using %d parallel XML byte stream emitters%n", numProducers);
+                }
+            }
+
+            emitter = new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder()
+                    .setXmlFile(xmlFilePath)
+                    .setNumProducers(numProducers)
+                    .create();
         } else {
             System.out.println("Employing XML event stream for dispatching to workers");
-            emitter = new XmlEventEmitter(xmlFilePath);
+            emitter = new XmlEventEmitter.XmlEventEmitterBuilder()
+                    .setXmlFile(xmlFilePath)
+                    .create();
         }
+
         XmlFlattenerWorkerFactory workerFactory = XmlFlattenerWorkerFactory.newInstance(
                 xmlFilePath, outDir, delimiter, recordTag, recordHandler,
                 cascadePolicy, xsds, recordCascadeFieldsDefFile, recordOutputFieldsDefFile,
@@ -245,14 +264,15 @@ public class FlattenXmlRunner {
         System.out.println();
         if (recordTag == null) {
             System.out.printf("Starting record tag not provided.\nIdentified primary record tag '%s'%n",
-                    XmlHelpers.toPrefixedTag(emitter.getRecordTag()));
+                    toPrefixedTag(emitter.getRecordTag()));
         }
 
         filesGenerated = statusReporter.getFilesGenerated();
         displayFilesGenerated(filesGenerated, rootTagName);
     }
 
-    private  Collection<String[]> run(String[] args) throws InterruptedException, XMLStreamException, IOException {
+    private  Collection<GeneratedResult> run(String[] args)
+            throws InterruptedException, XMLStreamException, IOException {
         cmd = parseCliArgs(args);
         assignOptions();
 
@@ -275,26 +295,27 @@ public class FlattenXmlRunner {
             throws XMLStreamException, IOException, InterruptedException {
 
         FlattenXmlRunner runner = new FlattenXmlRunner();
-        Collection<String[]> filesWritten = runner.run(args);
-        System.out.printf("Total number of files produced in %s: %d", runner.outDir, filesWritten.size());
+        Collection<GeneratedResult> filesWritten = runner.run(args);
+        System.out.printf("Total number of files produced in %s: %d%n---------------------------%n",
+                runner.outDir, filesWritten.size());
     }
 
-    private static void displayFilesGenerated(Collection<String[]> filesWritten, String rootTagName) {
+    private static void displayFilesGenerated(Collection<GeneratedResult> filesWritten, String rootTagName) {
 
         // Display the files generated
         StringBuilder filesTreeStr = new StringBuilder();
-        Map<String, List<String[]>> groupedByParent = filesWritten.stream()
-                .collect(Collectors.groupingBy(r -> r[2], Collectors.toList()));
+        Map<String, List<GeneratedResult>> groupedByParent = filesWritten.stream()
+                .collect(Collectors.groupingBy(r -> r.previousRecordType, Collectors.toList()));
 
 
-        for (String[] child: groupedByParent.get(rootTagName)) {
-            drillDownFilesHeap(groupedByParent, child[1], Integer.parseInt(child[0]), filesTreeStr);
+        for (GeneratedResult child: groupedByParent.get(rootTagName)) {
+            drillDownFilesHeap(groupedByParent, child.recordType, child.recordLevel, filesTreeStr);
         }
 
         System.out.println(filesTreeStr);
     }
 
-    private static void drillDownFilesHeap(Map<String, List<String[]>> grouped, String file, int level,
+    private static void drillDownFilesHeap(Map<String, List<GeneratedResult>> grouped, String file, int level,
                                            StringBuilder filesGen) {
         while (level-- > 2) {
             filesGen.append(INDENT);
@@ -307,8 +328,8 @@ public class FlattenXmlRunner {
         if (!grouped.containsKey(file)) {
             return;
         }
-        for (String[] child: grouped.get(file)) {
-            drillDownFilesHeap(grouped, child[1], Integer.parseInt(child[0]), filesGen);
+        for (GeneratedResult child: grouped.get(file)) {
+            drillDownFilesHeap(grouped, child.recordType, child.recordLevel, filesGen);
         }
     }
 

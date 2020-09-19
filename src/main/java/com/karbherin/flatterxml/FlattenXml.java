@@ -13,6 +13,7 @@ import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 import javax.xml.namespace.QName;
 import javax.xml.stream.*;
 import javax.xml.stream.events.EndElement;
+import javax.xml.stream.events.Namespace;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import java.io.*;
@@ -37,10 +38,13 @@ public class FlattenXml {
     private final RecordsDefinitionRegistry recordCascadesRegistry;
     private final RecordsDefinitionRegistry outputRecordFieldsSeq;
 
+    // Maps namespace URIs in the xmlns declarations to prefixes
+    private final Map<String, Namespace> xmlnsUriToPrefix = new HashMap<>();
+
     // Parsing state
-    private final Stack<XMLEvent> tagStack = new Stack<>();
-    private final Stack<RecordFieldsCascade> cascadingStack = new Stack<>();
-    private final Stack<StartElement> tagPath = new Stack<>();
+    private final Deque<XMLEvent> tagStack = new ArrayDeque<>();
+    private final Deque<RecordFieldsCascade> cascadingStack = new ArrayDeque<>();
+    private final Deque<StartElement> tagPath = new ArrayDeque<>();
     private int currLevel = 0;
     private boolean rootElementVisited = false;
     private XMLEvent prevEv = null;
@@ -138,6 +142,9 @@ public class FlattenXml {
                 } else {
                     rootElementVisited = true;
                     rootElement = el;
+                    iteratorStream((Iterator<Namespace>) rootElement.getNamespaces()).forEach(ns -> {
+                        xmlnsUriToPrefix.put(ns.getNamespaceURI(), ns);
+                    });
                     // The actual record tag string is parsed here as we now have the namespace context
                     if (recordTag != null) {
                         recordTag = XmlHelpers.parsePrefixTag(recordTagGiven,
@@ -155,10 +162,10 @@ public class FlattenXml {
                     currRecordCascade = cascadingStack.peek();
 
                     // Add a cascading rule for a newly nested record.
-                    if (!currRecordCascade.getRecordName().equals( tagPath.peek().getName() )) {
+                    if (!currRecordCascade.recordName().equals( tagPath.peek().getName() )) {
 
                         if (reuseRecordCascade != null &&
-                                reuseRecordCascade.getRecordName().equals(tagPath.peek().getName())) {
+                                reuseRecordCascade.recordName().equals(tagPath.peek().getName())) {
                             // Reuse parent cascades if the record continues to be the same.
                             // The cascading templates will be reused.
                             currRecordCascade = reuseRecordCascade.clearCurrentRecordCascades();
@@ -210,7 +217,7 @@ public class FlattenXml {
                 }
 
                 // Reached the end of the top level record.
-                if (tagStack.empty() || endElement.getName().equals(recordTag)) {
+                if (tagStack.isEmpty() || endElement.getName().equals(recordTag)) {
                     tracking = false;
                     ++batchRecCounter;
                     ++totalRecordCounter;
@@ -247,12 +254,16 @@ public class FlattenXml {
     }
 
 
-    private void writeRecord(Stack<XMLEvent> captureRecordOnError) throws IOException {
+    private void writeRecord(Deque<XMLEvent> captureRecordOnError) throws IOException {
         if (tagStack.isEmpty()) {
             return;
         }
         XMLEvent ev;
-        Stack<Pair<QName, String>> pairStack = new Stack<>();
+        Deque<Pair<QName, String>> pairStack = new ArrayDeque<>();
+
+        if (tagStack.isEmpty()) {
+            return;
+        }
 
         // Read one part of an XML element at a time.
         while (!(ev = tagStack.pop()).isStartElement()) {
@@ -334,12 +345,12 @@ public class FlattenXml {
             captureRecordOnError.push(ev);
         } else {
             // Write record to file if there are no errors.
-            recordHandler.write(recordTagName, pairList, cascadingStack.peek(), currLevel, previousFile());
+            recordHandler.write(recordTagName, pairList, cascadingStack.peek(), cascadingStack.peek());
         }
     }
 
     private List<Pair<String, String>> alignFieldsToSchema(
-            List<Pair<QName, String>> pairStack, List<QName> schemaFields) {
+            Collection<Pair<QName, String>> pairStack, List<QName> schemaFields) {
 
         // Make a field-value map first.
         Map<String, Pair<QName, String>> fv = pairStack.stream()
@@ -347,28 +358,18 @@ public class FlattenXml {
 
         // Align header and data according to the order of fields defined in XSD for the record.
         // Force print fields that are missing for the record in the XML file.
-        Stack<String[]> aligned = new Stack<>();
+        Deque<String[]> aligned = new ArrayDeque<>();
         return schemaFields.stream()
-                .map( tagName -> tagName.getLocalPart() )
                 .map( tagName -> {
-                    Pair<QName, String> data =  fv.get(tagName);
+                    Pair<QName, String> data =  fv.get(tagName.getLocalPart());
                     if (data == null) {
-                        return new Pair<>(tagName, EMPTY);
+                        String prefix = xmlnsUriToPrefix.get(tagName.getNamespaceURI()).getPrefix();
+                        return new Pair<>(prefix+":"+tagName.getLocalPart(), EMPTY);
                     } else {
                         return new Pair<>(toPrefixedTag(data.getKey()), data.getVal());
                     }
                 } )
                 .collect(Collectors.toList());
-    }
-
-    private String previousFile() {
-        StartElement prevFile = tagPath.pop();
-        String prevFileName = "ROOT";
-        if (cascadingStack.size() > 1) {
-            prevFileName = tagPath.peek().getName().getLocalPart();
-        }
-        tagPath.push(prevFile);
-        return prevFileName;
     }
 
     private RecordFieldsCascade newRecordCascade(StartElement tag, RecordFieldsCascade parentRecCascade) {
@@ -378,7 +379,7 @@ public class FlattenXml {
     }
 
     private XMLStreamException decorateParseError(XMLStreamException ex) throws IOException {
-        Stack<XMLEvent> errorRec = new Stack<>();
+        Deque<XMLEvent> errorRec = new ArrayDeque<>();
         writeRecord(errorRec);
         javax.xml.stream.Location loc = ex.getLocation();
         ex.initCause(new XMLStreamException("Excerpt of text before the error location:\n"+
