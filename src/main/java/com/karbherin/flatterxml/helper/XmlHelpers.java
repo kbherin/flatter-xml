@@ -114,26 +114,35 @@ public class XmlHelpers {
     }
 
     public static QName parsePrefixTag(String input, NamespaceContext nsContext, String targetNamespace) {
-        String[] parts = input.split(":");
+        QName qName = QName.valueOf(input);
+
+        String namespaceUri = qName.getNamespaceURI();
+        // If namespace URI is empty then use targetNamespace
+        if (namespaceUri == null || namespaceUri.isEmpty()) {
+            namespaceUri = targetNamespace;
+        }
+
+        String[] parts = qName.getLocalPart().split(":");
         if (parts.length > 1) {
+            // Handle forms: "{uri}prefix:name" and "prefix:name"
             return new QName(nsContext.getNamespaceURI(parts[0]), parts[1], parts[0]);
         } else {
-            QName qname = new QName(parts[0]);
-            if (qname.getNamespaceURI() == null || qname.getNamespaceURI().length() == 0)
-                return new QName(targetNamespace, parts[0]);
-            return qname;
+            // Handle forms: "{uri}name" and "name"
+            return new QName(namespaceUri, parts[0]);
         }
     }
 
     public static QName parsePrefixTag(String input) {
-        String[] parts = input.split(":");
+        QName qName = QName.valueOf(input);
+
+        String[] parts = qName.getLocalPart().split(":");
         if (parts.length > 1) {
             String prefix = parts[0];
             String tagName = parts[1];
-            return new QName("", tagName, prefix);
+            return new QName(qName.getNamespaceURI(), tagName, prefix);
         } else {
             String tagName = parts[0];
-            return new QName(tagName);
+            return new QName(qName.getNamespaceURI(), tagName);
         }
     }
 

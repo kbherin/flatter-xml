@@ -336,7 +336,7 @@ public class FlattenXml {
             pairList = new ArrayList<>();
             while (!pairStack.isEmpty()) {
                 Pair<QName, String> fv = pairStack.pop();
-                pairList.add(new Pair<String, String>(toPrefixedTag(fv.getKey()), fv.getVal()));
+                pairList.add(new Pair<>(toPrefixedTag(fv.getKey()), fv.getVal()));
             }
         }
 
