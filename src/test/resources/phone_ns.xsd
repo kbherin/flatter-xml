@@ -1,4 +1,4 @@
-<xs:schema xmlns='http://kbps.com/phone' xmlns:xs='http://www.w3.org/2001/XMLSchema'
+<xs:schema xmlns="http://kbps.com/phone" xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://kbps.com/phone" attributeFormDefault="qualified">
 
 

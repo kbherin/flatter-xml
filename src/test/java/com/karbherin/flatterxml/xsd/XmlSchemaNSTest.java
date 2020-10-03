@@ -174,13 +174,6 @@ public class XmlSchemaNSTest {
     }
 
     @Test
-    public void test_contact() {
-        XsdElement phoneNumber = xsdModel.getElementByName("contact");
-        assertEquals(XmlSchema.COMPLEX_TYPE, phoneNumber.getType());
-        assertEquals(XmlSchema.COMPLEX_CONTENT, phoneNumber.getContent());
-    }
-
-    @Test
     public void test_phoneNum() {
         XsdElement phoneNum = xsdModel.getElementByName("phone-num");
         assertEquals(INTEGER_QNAME, phoneNum.getType());
@@ -196,6 +189,22 @@ public class XmlSchemaNSTest {
         assertEquals(STRING_QNAME, phoneType.getType());
         assertEquals(XmlSchema.SIMPLE_CONTENT, phoneType.getContent());
         assertTrue(phoneType.getAttributes().isEmpty());
+    }
+
+    @Test
+    public void test_contact() {
+        XsdElement contact = xsdModel.getElementByName("contact");
+        assertEquals(XmlSchema.COMPLEX_TYPE, contact.getType());
+        assertEquals(XmlSchema.COMPLEX_CONTENT, contact.getContent());
+        assertEquals(2, contact.getChildElements().size());
+        assertEquals(0, contact.getAttributes().size());
+        assertEquals("Reference type exists in same XSD",
+                new QName(contact.getTargetNamespace(), "addresses"),
+                contact.getChildElements().get(0).getName());
+
+        assertEquals("Reference type exists in an imported XSD",
+                new QName("http://kbps.com/phone", "phones"),
+                contact.getChildElements().get(1).getName());
     }
 
 }

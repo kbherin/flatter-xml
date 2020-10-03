@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 
@@ -82,14 +83,21 @@ public class XmlSchema {
     }
 
     private void resolveReferences() {
+        Map<QName, XsdElement> allElementTypes = Stream.concat(
+                elementTypes.entrySet().stream(),
+                importedSchemas.values().stream()
+                        .flatMap(xsd -> xsd.elementTypes.entrySet().stream())
+        ).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
         // Resolve any references. Any element type with ref != null and type=null needs resolution.
         complexTypes.values().forEach(
                 children -> children.stream()
                         .filter(child -> child.getRef() != null
                                 && child.getType() == null
-                                && elementTypes.containsKey(child.getRef()))
+                                && allElementTypes.containsKey(child.getRef()))
                         .forEach(child -> XsdElement.copyDefinitionAttrs(
-                                elementTypes.get(child.getRef()), child)));
+                                allElementTypes.get(child.getRef()), child)));
+
         complexTypes.remove(null);
         complexTypes.forEach((key, value) -> elementTypes.get(key).setChildElements(value));
     }
@@ -114,7 +122,7 @@ public class XmlSchema {
         xsds.forEach(xsd -> xsd.complexTypes.clear());
     }
 
-    private void examine(XMLEvent el) throws FileNotFoundException, XMLStreamException {
+    private void examine(XMLEvent el) {
         if (el.isStartElement())
             examine(el.asStartElement());
         else if (el.isEndElement())
