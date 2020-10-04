@@ -2,6 +2,7 @@ package com.karbherin.flatterxml.output;
 
 import com.karbherin.flatterxml.helper.XmlHelpers;
 import com.karbherin.flatterxml.model.CascadedAncestorFields;
+import com.karbherin.flatterxml.model.OpenCan;
 import com.karbherin.flatterxml.model.Pair;
 import com.karbherin.flatterxml.model.RecordTypeHierarchy;
 
@@ -38,7 +39,7 @@ public class DelimitedFileWriter implements RecordHandler {
         String previousFileName = previousFile(recordTypeAncestry, fileName);
         int currLevel = recordTypeAncestry.recordLevel();
 
-        final IOException[] exceptions = new IOException[1];
+        final OpenCan<IOException> exception = new OpenCan<>();
         ByteChannel out = fileStreams.computeIfAbsent(fileName, (fName) -> {
 
             ByteChannel newOut = null;
@@ -54,14 +55,14 @@ public class DelimitedFileWriter implements RecordHandler {
                 // Writer header record into a newly opened file.
                 writeDelimited(newOut, fieldValueStack, KeyValuePart.FIELD_PART, cascadedData.getCascadedAncestorFields());
             } catch (IOException ex) {
-                exceptions[0] = ex;
+                exception.val = ex;
             }
 
             return newOut;
         });
 
-        if (exceptions[0] != null) {
-            throw exceptions[0];
+        if (exception.val != null) {
+            throw exception.val;
         }
 
         writeDelimited(out, fieldValueStack, KeyValuePart.VALUE_PART, cascadedData.getCascadedAncestorFields());

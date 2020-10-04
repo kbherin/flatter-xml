@@ -1,16 +1,17 @@
 package com.karbherin.flatterxml.model;
 
+import static com.karbherin.flatterxml.model.RecordDefinitions.newInstance;
+import static com.karbherin.flatterxml.model.RecordDefinitions.parseNameAddPrefix;
 import static org.junit.Assert.*;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import javax.xml.namespace.QName;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.*;
 
-public class RecordsDefinitionRegistryTest {
+public class RecordDefinitionsTest {
 
     private static Map<String, String> uriPrefixMap = new HashMap<>();
     private static Map<String, String> prefixUriMap = new HashMap<>();
@@ -18,23 +19,25 @@ public class RecordsDefinitionRegistryTest {
     @BeforeClass
     public static void setup() {
         uriPrefixMap.put("http://kbps.com/emp", "emp");
+        uriPrefixMap.put("http://kbps.com/phone", "ph");
         uriPrefixMap.put("http://www.w3.org/2001/XMLSchema", "xs");
         uriPrefixMap.put("http://www.w3.org/2001/XMLSchema-instance", "xsi");
         prefixUriMap.put("emp", "http://kbps.com/emp");
+        prefixUriMap.put("ph", "http://kbps.com/phone");
         prefixUriMap.put("xs", "http://www.w3.org/2001/XMLSchema");
         prefixUriMap.put("xsi", "http://www.w3.org/2001/XMLSchema-instance");
     }
 
     @Test
     public void testParseTagAddPrefix_BareTag() {
-        QName qName = RecordsDefinitionRegistry.parseTagAddPrefix("employee", uriPrefixMap, prefixUriMap);
+        QName qName = parseNameAddPrefix("employee", uriPrefixMap, prefixUriMap);
         assertEquals("", qName.getNamespaceURI());
         assertEquals("employee", qName.getLocalPart());
     }
 
     @Test
     public void testParseTagAddPrefix_UriTag() {
-        QName qName = RecordsDefinitionRegistry.parseTagAddPrefix("{http://kbps.com/emp}employee",
+        QName qName = parseNameAddPrefix("{http://kbps.com/emp}employee",
                 uriPrefixMap, prefixUriMap);
         assertEquals("http://kbps.com/emp", qName.getNamespaceURI());
         assertEquals("employee", qName.getLocalPart());
@@ -43,7 +46,7 @@ public class RecordsDefinitionRegistryTest {
 
     @Test
     public void testNewInstance() throws IOException {
-        RecordsDefinitionRegistry recSpec = RecordsDefinitionRegistry.newInstance(
+        RecordDefinitions recSpec = newInstance(
                 new File("src/test/resources/emp_output_fields.yaml"));
 
         // Config line: emp=http://kbps.com/emp
@@ -78,5 +81,52 @@ public class RecordsDefinitionRegistryTest {
 
         assertFalse("Commented out record definition",
                 recSpec.getRecords().contains(QName.valueOf("{http://kbps.com/phone}phone")));
+    }
+
+    @Test
+    public void testLoadingIntoCustomClass() throws IOException {
+        RecordDefinitions outputSpec = newInstance(
+                new File("src/test/resources/emp_output_fields_attrs.yaml"));
+
+        assertEquals(3, outputSpec.getNamespaces().size());
+
+        assertEquals(3, outputSpec.getRecords().size());
+
+        assertTrue(outputSpec.getRecords().contains(
+                parseNameAddPrefix("emp:employee", uriPrefixMap, prefixUriMap)));
+
+        assertTrue(outputSpec.getRecords().contains(
+                parseNameAddPrefix("{http://kbps.com/emp}address", uriPrefixMap, prefixUriMap)));
+
+        assertTrue(outputSpec.getRecords().contains(
+                parseNameAddPrefix("{http://kbps.com/phone}phone", uriPrefixMap, prefixUriMap)));
+
+        assertEquals("NS prefix qualified employee record tag", 3, outputSpec.getRecordFields(
+                parseNameAddPrefix("emp:employee", uriPrefixMap, prefixUriMap)).size());
+
+        assertEquals("NS URI qualified phone record tag",2, outputSpec.getRecordFields(
+                parseNameAddPrefix("{http://kbps.com/phone}phone", uriPrefixMap, prefixUriMap)).size());
+
+        assertEquals("NS qualified attribute", 1, outputSpec.getRecordFieldAttributes(
+                parseNameAddPrefix("{http://kbps.com/phone}phone", uriPrefixMap, prefixUriMap),
+                parseNameAddPrefix("{http://kbps.com/phone}phone-num", uriPrefixMap, prefixUriMap)).size());
+
+        assertEquals("Not NS qualified attribute", 0, outputSpec.getRecordFieldAttributes(
+                parseNameAddPrefix("{http://kbps.com/phone}phone", uriPrefixMap, prefixUriMap),
+                parseNameAddPrefix("phone-type", uriPrefixMap, prefixUriMap)).size());
+
+        assertEquals(2, outputSpec.getRecordFieldAttributes(
+                parseNameAddPrefix("emp:employee", uriPrefixMap, prefixUriMap),
+                parseNameAddPrefix("identifiers", uriPrefixMap, prefixUriMap)).size());
+
+        assertTrue("NS qualified attribute", outputSpec.getRecordFieldAttributes(
+                parseNameAddPrefix("emp:employee", uriPrefixMap, prefixUriMap),
+                parseNameAddPrefix("identifiers", uriPrefixMap, prefixUriMap))
+                .contains(parseNameAddPrefix("{http://kbps.com/emp}id-doc-type", uriPrefixMap, prefixUriMap)));
+
+        assertTrue("Not NS qualified attribute", outputSpec.getRecordFieldAttributes(
+                parseNameAddPrefix("emp:employee", uriPrefixMap, prefixUriMap),
+                parseNameAddPrefix("identifiers", uriPrefixMap, prefixUriMap))
+                .contains(parseNameAddPrefix("id-doc-expiry", uriPrefixMap, prefixUriMap)));
     }
 }

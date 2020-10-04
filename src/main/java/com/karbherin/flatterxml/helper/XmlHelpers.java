@@ -1,6 +1,5 @@
 package com.karbherin.flatterxml.helper;
 
-import com.karbherin.flatterxml.model.RecordsDefinitionRegistry;
 import com.karbherin.flatterxml.xsd.XmlSchema;
 import org.xml.sax.SAXException;
 
@@ -17,9 +16,7 @@ import javax.xml.validation.SchemaFactory;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.text.ParseException;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;

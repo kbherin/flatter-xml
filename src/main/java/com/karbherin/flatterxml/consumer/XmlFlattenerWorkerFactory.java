@@ -1,7 +1,7 @@
 package com.karbherin.flatterxml.consumer;
 
 import com.karbherin.flatterxml.FlattenXml;
-import com.karbherin.flatterxml.model.RecordsDefinitionRegistry;
+import com.karbherin.flatterxml.model.RecordDefinitions;
 import com.karbherin.flatterxml.output.StatusReporter;
 import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.xsd.XmlSchema;
@@ -22,8 +22,8 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
     private final String recordTag;
     private final List<XmlSchema> xsds;
     private final CascadePolicy cascadePolicy;
-    private final RecordsDefinitionRegistry recordCascadeFieldsSeq;
-    private final RecordsDefinitionRegistry recordOutputFieldsSeq;
+    private final RecordDefinitions recordCascadeFieldsSeq;
+    private final RecordDefinitions recordOutputFieldsSeq;
     private final long batchSize;
     private final StatusReporter statusReporter;
     private int workerNumber = 0;
@@ -33,8 +33,8 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
                                       String recordTag, RecordHandler recordHandler,
                                       CascadePolicy cascadePolicy,
                                       List<XmlSchema> xsds,
-                                      RecordsDefinitionRegistry recordCascadeFieldsSeq,
-                                      RecordsDefinitionRegistry recordOutputFieldsSeq,
+                                      RecordDefinitions recordCascadeFieldsSeq,
+                                      RecordDefinitions recordOutputFieldsSeq,
                                       long batchSize, StatusReporter statusReporter) {
 
         this.xmlFileName = new File(xmlFilePath).getName(); // Extract base name from the XML file path
@@ -59,16 +59,16 @@ public class XmlFlattenerWorkerFactory implements XmlEventWorkerFactory {
                                                         long batchSize, StatusReporter statusReporter)
             throws IOException {
 
-        RecordsDefinitionRegistry recordCascadeFieldsSeq = null, recordOutputFieldsSeq = null;
+        RecordDefinitions recordCascadeFieldsSeq = null, recordOutputFieldsSeq = null;
         if (recordCascadeFieldsDefFile != null) {
-            recordCascadeFieldsSeq = RecordsDefinitionRegistry.newInstance(recordCascadeFieldsDefFile);
+            recordCascadeFieldsSeq = RecordDefinitions.newInstance(recordCascadeFieldsDefFile);
         } else {
-            recordCascadeFieldsSeq = RecordsDefinitionRegistry.newInstance();
+            recordCascadeFieldsSeq = RecordDefinitions.newInstance();
         }
         if (recordOutputFieldsDefFile != null) {
-            recordOutputFieldsSeq = RecordsDefinitionRegistry.newInstance(recordOutputFieldsDefFile);
+            recordOutputFieldsSeq = RecordDefinitions.newInstance(recordOutputFieldsDefFile);
         } else {
-            recordOutputFieldsSeq = RecordsDefinitionRegistry.newInstance();
+            recordOutputFieldsSeq = RecordDefinitions.newInstance();
         }
 
         return new XmlFlattenerWorkerFactory(xmlFilePath, outDir, delimiter, recordTag, recordHandler,

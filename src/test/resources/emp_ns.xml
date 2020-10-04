@@ -35,8 +35,8 @@
     </emp:contact>
   </emp:employee>
   <emp:employee>
-    <emp:identifiers emp:idType="SSN">0000000000</emp:identifiers>
-    <emp:identifiers emp:idType="MIT">8908907890</emp:identifiers>
+    <emp:identifiers emp:id-doc-type="SSN">0000000000</emp:identifiers>
+    <emp:identifiers emp:id-doc-type="MIT" emp:id-doc-expiry="2008-12-28">8908907890</emp:identifiers>
     <emp:employee-no>00000002</emp:employee-no>
     <emp:employee-name>Tony Stark</emp:employee-name>
     <emp:department>sales</emp:department>
@@ -71,8 +71,8 @@
     </emp:contact>
   </emp:employee>
   <emp:employee>
-    <emp:identifiers emp:idType="SSN">1234567890</emp:identifiers>
-    <emp:identifiers emp:idType="MEDICARE">4567890123</emp:identifiers>
+    <emp:identifiers emp:id-doc-type="SSN">1234567890</emp:identifiers>
+    <emp:identifiers emp:id-doc-type="MEDICARE" emp:id-doc-expiry="2021-06-30">4567890123</emp:identifiers>
     <emp:employee-no>00000001</emp:employee-no>
     <emp:employee-name>Steve Rogers</emp:employee-name>
     <emp:department>public relations</emp:department>

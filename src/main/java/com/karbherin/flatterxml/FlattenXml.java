@@ -3,7 +3,7 @@ package com.karbherin.flatterxml;
 import com.karbherin.flatterxml.helper.XmlHelpers;
 import com.karbherin.flatterxml.model.Pair;
 import com.karbherin.flatterxml.model.RecordFieldsCascade;
-import com.karbherin.flatterxml.model.RecordsDefinitionRegistry;
+import com.karbherin.flatterxml.model.RecordDefinitions;
 import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.xsd.XmlSchema;
 import com.karbherin.flatterxml.xsd.XsdElement;
@@ -35,8 +35,8 @@ public class FlattenXml {
     private final List<XmlSchema> xsds = new ArrayList<>();
     private final RecordFieldsCascade.CascadePolicy cascadePolicy;
     private StartElement rootElement;
-    private final RecordsDefinitionRegistry recordCascadesRegistry;
-    private final RecordsDefinitionRegistry outputRecordFieldsSeq;
+    private final RecordDefinitions recordCascadesRegistry;
+    private final RecordDefinitions outputRecordFieldsSeq;
 
     // Maps namespace URIs in the xmlns declarations to prefixes
     private final Map<String, Namespace> xmlnsUriToPrefix = new HashMap<>();
@@ -63,8 +63,8 @@ public class FlattenXml {
 
     private FlattenXml(InputStream xmlStream, String recordTag,
                        RecordFieldsCascade.CascadePolicy cascadePolicy,
-                       RecordsDefinitionRegistry recordCascadesRegistry,
-                       RecordsDefinitionRegistry outputRecordFieldsSeq,
+                       RecordDefinitions recordCascadesRegistry,
+                       RecordDefinitions outputRecordFieldsSeq,
                        List<XmlSchema> xsds, RecordHandler recordHandler)
             throws XMLStreamException {
 
@@ -413,8 +413,8 @@ public class FlattenXml {
         private InputStream xmlStream;
         private String recordTag = null;
         private RecordFieldsCascade.CascadePolicy cascadePolicy = RecordFieldsCascade.CascadePolicy.NONE;
-        private RecordsDefinitionRegistry recordCascadeFieldsSeq = RecordsDefinitionRegistry.newInstance();
-        private RecordsDefinitionRegistry recordOutputFieldsSeq = RecordsDefinitionRegistry.newInstance();
+        private RecordDefinitions recordCascadeFieldsSeq = RecordDefinitions.newInstance();
+        private RecordDefinitions recordOutputFieldsSeq = RecordDefinitions.newInstance();
         private List<XmlSchema> xsds = Collections.emptyList();
         private RecordHandler recordHandler;
 
@@ -435,28 +435,28 @@ public class FlattenXml {
 
         public FlattenXmlBuilder setRecordCascadeFieldsSeq(File yamlFileName) throws IOException {
             if (yamlFileName == null) {
-                this.recordCascadeFieldsSeq = RecordsDefinitionRegistry.newInstance();
+                this.recordCascadeFieldsSeq = RecordDefinitions.newInstance();
             } else {
-                this.recordCascadeFieldsSeq = RecordsDefinitionRegistry.newInstance(yamlFileName);
+                this.recordCascadeFieldsSeq = RecordDefinitions.newInstance(yamlFileName);
             }
             return this;
         }
 
         public FlattenXmlBuilder setRecordOutputFieldsSeq(File yamlFileName) throws IOException {
             if (yamlFileName == null) {
-                this.recordOutputFieldsSeq = RecordsDefinitionRegistry.newInstance();
+                this.recordOutputFieldsSeq = RecordDefinitions.newInstance();
             } else {
-                this.recordOutputFieldsSeq = RecordsDefinitionRegistry.newInstance(yamlFileName);
+                this.recordOutputFieldsSeq = RecordDefinitions.newInstance(yamlFileName);
             }
             return this;
         }
 
-        public FlattenXmlBuilder setRecordCascadeFieldsSeq(RecordsDefinitionRegistry recordCascadeFieldsSeq) {
+        public FlattenXmlBuilder setRecordCascadeFieldsSeq(RecordDefinitions recordCascadeFieldsSeq) {
             this.recordCascadeFieldsSeq = recordCascadeFieldsSeq;
             return this;
         }
 
-        public FlattenXmlBuilder setRecordOutputFieldsSeq(RecordsDefinitionRegistry recordOutputFieldsSeq) {
+        public FlattenXmlBuilder setRecordOutputFieldsSeq(RecordDefinitions recordOutputFieldsSeq) {
             this.recordOutputFieldsSeq = recordOutputFieldsSeq;
             return this;
         }
