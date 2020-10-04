@@ -203,6 +203,10 @@ public class XmlHelpers {
         return defaultIfNull(str, EMPTY);
     }
 
+    public static String defaultIfEmpty(String val, String defaultVal) {
+        return val == null ? defaultVal : val;
+    }
+
     public static int parseInt(String str, int defaultValue) {
         try {
             return Integer.valueOf(str);

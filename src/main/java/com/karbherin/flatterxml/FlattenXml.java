@@ -296,26 +296,42 @@ public class FlattenXml {
 
         // The tabular file to write the record to.
         StartElement envelope = ev.asStartElement();
-        String recordTagName = envelope.getName().getLocalPart();
         tagStack.push(ev);     // Add it back on to tag stack.
 
-        // Final sequence of fields will be captured in this list
-        List<Pair<String, String>> pairList = null;
+        // Capture the record name which has an error in the record.
+        if (captureRecordOnError != null) {
+            captureRecordOnError.push(ev);
+            return;
+        }
 
         // User specified list of output fields takes the top priority
         List<QName> outputFieldsSeq = outputRecordFieldsSeq.getRecordFields(envelope.getName());
 
+        List<List<Pair<QName, String>>> normalizedRecords = normalizeRecord(pairStack);
+
+        for (List<Pair<QName, String>> record: normalizedRecords) {
+            writeNormalizedRecord(record, envelope.getName(), outputFieldsSeq);
+        }
+    }
+
+    private void writeNormalizedRecord(List<Pair<QName, String>> record, QName recordName,
+                                       List<QName> outputFieldsSeq)
+            throws IOException {
+
+        // Final sequence of fields will be captured in this list
+        List<Pair<String, String>> fields = null;
+
         // Goal: Align XML tags and data with desired field sequence or XSD field sequence or fallback to dump all
         if (!outputFieldsSeq.isEmpty()) {
             // 1. Align data from XML with the desired output fields sequence
-            pairList = alignFieldsToSchema(pairStack, outputFieldsSeq);
+            fields = alignFieldsToSchema(record, outputFieldsSeq);
 
         } else {
             // 2: Align data from XML with the sequence of fields in XSDs
 
             // Lookup schema for a list of fields a record can legitimately have
             XsdElement schemaEl = xsds.stream()
-                    .map(xsd -> xsd.getElementByName(envelope.getName()))
+                    .map(xsd -> xsd.getElementByName(recordName))
                     .filter(xsd -> xsd != null)
                     .findFirst().orElse(null);
 
@@ -326,27 +342,62 @@ public class FlattenXml {
                         .map(ch -> ch.getName()).collect(Collectors.toList());
 
                 // Align with fields sequence in XSD
-                pairList = alignFieldsToSchema(pairStack, recordSchemaFields);
+                fields = alignFieldsToSchema(record, recordSchemaFields);
             }
         }
 
         // 2. Final fallback - dump all XML fields and values
-        if (pairList == null) {
+        if (fields == null) {
             // Fallback. Dump everything in the sequence they appear in the XML file
-            pairList = new ArrayList<>();
-            while (!pairStack.isEmpty()) {
-                Pair<QName, String> fv = pairStack.pop();
-                pairList.add(new Pair<>(toPrefixedTag(fv.getKey()), fv.getVal()));
+            fields = record.stream()
+                    .map(fv -> new Pair<>(toPrefixedTag(fv.getKey()), fv.getVal()))
+                    .collect(Collectors.toList());
+        }
+
+        // Write record to file if there are no errors.
+        recordHandler.write(recordName.getLocalPart(), fields, cascadingStack.peek(), cascadingStack.peek());
+    }
+
+    private List<List<Pair<QName, String>>> normalizeRecord(Deque<Pair<QName, String>> pairStack) {
+        List<List<Pair<QName, String>>> records = new ArrayList<>();
+        records.add(new ArrayList<>());
+
+        Map<QName, List<Pair<QName, String>>> fieldGroups =
+                pairStack.stream().collect(Collectors.groupingBy(pair -> pair.getKey(),
+                        LinkedHashMap::new, Collectors.toList()));
+
+        for (Map.Entry<QName, List<Pair<QName, String>>> field : fieldGroups.entrySet()) {
+            int repetition = 0;
+            List<List<Pair<QName, String>>> baseRecords = records;
+
+            // Replicate result records as many times a field is repeated and
+            // add each value for a repeated field to one set of replicated records
+            for (Pair<QName, String> fv : field.getValue()) {
+
+                // Clone the records list if we are dealing with the first repetition of a field
+                if (repetition == 1) {
+                    baseRecords = new ArrayList<>(records.size());
+                    baseRecords.addAll(records);
+                }
+
+                for (List<Pair<QName, String>> rec : baseRecords) {
+                    if (repetition == 0) {
+                        rec.add(fv);
+                    } else {
+                        // Clone the record if we have tags repeated
+                        List<Pair<QName, String>> recCopy = rec.stream().collect(Collectors.toList());
+                        // Update the last field in the record
+                        recCopy.set(recCopy.size() - 1, fv);
+                        // Add to the collection of records
+                        records.add(recCopy);
+                    }
+                }
+
+                repetition++;
             }
         }
 
-        if (captureRecordOnError != null) {
-            // Capture the table name which has an error in the record.
-            captureRecordOnError.push(ev);
-        } else {
-            // Write record to file if there are no errors.
-            recordHandler.write(recordTagName, pairList, cascadingStack.peek(), cascadingStack.peek());
-        }
+        return records;
     }
 
     private List<Pair<String, String>> alignFieldsToSchema(
@@ -358,7 +409,6 @@ public class FlattenXml {
 
         // Align header and data according to the order of fields defined in XSD for the record.
         // Force print fields that are missing for the record in the XML file.
-        Deque<String[]> aligned = new ArrayDeque<>();
         return schemaFields.stream()
                 .map( tagName -> {
                     Pair<QName, String> data =  fv.get(tagName.getLocalPart());

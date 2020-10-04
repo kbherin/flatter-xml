@@ -303,7 +303,7 @@ public class FlattenXmlRunner {
     private static void displayFilesGenerated(Collection<GeneratedResult> filesWritten, String rootTagName) {
 
         // Display the files generated
-        StringBuilder filesTreeStr = new StringBuilder();
+        StringBuilder filesTreeStr = new StringBuilder("\n");
         Map<String, List<GeneratedResult>> groupedByParent = filesWritten.stream()
                 .collect(Collectors.groupingBy(r -> r.previousRecordType, Collectors.toList()));
 

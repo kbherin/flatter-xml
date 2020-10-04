@@ -15,10 +15,10 @@ import static java.util.Collections.unmodifiableMap;
 public final class RecordDefinitions {
 
     private final Map<QName, Record> recordFieldsMap;
-
     private final Map<String, String> prefixUriMap;
     private final Map<String, String> uriPrefixMap;
 
+    private static RecordDefinitions EMPTY_REGISTRY = new RecordDefinitions(Collections.emptyMap());
     private static final String PREFIX_TAG_SEP = ":";
 
     /**
@@ -44,49 +44,64 @@ public final class RecordDefinitions {
                 Optional.ofNullable((Map<String, List<Object>>) yamlSpec.get("records"))
                         .orElse(Collections.emptyMap())
                 .entrySet().stream()
-                .map(record -> new Record(
-                        record.getKey(),
-                        record.getValue().stream().map(field -> {
-                            if (field instanceof String) {
-                                return new Field(field.toString(), Collections.emptyList());
+                .map(record -> {
+                    QName recordName = parseNameAddPrefix(record.getKey(), uriPrefixMap, prefixUriMap);
+                    return new Record(
+                            record.getKey(),
+                            record.getValue().stream().map(field -> {
+                                if (field instanceof String) {
 
-                            } else { //if (field instanceof Map)
-                                return ((Map<String, List<String>>) field).entrySet().stream()
-                                        .findFirst()
-                                        .map(entry -> new Field(entry.getKey().toString(), entry.getValue()))
-                                        .get();
-                            }
+                                    QName fieldName = parseNameAddPrefix(record.getKey(), uriPrefixMap, prefixUriMap);
+                                    String namespaceUri = defaultIfEmpty(
+                                            fieldName.getNamespaceURI(), recordName.getNamespaceURI());
 
-                        }).collect(Collectors.toList())))
-                .collect(Collectors.toMap(rec -> rec.recordName, rec -> rec)));
+                                    return new Field(field.toString(), Collections.emptyList(), namespaceUri);
+
+                                } else { //if (field instanceof Map)
+
+                                    return ((Map<String, List<String>>) field).entrySet().stream()
+                                            .findFirst()
+                                            .map(entry -> {
+                                                QName fieldName = parseNameAddPrefix(record.getKey(),
+                                                        uriPrefixMap, prefixUriMap);
+                                                String namespaceUri = defaultIfEmpty(
+                                                        fieldName.getNamespaceURI(), recordName.getNamespaceURI());
+
+                                                return new Field(entry.getKey(), entry.getValue(), namespaceUri);
+                                            })
+                                            .get();
+                                }
+
+                            }).collect(Collectors.toList()));
+
+                }).collect(Collectors.toMap(rec -> rec.recordName, rec -> rec)));
     }
 
     /**
-     * Format of record line: "complex-type-tag=simple-type-tag1,simple-type-tag2, ..."
-     * @param listName - Record tag, a complex type. Forms:
-     *                     1) {http://ns-uri}tag - best but verbose
-     *                     2) xs:tag             - most preferred
-     *                     3) tag                - best if used for element of fieldsListStr
-     * @param nameList - Each element in the list should be of the form as recordTagStr is.
-     * @return
-     */
-    private Pair<QName, List<QName>> parseNamedList(String listName, List<String> nameList) {
-        List<QName> fieldTagNames = nameList.stream()
-                .map(tag -> parseNameAddPrefix(tag, uriPrefixMap, prefixUriMap))
-                .collect(Collectors.toList());
-        QName recordTagName = parseNameAddPrefix(listName, uriPrefixMap, prefixUriMap);
-        return new Pair<>(recordTagName, Collections.unmodifiableList(fieldTagNames));
-    }
-
-    /**
-     * Derived a qualified name tag string. If it has a namespace URI in the form of {URI}tag,
+     * Derive a qualified name from a tag string. If it has a namespace URI in the form of {URI}tag,
      * then a prefix is added by looking up the provided URI-Prefix map.
      * @param nameString - tag string to parse
      * @param uriPrefixMap - map of URIs and their assigned prefixes
+     * @param prefixUriMap - map of NS prefix to their URIs
      * @return
      */
     public static QName parseNameAddPrefix(String nameString, Map<String, String> uriPrefixMap,
                                            Map<String, String> prefixUriMap) {
+
+        return parseNameAddPrefix(nameString, uriPrefixMap, prefixUriMap, EMPTY);
+    }
+
+    /**
+     * Derive a qualified name from a tag string. If it has a namespace URI in the form of {URI}tag,
+     * then a prefix is added by looking up the provided URI-Prefix map.
+     * @param nameString - tag string to parse
+     * @param uriPrefixMap - map of URIs and their assigned prefixes
+     * @param prefixUriMap - map of NS prefix to their URIs
+     * @param defaultNamespace - namespace URI to use if nameString does not have one
+     * @return
+     */
+    public static QName parseNameAddPrefix(String nameString, Map<String, String> uriPrefixMap,
+                                           Map<String, String> prefixUriMap, String defaultNamespace) {
 
         QName qName = QName.valueOf(nameString.trim());
         if (!isEmpty(qName.getNamespaceURI())) {
@@ -100,6 +115,9 @@ public final class RecordDefinitions {
                 String prefix = prefixName[0].trim();
                 String tagName = prefixName[1].trim();
                 qName = new QName(emptyIfNull(prefixUriMap.get(prefix)), tagName, prefix);
+            } else {
+                return parseNameAddPrefix(String.format("{%s}%s", defaultNamespace, nameString.trim()),
+                        uriPrefixMap, prefixUriMap, defaultNamespace);
             }
         }
         return qName;
@@ -116,8 +134,6 @@ public final class RecordDefinitions {
         Map<String, Object> spec = yaml.load(new FileInputStream(specFile));
         return new RecordDefinitions(spec);
     }
-
-    private static RecordDefinitions EMPTY_REGISTRY = new RecordDefinitions(Collections.emptyMap());
 
     /**
      * Returns an empty record fields sequence.
@@ -141,10 +157,11 @@ public final class RecordDefinitions {
      * @return field names on a record type
      */
     public List<QName> getRecordFields(QName recordName) {
-        return Optional.ofNullable(
-                recordFieldsMap.get(recordName)
-                        .fieldNames
-        ).orElse(Collections.emptyList());
+        Record record = recordFieldsMap.get(recordName);
+        if (record == null) {
+            return Collections.emptyList();
+        }
+        return record.fieldNames;
     }
 
     /**
@@ -154,11 +171,17 @@ public final class RecordDefinitions {
      * @return attribute names of a field on a record type
      */
     public List<QName> getRecordFieldAttributes(QName recordName, QName fieldName) {
-        return Optional.ofNullable(
-                recordFieldsMap.get(recordName)
-                        .fieldMap.get(fieldName)
-                        .fieldAttributes
-        ).orElse(Collections.emptyList());
+        Record record = recordFieldsMap.get(recordName);
+        if (record == null) {
+            return Collections.emptyList();
+        }
+
+        Field field = record.fieldMap.get(fieldName);
+        if (field == null) {
+            return Collections.emptyList();
+        }
+
+        return field.fieldAttributes;
     }
 
     public Set<String> getPrefixes() {
@@ -171,6 +194,23 @@ public final class RecordDefinitions {
 
     public Set<QName> getRecords() {
         return recordFieldsMap.keySet();
+    }
+
+    /**
+     * Format of record line: "complex-type-tag=simple-type-tag1,simple-type-tag2, ..."
+     * @param listName - Record tag, a complex type. Forms:
+     *                     1) {http://ns-uri}tag - best but verbose
+     *                     2) xs:tag             - most preferred
+     *                     3) tag                - best if used for element of fieldsListStr
+     * @param nameList - Each element in the list should be of the form as recordTagStr is.
+     * @return
+     */
+    private Pair<QName, List<QName>> parseNamedList(String listName, List<String> nameList, String defaultNamespace) {
+        List<QName> fieldTagNames = nameList.stream()
+                .map(tag -> parseNameAddPrefix(tag, uriPrefixMap, prefixUriMap, defaultNamespace))
+                .collect(Collectors.toList());
+        QName recordTagName = parseNameAddPrefix(listName, uriPrefixMap, prefixUriMap, defaultNamespace);
+        return new Pair<>(recordTagName, Collections.unmodifiableList(fieldTagNames));
     }
 
     private class Record {
@@ -191,8 +231,8 @@ public final class RecordDefinitions {
         private final QName fieldName;
         private final List<QName> fieldAttributes;
 
-        private Field(String fieldName, List<String> fieldAttributes) {
-            Pair<QName, List<QName>> pair = parseNamedList(fieldName, fieldAttributes);
+        private Field(String fieldName, List<String> fieldAttributes, String defaultNamespace) {
+            Pair<QName, List<QName>> pair = parseNamedList(fieldName, fieldAttributes, defaultNamespace);
             this.fieldName = pair.getKey();
             this.fieldAttributes = unmodifiableList(pair.getVal());
         }

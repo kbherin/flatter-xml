@@ -5,6 +5,8 @@
                                    http://kbps.com/phone phone_ns.xsd'>
   <emp:employee> <!-- employee.csv: 00000001|Steve Rogers|public relations|150,000.00 -->
     <!-- first avenger -->
+    <emp:identifiers emp:id-doc-type="SSN">1234567890</emp:identifiers>
+    <emp:identifiers emp:id-doc-type="MEDICARE" emp:id-doc-expiry="2021-06-30">4567890123</emp:identifiers>
     <emp:employee-no>00000001</emp:employee-no>
     <emp:employee-name>Steve Rogers</emp:employee-name>
     <emp:department>public relations</emp:department>
