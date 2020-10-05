@@ -45,7 +45,7 @@ public class XmlByteStreamEmitterTest {
     @Test
     public void splitter_test() throws IOException, XMLStreamException, InterruptedException {
         String xmlFilePath = "src/test/resources/emp.xml";
-        String outDir = "target/test/resources/emp_tables/splits";
+        String outDir = "target/test/results/emp_bytestream_splits";
         XmlEventWorkerPool workerPool = new XmlEventWorkerPool();
         XmlFileSplitterFactory workerFactory = XmlFileSplitterFactory.newInstance(outDir, xmlFilePath);
 
@@ -76,7 +76,7 @@ public class XmlByteStreamEmitterTest {
     @Test
     public void splitterNSXml_test() throws IOException, XMLStreamException, InterruptedException {
         String xmlFilePath = "src/test/resources/emp.xml";
-        String outDir = "target/test/resources/emp_tables/splits";
+        String outDir = "target/test/results/emp_bytestream_splits";
         XmlRecordEmitter emitter = new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder()
                 .setXmlFile("src/test/resources/emp_ns.xml").setSkipRecs(1).setFirstNRecs(10).create();
         XmlFileSplitterFactory workerFactory = XmlFileSplitterFactory.newInstance(outDir, xmlFilePath);

@@ -82,6 +82,7 @@ public class XmlSchema {
         return elementTypes.get(qName);
     }
 
+
     private void resolveReferences() {
         Map<QName, XsdElement> allElementTypes = Stream.concat(
                 elementTypes.entrySet().stream(),

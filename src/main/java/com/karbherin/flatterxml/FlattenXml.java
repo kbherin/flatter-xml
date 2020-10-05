@@ -1,6 +1,7 @@
 package com.karbherin.flatterxml;
 
 import com.karbherin.flatterxml.helper.XmlHelpers;
+import com.karbherin.flatterxml.model.ElementWithAttributes;
 import com.karbherin.flatterxml.model.Pair;
 import com.karbherin.flatterxml.model.RecordFieldsCascade;
 import com.karbherin.flatterxml.model.RecordDefinitions;
@@ -12,10 +13,7 @@ import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 
 import javax.xml.namespace.QName;
 import javax.xml.stream.*;
-import javax.xml.stream.events.EndElement;
-import javax.xml.stream.events.Namespace;
-import javax.xml.stream.events.StartElement;
-import javax.xml.stream.events.XMLEvent;
+import javax.xml.stream.events.*;
 import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -259,7 +257,7 @@ public class FlattenXml {
             return;
         }
         XMLEvent ev;
-        Deque<Pair<QName, String>> pairStack = new ArrayDeque<>();
+        Deque<Pair<StartElement, String>> pairStack = new ArrayDeque<>();
 
         if (tagStack.isEmpty()) {
             return;
@@ -284,7 +282,7 @@ public class FlattenXml {
                 startElement = ev.asStartElement();
             }
 
-            pairStack.push(new Pair<>(startElement.getName(), data));
+            pairStack.push(new Pair<>(startElement, data));
 
             // Capture the entire record if a parsing error has occurred in the record.
             if (captureRecordOnError != null) {
@@ -306,7 +304,7 @@ public class FlattenXml {
         }
 
         // User specified list of output fields takes the top priority
-        List<QName> outputFieldsSeq = outputRecordFieldsSeq.getRecordFields(envelope.getName());
+        List<? extends ElementWithAttributes> outputFieldsSeq = outputRecordFieldsSeq.getRecordFields(recordName);
 
         // Final sequence of fields will be captured in this list
         List<List<Pair<String, String>>> records = null;
@@ -327,9 +325,9 @@ public class FlattenXml {
 
             if (schemaEl != null) {
                 // Collect the list of fields a record should have
-                List<QName> recordSchemaFields = schemaEl.getChildElements().stream()
+                List<ElementWithAttributes> recordSchemaFields = schemaEl.getChildElements().stream()
                         .filter(ch -> !XmlSchema.COMPLEX_TYPE.equals(ch.getType()))
-                        .map(ch -> ch.getName()).collect(Collectors.toList());
+                        .collect(Collectors.toList());
 
                 // Align with fields sequence in XSD
                 records = alignFieldsToSchema(pairStack, recordSchemaFields);
@@ -347,26 +345,46 @@ public class FlattenXml {
             recordHandler.write(recordName.getLocalPart(), record, cascadingStack.peek(), cascadingStack.peek());
     }
 
+    private List<Pair<String, String>> extractAttributesData(StartElement dataElem, ElementWithAttributes schemaElem) {
+        String elemName = toPrefixedTag(dataElem.getName());
+        return schemaElem.getAttributes().stream().map(schemaAttr -> {
+            Attribute attrData = dataElem.getAttributeByName(schemaAttr);
+            if (attrData == null) {
+                return new Pair<>(String.format("%s[%s]", elemName, toPrefixedTag(schemaAttr)),
+                        EMPTY);
+            } else {
+                return new Pair<>(String.format("%s[%s]", elemName, toPrefixedTag(attrData.getName())),
+                        attrData.getValue());
+            }
+        }).collect(Collectors.toList());
+    }
+
     private List<List<Pair<String, String>>> alignFieldsToSchema(
-            Collection<Pair<QName, String>> pairStack, List<QName> schemaFields) {
+            Collection<Pair<StartElement, String>> pairStack, List<? extends ElementWithAttributes> schemaFields) {
 
         // Make a field-value map first. Group by tag names to catch repetitions.
-        Map<QName, List<Pair<QName, String>>> fieldGroups =
-                pairStack.stream().collect(Collectors.groupingBy(pair -> pair.getKey(),
-                        LinkedHashMap::new, Collectors.toList()));
+        Map<QName, List<Pair<StartElement, String>>> fieldGroups = pairStack.stream()
+                .collect(Collectors.groupingBy(pair -> pair.getKey().getName(), LinkedHashMap::new, Collectors.toList()));
 
         List<List<Pair<String, String>>> records = new ArrayList<>();
         records.add(new ArrayList<>());
 
-        Collection<QName> fieldsListing = schemaFields;
+        List<QName> fieldsListing;
+        boolean fieldSeqPref;
+
         if (schemaFields == null || schemaFields.isEmpty()) {
-            fieldsListing = fieldGroups.keySet();
+            fieldsListing = fieldGroups.keySet().stream().collect(Collectors.toList());
+            fieldSeqPref = false;
+        } else {
+            fieldsListing = schemaFields.stream().map(field -> field.getName()).collect(Collectors.toList());
+            fieldSeqPref = true;
         }
 
         // Align header and data according to the order of fields defined in XSD for the record.
         // Force print fields that are missing for the record in the XML file.
-        for (QName tagName : fieldsListing) {
-            List<Pair<QName, String>> fieldValues = fieldGroups.get(tagName);
+        for (int i = 0; i < fieldsListing.size(); i++) {
+            QName tagName = fieldsListing.get(i);
+            List<Pair<StartElement, String>> fieldValues = fieldGroups.get(tagName);
 
             if (fieldValues == null) {
                 String prefix = xmlnsUriToPrefix.get(tagName.getNamespaceURI()).getPrefix();
@@ -381,7 +399,7 @@ public class FlattenXml {
 
             // Replicate result records as many times a field is repeated and
             // add each value for a repeated field to one set of replicated records
-            for (Pair<QName, String> fv : fieldValues) {
+            for (Pair<StartElement, String> fv : fieldValues) {
 
                 // Clone the records list if we are dealing with the first repetition of a field
                 if (repetition == 1) {
@@ -389,14 +407,37 @@ public class FlattenXml {
                     baseRecords.addAll(records);
                 }
 
+                StartElement dataElem = fv.getKey();
+                Pair<String, String> fieldNameValue = new Pair<>(toPrefixedTag(dataElem.getName()), fv.getVal());
+                List<Pair<String, String>> attrsData = null;
+                int numAttrs = 0;
+                if (fieldSeqPref) {
+                    ElementWithAttributes schemaElem = schemaFields.get(i);
+                    attrsData = extractAttributesData(dataElem, schemaElem);
+                    numAttrs = attrsData.size();
+                }
+
                 for (List<Pair<String, String>> rec : baseRecords) {
+
                     if (repetition == 0) {
-                        rec.add(new Pair<>(toPrefixedTag(fv.getKey()), fv.getVal()));
+                        rec.add(fieldNameValue);
+                        if (attrsData != null) {
+                            for (Pair<String, String> attrData : attrsData) {
+                                rec.add(attrData);
+                            }
+                        }
                     } else {
+
                         // Clone the record if we have tags repeated
                         List<Pair<String, String>> recCopy = rec.stream().collect(Collectors.toList());
                         // Update the last field in the record
-                        recCopy.set(recCopy.size() - 1, new Pair<>(toPrefixedTag(fv.getKey()), fv.getVal()));
+                        recCopy.set(recCopy.size() - numAttrs - 1, fieldNameValue);
+                        if (numAttrs > 0) {
+                            for (int j = 0; j < numAttrs; j++) {
+                                Pair<String, String> attrData = attrsData.get(j);
+                                rec.set(recCopy.size() - numAttrs + j, attrData);
+                            }
+                        }
                         // Add to the collection of records
                         records.add(recCopy);
                     }
@@ -411,7 +452,7 @@ public class FlattenXml {
 
     private RecordFieldsCascade newRecordCascade(StartElement tag, RecordFieldsCascade parentRecCascade) {
         RecordFieldsCascade recordFieldsCascade = new RecordFieldsCascade(
-                tag, recordCascadesRegistry.getRecordFields(tag.getName()), parentRecCascade, xsds);
+                tag, recordCascadesRegistry.getRecordFieldNames(tag.getName()), parentRecCascade, xsds);
         return recordFieldsCascade;
     }
 

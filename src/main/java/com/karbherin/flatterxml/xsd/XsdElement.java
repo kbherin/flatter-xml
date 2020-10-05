@@ -1,5 +1,7 @@
 package com.karbherin.flatterxml.xsd;
 
+import com.karbherin.flatterxml.model.ElementWithAttributes;
+
 import static com.karbherin.flatterxml.helper.XmlHelpers.defaultIfNull;
 import static com.karbherin.flatterxml.helper.XmlHelpers.parsePrefixTag;
 import static com.karbherin.flatterxml.xsd.XmlSchema.*;
@@ -8,9 +10,11 @@ import javax.xml.namespace.QName;
 import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.StartElement;
 import java.util.*;
+import java.util.stream.Collectors;
+
 import static java.util.Collections.unmodifiableList;
 
-public class XsdElement {
+public class XsdElement implements ElementWithAttributes {
 
     private final String targetNamespace;
     private QName name;
@@ -61,7 +65,7 @@ public class XsdElement {
                 toEl.prependChildElements(fromEl.getChildElements());
             }
 
-            toEl.prependAttributes(fromEl.getAttributes());
+            toEl.prependAttributes(fromEl.getElementAttributes());
         }
 
         return toEl;
@@ -76,6 +80,7 @@ public class XsdElement {
                 || Integer.parseInt(defaultIfNull(maxOccurs, "1")) > 1;
     }
 
+    @Override
     public QName getName() {
         return name;
     }
@@ -127,8 +132,14 @@ public class XsdElement {
         attributes.addAll(0, attrs);
     }
 
-    public List<XsdAttribute> getAttributes() {
+    public List<XsdAttribute> getElementAttributes() {
         return unmodifiableList(attributes);
+    }
+
+    @Override
+    public List<QName> getAttributes() {
+        return attributes.stream()
+                .map(attr -> attr.getName()).collect(Collectors.toList());
     }
 
     public void setContent(QName content) {

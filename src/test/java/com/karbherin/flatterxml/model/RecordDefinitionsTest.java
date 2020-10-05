@@ -10,6 +10,7 @@ import javax.xml.namespace.QName;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class RecordDefinitionsTest {
 
@@ -64,19 +65,19 @@ public class RecordDefinitionsTest {
 
         // Config line: emp:employee=employee-no,employee-name,{http://kbps.com/emp}department
         assertTrue(recSpec.getRecords().contains(QName.valueOf("{http://kbps.com/emp}employee")));
-        Collection<QName> empFields = recSpec.getRecordFields(QName.valueOf("{http://kbps.com/emp}employee"));
-        assertTrue(empFields.contains(QName.valueOf("employee-no")));
-        assertFalse(empFields.contains(QName.valueOf("employee-name")));
+        Collection<QName> empFields = recSpec.getRecordFieldNames(QName.valueOf("{http://kbps.com/emp}employee"));
+        assertEquals(2, empFields.size());
+        assertTrue(empFields.contains(QName.valueOf("{http://kbps.com/emp}employee-no")));
         assertTrue(empFields.contains(QName.valueOf("{http://kbps.com/emp}department")));
-        assertFalse(empFields.contains(QName.valueOf("salary")));
 
         // Config line: {http://kbps.com/emp}address=address-type,line1,emp:state,zip
         assertTrue(recSpec.getRecords().contains(QName.valueOf("{http://kbps.com/emp}address")));
-        Collection<QName> addressFields = recSpec.getRecordFields(QName.valueOf("{http://kbps.com/emp}address"));
-        assertTrue(addressFields.contains(QName.valueOf("address-type")));
-        assertTrue(addressFields.contains(QName.valueOf("line1")));
+        Collection<QName> addressFields = recSpec.getRecordFieldNames(QName.valueOf("{http://kbps.com/emp}address"));
+        assertEquals(4, addressFields.size());
+        assertTrue(addressFields.contains(QName.valueOf("{http://kbps.com/emp}address-type")));
+        assertTrue(addressFields.contains(QName.valueOf("{http://kbps.com/emp}line1")));
         assertTrue(addressFields.contains(QName.valueOf("{http://kbps.com/emp}state")));
-        assertFalse(addressFields.contains(QName.valueOf("line2")));
+        assertFalse(addressFields.contains(QName.valueOf("{http://kbps.com/emp}line2")));
 
 
         assertFalse("Commented out record definition",
@@ -84,7 +85,7 @@ public class RecordDefinitionsTest {
     }
 
     @Test
-    public void testLoadingIntoCustomClass() throws IOException {
+    public void testNewInstance_Namespaced() throws IOException {
         RecordDefinitions outputSpec = newInstance(
                 new File("src/test/resources/emp_output_fields_attrs.yaml"));
 
@@ -101,10 +102,10 @@ public class RecordDefinitionsTest {
         assertTrue(outputSpec.getRecords().contains(
                 parseNameAddPrefix("{http://kbps.com/phone}phone", uriPrefixMap, prefixUriMap)));
 
-        assertEquals("NS prefix qualified employee record tag", 3, outputSpec.getRecordFields(
+        assertEquals("NS prefix qualified employee record tag", 3, outputSpec.getRecordFieldNames(
                 parseNameAddPrefix("emp:employee", uriPrefixMap, prefixUriMap)).size());
 
-        assertEquals("NS URI qualified phone record tag",2, outputSpec.getRecordFields(
+        assertEquals("NS URI qualified phone record tag",2, outputSpec.getRecordFieldNames(
                 parseNameAddPrefix("{http://kbps.com/phone}phone", uriPrefixMap, prefixUriMap)).size());
 
         assertEquals("NS qualified attribute", 1, outputSpec.getRecordFieldAttributes(
@@ -117,16 +118,16 @@ public class RecordDefinitionsTest {
 
         assertEquals(2, outputSpec.getRecordFieldAttributes(
                 parseNameAddPrefix("emp:employee", uriPrefixMap, prefixUriMap),
-                parseNameAddPrefix("identifiers", uriPrefixMap, prefixUriMap)).size());
+                parseNameAddPrefix("emp:identifiers", uriPrefixMap, prefixUriMap)).size());
 
         assertTrue("NS qualified attribute", outputSpec.getRecordFieldAttributes(
                 parseNameAddPrefix("emp:employee", uriPrefixMap, prefixUriMap),
-                parseNameAddPrefix("identifiers", uriPrefixMap, prefixUriMap))
+                parseNameAddPrefix("emp:identifiers", uriPrefixMap, prefixUriMap))
                 .contains(parseNameAddPrefix("{http://kbps.com/emp}id-doc-type", uriPrefixMap, prefixUriMap)));
 
         assertTrue("Not NS qualified attribute", outputSpec.getRecordFieldAttributes(
                 parseNameAddPrefix("emp:employee", uriPrefixMap, prefixUriMap),
-                parseNameAddPrefix("identifiers", uriPrefixMap, prefixUriMap))
-                .contains(parseNameAddPrefix("id-doc-expiry", uriPrefixMap, prefixUriMap)));
+                parseNameAddPrefix("emp:identifiers", uriPrefixMap, prefixUriMap))
+                .contains(parseNameAddPrefix("emp:id-doc-expiry", uriPrefixMap, prefixUriMap)));
     }
 }

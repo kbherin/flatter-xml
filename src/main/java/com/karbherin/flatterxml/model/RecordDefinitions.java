@@ -116,8 +116,10 @@ public final class RecordDefinitions {
                 String tagName = prefixName[1].trim();
                 qName = new QName(emptyIfNull(prefixUriMap.get(prefix)), tagName, prefix);
             } else {
-                return parseNameAddPrefix(String.format("{%s}%s", defaultNamespace, nameString.trim()),
-                        uriPrefixMap, prefixUriMap, defaultNamespace);
+                if (defaultNamespace != null && !defaultNamespace.isEmpty()) {
+                    qName = parseNameAddPrefix(String.format("{%s}%s", defaultNamespace, nameString.trim()),
+                            uriPrefixMap, prefixUriMap, defaultNamespace);
+                }
             }
         }
         return qName;
@@ -156,12 +158,25 @@ public final class RecordDefinitions {
      * @param recordName
      * @return field names on a record type
      */
-    public List<QName> getRecordFields(QName recordName) {
+    public List<QName> getRecordFieldNames(QName recordName) {
         Record record = recordFieldsMap.get(recordName);
         if (record == null) {
             return Collections.emptyList();
         }
         return record.fieldNames;
+    }
+
+    /**
+     * Get fields of a record type.
+     * @param recordName
+     * @return field names on a record type
+     */
+    public List<Field> getRecordFields(QName recordName) {
+        Record record = recordFieldsMap.get(recordName);
+        if (record == null) {
+            return Collections.emptyList();
+        }
+        return record.fields;
     }
 
     /**
@@ -213,8 +228,9 @@ public final class RecordDefinitions {
         return new Pair<>(recordTagName, Collections.unmodifiableList(fieldTagNames));
     }
 
-    private class Record {
+    public class Record {
         private final QName recordName;
+        private final List<Field> fields;
         private final List<QName> fieldNames;
         private final Map<QName, Field> fieldMap;
 
@@ -222,12 +238,25 @@ public final class RecordDefinitions {
             this.recordName = parseNameAddPrefix(recordName, uriPrefixMap, prefixUriMap);
             this.fieldMap = unmodifiableMap(fields.stream()
                     .collect(Collectors.toMap(fld -> fld.fieldName, fld -> fld)));
+            this.fields = unmodifiableList(fields);
             this.fieldNames = unmodifiableList(fields.stream()
                     .map(field -> field.fieldName).collect(Collectors.toList()));
         }
+
+        public QName getRecordName() {
+            return recordName;
+        }
+
+        public List<Field> getFields() {
+            return fields;
+        }
+
+        public List<QName> getFieldNames() {
+            return fieldNames;
+        }
     }
 
-    private class Field {
+    public class Field implements ElementWithAttributes {
         private final QName fieldName;
         private final List<QName> fieldAttributes;
 
@@ -235,6 +264,20 @@ public final class RecordDefinitions {
             Pair<QName, List<QName>> pair = parseNamedList(fieldName, fieldAttributes, defaultNamespace);
             this.fieldName = pair.getKey();
             this.fieldAttributes = unmodifiableList(pair.getVal());
+        }
+
+        public QName getFieldName() {
+            return fieldName;
+        }
+
+        @Override
+        public List<QName> getAttributes() {
+            return unmodifiableList(fieldAttributes);
+        }
+
+        @Override
+        public QName getName() {
+            return fieldName;
         }
     }
 

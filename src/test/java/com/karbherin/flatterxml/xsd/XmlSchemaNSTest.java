@@ -178,9 +178,9 @@ public class XmlSchemaNSTest {
         XsdElement phoneNum = xsdModel.getElementByName("phone-num");
         assertEquals(INTEGER_QNAME, phoneNum.getType());
         assertEquals(XmlSchema.SIMPLE_CONTENT, phoneNum.getContent());
-        assertEquals(1, phoneNum.getAttributes().size());
+        assertEquals(1, phoneNum.getElementAttributes().size());
         assertEquals(new QName(phoneNum.getTargetNamespace(), "contact-type"),
-                phoneNum.getAttributes().get(0).getName());
+                phoneNum.getElementAttributes().get(0).getName());
     }
 
     @Test
@@ -188,7 +188,7 @@ public class XmlSchemaNSTest {
         XsdElement phoneType = xsdModel.getElementByName("phone-type");
         assertEquals(STRING_QNAME, phoneType.getType());
         assertEquals(XmlSchema.SIMPLE_CONTENT, phoneType.getContent());
-        assertTrue(phoneType.getAttributes().isEmpty());
+        assertTrue(phoneType.getElementAttributes().isEmpty());
     }
 
     @Test
@@ -197,7 +197,7 @@ public class XmlSchemaNSTest {
         assertEquals(XmlSchema.COMPLEX_TYPE, contact.getType());
         assertEquals(XmlSchema.COMPLEX_CONTENT, contact.getContent());
         assertEquals(2, contact.getChildElements().size());
-        assertEquals(0, contact.getAttributes().size());
+        assertEquals(0, contact.getElementAttributes().size());
         assertEquals("Reference type exists in same XSD",
                 new QName(contact.getTargetNamespace(), "addresses"),
                 contact.getChildElements().get(0).getName());

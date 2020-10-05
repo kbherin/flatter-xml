@@ -34,7 +34,7 @@ public class XmlEventEmitterTest {
             throws IOException, XMLStreamException, InterruptedException {
 
         int numWorkers = 3;
-        String outDir = "target/test/resources/emp_tables";
+        String outDir = "target/test/results/emp_eventstream_splits";
         new File(outDir).mkdirs();
         CountDownLatch workerCounter = new CountDownLatch(numWorkers);
         Thread[] workers = new Thread[numWorkers];
