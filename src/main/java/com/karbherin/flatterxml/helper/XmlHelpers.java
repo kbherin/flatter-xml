@@ -29,6 +29,7 @@ public class XmlHelpers {
     public static final String COMMA_DELIM = ",";
     public static final String WHITESPACES = "\\s+";
     public static final String EMPTY = "";
+    public static final String ELEM_ATTR_FMT = "%s[%s]";
 
     /**
      * Stringifies of attributes on an XML start tag.

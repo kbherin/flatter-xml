@@ -196,7 +196,7 @@ public class FlattenXml {
                 // Previous element was data. Add it to the container's cascade list
                 if (!tagStack.peek().isStartElement() && !tagStack.peek().isEndElement()) {
                     currRecordCascade.addCascadingData(
-                            endElement.getName(),
+                            tagPath.peek(),
                             tagStack.peek().asCharacters().getData(),
                             cascadePolicy);
                 }
@@ -350,10 +350,10 @@ public class FlattenXml {
         return schemaElem.getAttributes().stream().map(schemaAttr -> {
             Attribute attrData = dataElem.getAttributeByName(schemaAttr);
             if (attrData == null) {
-                return new Pair<>(String.format("%s[%s]", elemName, toPrefixedTag(schemaAttr)),
+                return new Pair<>(String.format(ELEM_ATTR_FMT, elemName, toPrefixedTag(schemaAttr)),
                         EMPTY);
             } else {
-                return new Pair<>(String.format("%s[%s]", elemName, toPrefixedTag(attrData.getName())),
+                return new Pair<>(String.format(ELEM_ATTR_FMT, elemName, toPrefixedTag(attrData.getName())),
                         attrData.getValue());
             }
         }).collect(Collectors.toList());
@@ -452,7 +452,7 @@ public class FlattenXml {
 
     private RecordFieldsCascade newRecordCascade(StartElement tag, RecordFieldsCascade parentRecCascade) {
         RecordFieldsCascade recordFieldsCascade = new RecordFieldsCascade(
-                tag, recordCascadesRegistry.getRecordFieldNames(tag.getName()), parentRecCascade, xsds);
+                tag, recordCascadesRegistry.getRecordFields(tag.getName()), parentRecCascade, xsds);
         return recordFieldsCascade;
     }
 

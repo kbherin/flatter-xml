@@ -64,9 +64,10 @@ public class XsdElement implements ElementWithAttributes {
                 toEl.type = COMPLEX_TYPE;
                 toEl.prependChildElements(fromEl.getChildElements());
             }
-
-            toEl.prependAttributes(fromEl.getElementAttributes());
         }
+
+        // Copy element attributes
+        toEl.prependAttributes(fromEl.getElementAttributes());
 
         return toEl;
     }

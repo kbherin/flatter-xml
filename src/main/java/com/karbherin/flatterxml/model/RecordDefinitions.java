@@ -266,10 +266,6 @@ public final class RecordDefinitions {
             this.fieldAttributes = unmodifiableList(pair.getVal());
         }
 
-        public QName getFieldName() {
-            return fieldName;
-        }
-
         @Override
         public List<QName> getAttributes() {
             return unmodifiableList(fieldAttributes);

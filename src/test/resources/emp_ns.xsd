@@ -68,7 +68,15 @@
     </xs:element>
 
 
-    <xs:element name="employee-no" type='xs:integer' />
+    <xs:element name="employee-no">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="xs:integer">
+                    <xs:attribute name="status" type="xs:string" use="required" />
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
     <xs:element name="employee-name" type='xs:string' />
     <xs:element name="department" type='xs:string' />
     <xs:element name="salary" type='xs:string' />

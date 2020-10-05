@@ -65,8 +65,9 @@ public class XmlSchema {
 
     public XsdElement getElementByName(String name) {
         XsdElement elem = elementTypes.get(parsePrefixTag(name));
-        if (elem == null)
+        if (elem == null) {
             elem = elementTypes.get(parsePrefixTag(name, schema.getNamespaceContext(), targetNamespace));
+        }
 
         if (elem == null) {
             for (XmlSchema importedSchema : importedSchemas.values()) {
@@ -79,7 +80,16 @@ public class XmlSchema {
     }
 
     public XsdElement getElementByName(QName qName) {
-        return elementTypes.get(qName);
+        XsdElement elem = elementTypes.get(qName);
+        if (elem == null) {
+            for (XmlSchema importedSchema : importedSchemas.values()) {
+                elem = importedSchema.getElementByName(qName);
+                if (elem != null)
+                    break;
+            }
+        }
+
+        return elem;
     }
 
 
