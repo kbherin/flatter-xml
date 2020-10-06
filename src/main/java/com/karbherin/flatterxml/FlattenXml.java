@@ -370,11 +370,13 @@ public class FlattenXml {
     }
 
     private List<List<Pair<String, String>>> alignFieldsToSchema(
-            Collection<Pair<StartElement, String>> pairStack, List<? extends SchemaElementWithAttributes> schemaFields) {
+            Collection<Pair<StartElement, String>> pairStack,
+            List<? extends SchemaElementWithAttributes> schemaFields) {
 
         // Make a field-value map first. Group by tag names to catch repetitions.
         Map<QName, List<Pair<StartElement, String>>> fieldGroups = pairStack.stream()
-                .collect(Collectors.groupingBy(pair -> pair.getKey().getName(), LinkedHashMap::new, Collectors.toList()));
+                .collect(Collectors.groupingBy(pair -> pair.getKey().getName(),
+                        LinkedHashMap::new, Collectors.toList()));
 
         List<List<Pair<String, String>>> records = new ArrayList<>();
         records.add(new ArrayList<>());
@@ -386,7 +388,8 @@ public class FlattenXml {
             fieldsListing = new ArrayList<>(fieldGroups.keySet());
             fieldSeqPref = false;
         } else {
-            fieldsListing = schemaFields.stream().map(SchemaElementWithAttributes::getName).collect(Collectors.toList());
+            fieldsListing = schemaFields.stream()
+                    .map(SchemaElementWithAttributes::getName).collect(Collectors.toList());
             fieldSeqPref = true;
         }
 
@@ -409,6 +412,7 @@ public class FlattenXml {
 
             // Replicate result records as many times a field is repeated and
             // add each value for a repeated field to one set of replicated records
+            Pair<StartElement, String> prevFv = null;
             for (Pair<StartElement, String> fv : fieldValues) {
 
                 // Clone the records list if we are dealing with the first repetition of a field
@@ -419,7 +423,7 @@ public class FlattenXml {
                 StartElement dataElem = fv.getKey();
                 Pair<String, String> fieldNameValue = new Pair<>(toPrefixedTag(dataElem.getName()), fv.getVal());
                 List<Pair<String, String>> attrsData = null;
-                int numAttrs = 0;
+                int numPrevColsAdded = 0;
                 if (fieldSeqPref) {
                     SchemaElementWithAttributes schemaElem = schemaFields.get(i);
                     attrsData = extractAttributesData(dataElem, schemaElem);
@@ -427,35 +431,35 @@ public class FlattenXml {
                     attrsData = extractAttributesData(dataElem, null);
                 }
 
-                numAttrs = attrsData.size();
-
                 for (List<Pair<String, String>> rec : baseRecords) {
 
                     if (repetition == 0) {
                         rec.add(fieldNameValue);
                         if (attrsData != null) {
-                            for (Pair<String, String> attrData : attrsData) {
-                                rec.add(attrData);
-                            }
+                            rec.addAll(attrsData);
                         }
                     } else {
 
-                        // Clone the record if we have tags repeated
-                        List<Pair<String, String>> recCopy = new ArrayList<>(rec);
-                        // Update the last field in the record
-                        recCopy.set(recCopy.size() - numAttrs - 1, fieldNameValue);
-                        if (numAttrs > 0) {
-                            for (int j = 0; j < numAttrs; j++) {
-                                Pair<String, String> attrData = attrsData.get(j);
-                                rec.set(recCopy.size() - numAttrs + j, attrData);
-                            }
+                        if (prevFv != null) {
+                            numPrevColsAdded = 1 + (int) iteratorStream(attributesIterator(prevFv.getKey())).count();
                         }
+
+                        // Clone the record if we have tags repeated
+                        List<Pair<String, String>> recCopy = new ArrayList<>(
+                                rec.subList(0, rec.size() - numPrevColsAdded));
+                        // Add the new element's data and attributes to the records
+                        recCopy.add(fieldNameValue);
+                        if (attrsData != null) {
+                            recCopy.addAll(attrsData);
+                        }
+
                         // Add to the collection of records
                         records.add(recCopy);
                     }
                 }
 
                 repetition++;
+                prevFv = fv;
             }
         }
 
