@@ -8,6 +8,7 @@ import javax.xml.namespace.NamespaceContext;
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.Attribute;
+import javax.xml.stream.events.Namespace;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import javax.xml.transform.Source;
@@ -216,8 +217,14 @@ public class XmlHelpers {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public static Iterator<Attribute> attributesIterator(StartElement el) {
         return (Iterator<Attribute>) el.getAttributes();
+    }
+
+    @SuppressWarnings("unchecked")
+    public static Iterator<Namespace> namespacesIterator(StartElement el) {
+        return (Iterator<Namespace>) el.getNamespaces();
     }
 
 }

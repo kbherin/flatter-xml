@@ -1,5 +1,6 @@
 package com.karbherin.flatterxml.xsd;
 
+import static com.karbherin.flatterxml.helper.XmlHelpers.namespacesIterator;
 import static org.junit.Assert.*;
 
 import static com.karbherin.flatterxml.helper.XmlHelpers.iteratorStream;
@@ -34,9 +35,10 @@ public class XmlSchemaTest {
     @Test
     public void test_namespaces() {
         assertEquals("http://kbps.com", xsdModel.getTargetNamespace());
-        assertEquals(1, ((Long) iteratorStream(xsdModel.getSchema().getNamespaces()).count()).longValue());
+        assertEquals(1, ((Long) iteratorStream(
+                namespacesIterator(xsdModel.getSchema())).count()).longValue());
         XMLEventFactory factory = XMLEventFactory.newInstance();
-        for (Iterator<Namespace> it = xsdModel.getSchema().getNamespaces(); it.hasNext(); ) {
+        for (Iterator<Namespace> it = namespacesIterator(xsdModel.getSchema()); it.hasNext(); ) {
             Namespace ns = it.next();
             assertEquals(XMLConstants.W3C_XML_SCHEMA_NS_URI, ns.getNamespaceURI());
             assertEquals("xs", ns.getPrefix());
@@ -44,7 +46,7 @@ public class XmlSchemaTest {
             System.out.println("prefix,namespaceURI=" + ns.getPrefix()+","+ns.getNamespaceURI());
         }
 
-        assertTrue(iteratorStream((Iterator<Namespace>) xsdModel.getSchema().getNamespaces())
+        assertTrue(iteratorStream(namespacesIterator(xsdModel.getSchema()))
                 .map(n -> n.getName()).collect(Collectors.toSet())
                 .contains(factory.createNamespace("xs", XMLConstants.W3C_XML_SCHEMA_NS_URI).getName()));
     }

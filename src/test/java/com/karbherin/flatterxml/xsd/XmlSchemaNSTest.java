@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.karbherin.flatterxml.helper.XmlHelpers.iteratorStream;
+import static com.karbherin.flatterxml.helper.XmlHelpers.namespacesIterator;
 import static org.junit.Assert.*;
 
 public class XmlSchemaNSTest {
@@ -32,7 +33,7 @@ public class XmlSchemaNSTest {
     public static void setUp() throws FileNotFoundException, XMLStreamException {
         xsdModel = new XmlSchema();
         xsdModel.parse("src/test/resources/emp_ns.xsd");
-        namespaces = iteratorStream((Iterator<Namespace>) xsdModel.getSchema().getNamespaces())
+        namespaces = iteratorStream(namespacesIterator(xsdModel.getSchema()))
                 .collect(Collectors.toSet());
         nsUris = namespaces.stream().map(Namespace::getNamespaceURI).collect(Collectors.toSet());
         nsPrefixes = namespaces.stream().map(Namespace::getPrefix).collect(Collectors.toSet());
@@ -44,7 +45,8 @@ public class XmlSchemaNSTest {
     @Test
     public void test_namespaces() {
         assertEquals("http://kbps.com/emp", xsdModel.getTargetNamespace());
-        assertEquals(3, ((Long) iteratorStream(xsdModel.getSchema().getNamespaces()).count()).longValue());
+        assertEquals(3, ((Long) iteratorStream(
+                namespacesIterator(xsdModel.getSchema())).count()).longValue());
 
         assertTrue(nsUris.contains(XMLConstants.W3C_XML_SCHEMA_NS_URI));
         assertTrue(nsPrefixes.contains("xs"));
