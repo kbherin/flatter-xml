@@ -16,7 +16,7 @@ public interface RecordHandler {
 
     List<GeneratedResult> getFilesWritten();
 
-    void closeAllFileStreams();
+    void closeAllFileStreams() throws IOException;
 
 
     final class GeneratedResult {

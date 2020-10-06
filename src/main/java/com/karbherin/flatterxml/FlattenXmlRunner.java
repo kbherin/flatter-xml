@@ -176,7 +176,8 @@ public class FlattenXmlRunner {
         setup.setXmlStream(xmlStream);
 
         // Create XML flattener
-        DelimitedFileWriter recordHandler = new DelimitedFileWriter(delimiter, outDir);
+        DelimitedFileWriter recordHandler = new DelimitedFileWriter(delimiter, outDir,
+                recordOutputFieldsDefFile != null || !xsds.isEmpty());
         setup.setRecordWriter(recordHandler);
         final FlattenXml flattener = setup.create();
 
@@ -223,7 +224,8 @@ public class FlattenXmlRunner {
         InputStream xmlStream = new FileInputStream(xmlFilePath);
         setup.setXmlStream(xmlStream);
 
-        RecordHandler recordHandler = new DelimitedFileWriter(delimiter, outDir);
+        RecordHandler recordHandler = new DelimitedFileWriter(delimiter, outDir,
+                recordOutputFieldsDefFile != null || !xsds.isEmpty());
 
         // Initiate concurrent workers
         XmlRecordEmitter emitter;
