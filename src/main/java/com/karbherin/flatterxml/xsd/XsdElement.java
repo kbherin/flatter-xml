@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 import static java.util.Collections.unmodifiableList;
 
-public class XsdSchemaElement implements SchemaElementWithAttributes {
+public class XsdElement implements SchemaElementWithAttributes {
 
     private final String targetNamespace;
     private QName name;
@@ -22,14 +22,14 @@ public class XsdSchemaElement implements SchemaElementWithAttributes {
     private QName ref;
     private QName type;
     private QName content;
-    private List<XsdSchemaElement> childElements = new ArrayList<>();
+    private List<XsdElement> childElements = new ArrayList<>();
     private List<XsdAttribute> attributes = new ArrayList<>();
 
     private static final String UNBOUNDED = "unbounded";
     private static final String NAME = "name", REF = "ref", TYPE = "type",
             MIN_OCCURS = "minoccurs", MAX_OCCURS = "maxoccurs";
 
-    public XsdSchemaElement(StartElement el, String targetNamespace) {
+    public XsdElement(StartElement el, String targetNamespace) {
         this.targetNamespace = targetNamespace;
 
         for (Iterator<Attribute> it = attributesIterator(el); it.hasNext(); ) {
@@ -49,7 +49,7 @@ public class XsdSchemaElement implements SchemaElementWithAttributes {
         }
     }
 
-    public static XsdSchemaElement copyDefinitionAttrs(XsdSchemaElement fromEl, XsdSchemaElement toEl) {
+    public static XsdElement copyDefinitionAttrs(XsdElement fromEl, XsdElement toEl) {
         toEl.name = fromEl.getName();
         toEl.type = fromEl.getType();
         toEl.content = fromEl.getContent();
@@ -112,15 +112,15 @@ public class XsdSchemaElement implements SchemaElementWithAttributes {
         }
     }
 
-    public List<XsdSchemaElement> getChildElements() {
+    public List<XsdElement> getChildElements() {
         return unmodifiableList(Optional.of(childElements).orElse(Collections.emptyList()));
     }
 
-    public void setChildElements(List<XsdSchemaElement> childElements) {
+    public void setChildElements(List<XsdElement> childElements) {
         this.childElements = childElements;
     }
 
-    public void prependChildElements(List<XsdSchemaElement> childElements) {
+    public void prependChildElements(List<XsdElement> childElements) {
         this.childElements.addAll(0, childElements);
     }
 

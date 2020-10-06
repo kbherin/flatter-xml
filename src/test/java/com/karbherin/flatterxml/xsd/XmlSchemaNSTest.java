@@ -64,7 +64,7 @@ public class XmlSchemaNSTest {
 
     @Test
     public void test_complexType()  {
-        XsdSchemaElement employee = xsdModel.getElementByName("employee");
+        XsdElement employee = xsdModel.getElementByName("employee");
         assertEquals(XmlSchema.COMPLEX_TYPE, employee.getType());
         assertNotNull(employee.getChildElements());
         assertFalse(employee.getChildElements().isEmpty());
@@ -76,7 +76,7 @@ public class XmlSchemaNSTest {
 
     @Test
     public void test_employee()  {
-        XsdSchemaElement employee = xsdModel.getElementByName("employee");
+        XsdElement employee = xsdModel.getElementByName("employee");
         assertEquals(XmlSchema.COMPLEX_TYPE, employee.getType());
         assertEquals(XmlSchema.COMPLEX_CONTENT, employee.getContent());
         assertEquals(6,         employee.getChildElements().size());
@@ -122,7 +122,7 @@ public class XmlSchemaNSTest {
 
     @Test
     public void test_address()  {
-        XsdSchemaElement address = xsdModel.getElementByName("address");
+        XsdElement address = xsdModel.getElementByName("address");
         assertEquals(XmlSchema.COMPLEX_TYPE,    address.getType());
         assertEquals(6,        address.getChildElements().size());
         assertEquals(new QName(xsdModel.getTargetNamespace(), "address-type"),
@@ -133,7 +133,7 @@ public class XmlSchemaNSTest {
     @Test
     public void test_importedPhone()  {
         String phoneNsUri = "http://kbps.com/phone";
-        XsdSchemaElement phone = xsdModel.getElementByName(String.format("phone", phoneNsUri));
+        XsdElement phone = xsdModel.getElementByName(String.format("phone", phoneNsUri));
         assertEquals(XmlSchema.COMPLEX_TYPE, phone.getType());
         assertEquals(2,             phone.getChildElements().size());
         assertEquals(new QName(phoneNsUri,"phone-num"), phone.getChildElements().get(0).getName());
@@ -143,7 +143,7 @@ public class XmlSchemaNSTest {
     @Test
     public void test_importedPhone2()  {
         String phoneNsUri = "http://kbps.com/phone";
-        XsdSchemaElement phone = xsdModel.getElementByName(String.format("{%s}phone", phoneNsUri));
+        XsdElement phone = xsdModel.getElementByName(String.format("{%s}phone", phoneNsUri));
         assertEquals(XmlSchema.COMPLEX_TYPE, phone.getType());
         assertEquals(2,             phone.getChildElements().size());
         assertEquals(new QName(phoneNsUri,"phone-num"), phone.getChildElements().get(0).getName());
@@ -152,7 +152,7 @@ public class XmlSchemaNSTest {
 
     @Test
     public void test_simpleType() {
-        XsdSchemaElement name = xsdModel.getElementByName("employee-name");
+        XsdElement name = xsdModel.getElementByName("employee-name");
         assertNull(name.getRef());
         assertNull(name.getMaxOccurs());
         assertNotNull(name.getChildElements());
@@ -163,19 +163,19 @@ public class XmlSchemaNSTest {
 
     @Test
     public void test_name() {
-        XsdSchemaElement name = xsdModel.getElementByName("employee-name");
+        XsdElement name = xsdModel.getElementByName("employee-name");
         assertEquals(STRING_QNAME, name.getType());
     }
 
     @Test
     public void test_street() {
-        XsdSchemaElement street = xsdModel.getElementByName("line1");
+        XsdElement street = xsdModel.getElementByName("line1");
         assertEquals(STRING_QNAME, street.getType());
     }
 
     @Test
     public void test_phoneNum() {
-        XsdSchemaElement phoneNum = xsdModel.getElementByName("phone-num");
+        XsdElement phoneNum = xsdModel.getElementByName("phone-num");
         assertEquals(INTEGER_QNAME, phoneNum.getType());
         assertEquals(XmlSchema.SIMPLE_CONTENT, phoneNum.getContent());
         assertEquals(1, phoneNum.getElementAttributes().size());
@@ -185,7 +185,7 @@ public class XmlSchemaNSTest {
 
     @Test
     public void test_phoneType() {
-        XsdSchemaElement phoneType = xsdModel.getElementByName("phone-type");
+        XsdElement phoneType = xsdModel.getElementByName("phone-type");
         assertEquals(STRING_QNAME, phoneType.getType());
         assertEquals(XmlSchema.SIMPLE_CONTENT, phoneType.getContent());
         assertTrue(phoneType.getElementAttributes().isEmpty());
@@ -193,7 +193,7 @@ public class XmlSchemaNSTest {
 
     @Test
     public void test_contact() {
-        XsdSchemaElement contact = xsdModel.getElementByName("contact");
+        XsdElement contact = xsdModel.getElementByName("contact");
         assertEquals(XmlSchema.COMPLEX_TYPE, contact.getType());
         assertEquals(XmlSchema.COMPLEX_CONTENT, contact.getContent());
         assertEquals(2, contact.getChildElements().size());

@@ -23,9 +23,9 @@ public class XmlSchema {
     private StartElement schema;
     private final Map<Namespace, XmlSchema> importedSchemas = new HashMap<>();
     private final Deque<StartElement> elStack = new ArrayDeque<>();
-    private final Map<QName, List<XsdSchemaElement>> complexTypes = new HashMap<>();
-    private final Map<QName, XsdSchemaElement> elementTypes = new HashMap<>();
-    private XsdSchemaElement currentXsdElement;
+    private final Map<QName, List<XsdElement>> complexTypes = new HashMap<>();
+    private final Map<QName, XsdElement> elementTypes = new HashMap<>();
+    private XsdElement currentXsdElement;
     private File xsdFile;
     public static final QName ELEMENT = new QName(XMLConstants.W3C_XML_SCHEMA_NS_URI,"element"),
             NAME = new QName(XMLConstants.W3C_XML_SCHEMA_NS_URI,"name"),
@@ -60,8 +60,8 @@ public class XmlSchema {
         resolveReferences();
     }
 
-    public XsdSchemaElement getElementByName(String name) {
-        XsdSchemaElement elem = elementTypes.get(parsePrefixTag(name));
+    public XsdElement getElementByName(String name) {
+        XsdElement elem = elementTypes.get(parsePrefixTag(name));
         if (elem == null) {
             elem = elementTypes.get(parsePrefixTag(name, schema.getNamespaceContext(), targetNamespace));
         }
@@ -76,8 +76,8 @@ public class XmlSchema {
         return elem;
     }
 
-    public XsdSchemaElement getElementByName(QName qName) {
-        XsdSchemaElement elem = elementTypes.get(qName);
+    public XsdElement getElementByName(QName qName) {
+        XsdElement elem = elementTypes.get(qName);
         if (elem == null) {
             for (XmlSchema importedSchema : importedSchemas.values()) {
                 elem = importedSchema.getElementByName(qName);
@@ -91,7 +91,7 @@ public class XmlSchema {
 
 
     private void resolveReferences() {
-        Map<QName, XsdSchemaElement> allElementTypes = Stream.concat(
+        Map<QName, XsdElement> allElementTypes = Stream.concat(
                 elementTypes.entrySet().stream(),
                 importedSchemas.values().stream()
                         .flatMap(xsd -> xsd.elementTypes.entrySet().stream())
@@ -103,7 +103,7 @@ public class XmlSchema {
                         .filter(child -> child.getRef() != null
                                 && child.getType() == null
                                 && allElementTypes.containsKey(child.getRef()))
-                        .forEach(child -> XsdSchemaElement.copyDefinitionAttrs(
+                        .forEach(child -> XsdElement.copyDefinitionAttrs(
                                 allElementTypes.get(child.getRef()), child)));
 
         complexTypes.remove(null);
@@ -112,7 +112,7 @@ public class XmlSchema {
 
     public static void resolveReferences(List<XmlSchema> xsds) {
         // All elements from all XSDs
-        Map<QName, XsdSchemaElement> allElementTypes = xsds.stream()
+        Map<QName, XsdElement> allElementTypes = xsds.stream()
                 .flatMap(xsd -> xsd.elementTypes.entrySet().stream())
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
@@ -123,7 +123,7 @@ public class XmlSchema {
                             .filter(child -> child.getRef() != null
                                     && child.getType() == null
                                     && allElementTypes.containsKey(child.getRef()))
-                            .forEach(child -> XsdSchemaElement.copyDefinitionAttrs(
+                            .forEach(child -> XsdElement.copyDefinitionAttrs(
                                     allElementTypes.get(child.getRef()), child))));
 
         // Clear the memory for complex types
@@ -187,10 +187,10 @@ public class XmlSchema {
         if (!elStack.isEmpty()) {
 
             QName parentName = extractAttrValue(elStack.peek().asStartElement(), NAME, targetNamespace);
-            List<XsdSchemaElement> children = Optional.ofNullable(complexTypes.get(parentName)).orElse(new ArrayList<>());
+            List<XsdElement> children = Optional.ofNullable(complexTypes.get(parentName)).orElse(new ArrayList<>());
             complexTypes.put(parentName, children);
 
-            XsdSchemaElement xsdEl = new XsdSchemaElement(el, targetNamespace);
+            XsdElement xsdEl = new XsdElement(el, targetNamespace);
             currentXsdElement = xsdEl;
             if (xsdEl.getName() != null)
                 elementTypes.put(xsdEl.getName(), xsdEl);

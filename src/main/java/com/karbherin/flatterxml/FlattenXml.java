@@ -7,7 +7,7 @@ import com.karbherin.flatterxml.model.RecordFieldsCascade;
 import com.karbherin.flatterxml.model.RecordDefinitions;
 import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.xsd.XmlSchema;
-import com.karbherin.flatterxml.xsd.XsdSchemaElement;
+import com.karbherin.flatterxml.xsd.XsdElement;
 
 import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 
@@ -318,7 +318,7 @@ public class FlattenXml {
             // 2: Align data from XML with the sequence of fields in XSDs
 
             // Lookup schema for a list of fields a record can legitimately have
-            XsdSchemaElement schemaEl = xsds.stream()
+            XsdElement schemaEl = xsds.stream()
                     .map(xsd -> xsd.getElementByName(recordName))
                     .filter(xsd -> xsd != null)
                     .findFirst().orElse(null);
