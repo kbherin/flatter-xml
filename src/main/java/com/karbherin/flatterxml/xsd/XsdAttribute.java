@@ -6,8 +6,7 @@ import javax.xml.stream.events.StartElement;
 import java.util.Iterator;
 import java.util.Optional;
 
-import static com.karbherin.flatterxml.helper.XmlHelpers.extractAttrValue;
-import static com.karbherin.flatterxml.helper.XmlHelpers.parsePrefixTag;
+import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 
 public class XsdAttribute {
 
@@ -19,7 +18,7 @@ public class XsdAttribute {
     private static final String NAME = "name", REF = "ref", TYPE = "type", USE = "use";
 
     public XsdAttribute(StartElement el, String targetNamespace) {
-        for (Iterator<Attribute> it = el.getAttributes(); it.hasNext(); ) {
+        for (Iterator<Attribute> it = attributesIterator(el); it.hasNext(); ) {
             Attribute attr = it.next();
             switch(attr.getName().getLocalPart().toLowerCase()) {
                 case NAME : name = parsePrefixTag(attr.getValue(), el.getNamespaceContext(), targetNamespace);

@@ -57,7 +57,7 @@ public final class RecordFieldsCascade implements RecordTypeHierarchy, CascadedA
             cascadePairList.add(new Pair<>(tagName, tagValue));
         }
 
-        for (Iterator<Attribute> it = elem.getAttributes(); it.hasNext(); ) {
+        for (Iterator<Attribute> it = attributesIterator(elem); it.hasNext(); ) {
             Attribute attr = it.next();
             QName attrName = attr.getName();
             String attrLocalName = attrName.getLocalPart();
@@ -87,7 +87,7 @@ public final class RecordFieldsCascade implements RecordTypeHierarchy, CascadedA
     private Map<String, Integer> setupCascadeFields(List<RecordDefinitions.Field> cascadeFields, List<XmlSchema> xsds) {
 
         Map<String, Integer> primaryTagList = new HashMap<>();
-        final int[] mutablePos = new int[]{0};
+        final OpenCan<Integer> mutablePos = new OpenCan<Integer>(0);
 
         // If caller explicitly specifies a fields cascade file then that is given priority.
         if (!cascadeFields.isEmpty()) {
@@ -96,12 +96,12 @@ public final class RecordFieldsCascade implements RecordTypeHierarchy, CascadedA
                     .forEach(field -> {
                         String fieldLocalName = field.getName().getLocalPart();
                         String fieldName = toPrefixedTag(field.getName());
-                        primaryTagList.put(fieldLocalName, mutablePos[0]++);
+                        primaryTagList.put(fieldLocalName, mutablePos.val++);
                         cascadePairList.add(new Pair<>(fieldName, EMPTY));
 
                         for (QName attr: field.getAttributes()) {
                             primaryTagList.put(String.format(ELEM_ATTR_FMT,
-                                    fieldLocalName, attr.getLocalPart()), mutablePos[0]++);
+                                    fieldLocalName, attr.getLocalPart()), mutablePos.val++);
                             cascadePairList.add(new Pair<>(String.format(ELEM_ATTR_FMT,
                                     fieldName, toPrefixedTag(attr)), EMPTY));
                         }
@@ -122,12 +122,12 @@ public final class RecordFieldsCascade implements RecordTypeHierarchy, CascadedA
                                 .forEach(elem -> {
                                     String elemLocalName = elem.getName().getLocalPart();
                                     String elemName = toPrefixedTag(elem.getName());
-                                    primaryTagList.put(elemLocalName, mutablePos[0]++);
+                                    primaryTagList.put(elemLocalName, mutablePos.val++);
                                     cascadePairList.add(new Pair<>(elemName, EMPTY));
 
                                     for (XsdAttribute attr: elem.getElementAttributes()) {
                                         primaryTagList.put(String.format(ELEM_ATTR_FMT,
-                                                elemLocalName, attr.getName().getLocalPart()), mutablePos[0]++);
+                                                elemLocalName, attr.getName().getLocalPart()), mutablePos.val++);
                                         cascadePairList.add(new Pair<>(String.format(ELEM_ATTR_FMT,
                                                 elemName, toPrefixedTag(attr.getName())), EMPTY));
                                     }

@@ -1,9 +1,8 @@
 package com.karbherin.flatterxml.xsd;
 
-import com.karbherin.flatterxml.model.ElementWithAttributes;
+import com.karbherin.flatterxml.model.SchemaElementWithAttributes;
 
-import static com.karbherin.flatterxml.helper.XmlHelpers.defaultIfNull;
-import static com.karbherin.flatterxml.helper.XmlHelpers.parsePrefixTag;
+import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 import static com.karbherin.flatterxml.xsd.XmlSchema.*;
 
 import javax.xml.namespace.QName;
@@ -14,7 +13,7 @@ import java.util.stream.Collectors;
 
 import static java.util.Collections.unmodifiableList;
 
-public class XsdElement implements ElementWithAttributes {
+public class XsdSchemaElement implements SchemaElementWithAttributes {
 
     private final String targetNamespace;
     private QName name;
@@ -23,17 +22,17 @@ public class XsdElement implements ElementWithAttributes {
     private QName ref;
     private QName type;
     private QName content;
-    private List<XsdElement> childElements = new ArrayList<>();
+    private List<XsdSchemaElement> childElements = new ArrayList<>();
     private List<XsdAttribute> attributes = new ArrayList<>();
 
     private static final String UNBOUNDED = "unbounded";
     private static final String NAME = "name", REF = "ref", TYPE = "type",
             MIN_OCCURS = "minoccurs", MAX_OCCURS = "maxoccurs";
 
-    public XsdElement(StartElement el, String targetNamespace) {
+    public XsdSchemaElement(StartElement el, String targetNamespace) {
         this.targetNamespace = targetNamespace;
 
-        for (Iterator<Attribute> it = el.getAttributes(); it.hasNext(); ) {
+        for (Iterator<Attribute> it = attributesIterator(el); it.hasNext(); ) {
             Attribute attr = it.next();
             switch(attr.getName().getLocalPart().toLowerCase()) {
                 case NAME : name = parsePrefixTag(attr.getValue(), el.getNamespaceContext(), targetNamespace);
@@ -50,7 +49,7 @@ public class XsdElement implements ElementWithAttributes {
         }
     }
 
-    public static XsdElement copyDefinitionAttrs(XsdElement fromEl, XsdElement toEl) {
+    public static XsdSchemaElement copyDefinitionAttrs(XsdSchemaElement fromEl, XsdSchemaElement toEl) {
         toEl.name = fromEl.getName();
         toEl.type = fromEl.getType();
         toEl.content = fromEl.getContent();
@@ -113,15 +112,15 @@ public class XsdElement implements ElementWithAttributes {
         }
     }
 
-    public List<XsdElement> getChildElements() {
+    public List<XsdSchemaElement> getChildElements() {
         return unmodifiableList(Optional.of(childElements).orElse(Collections.emptyList()));
     }
 
-    public void setChildElements(List<XsdElement> childElements) {
+    public void setChildElements(List<XsdSchemaElement> childElements) {
         this.childElements = childElements;
     }
 
-    public void prependChildElements(List<XsdElement> childElements) {
+    public void prependChildElements(List<XsdSchemaElement> childElements) {
         this.childElements.addAll(0, childElements);
     }
 

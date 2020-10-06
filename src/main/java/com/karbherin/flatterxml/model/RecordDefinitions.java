@@ -256,7 +256,7 @@ public final class RecordDefinitions {
         }
     }
 
-    public class Field implements ElementWithAttributes {
+    public class Field implements SchemaElementWithAttributes {
         private final QName fieldName;
         private final List<QName> fieldAttributes;
 

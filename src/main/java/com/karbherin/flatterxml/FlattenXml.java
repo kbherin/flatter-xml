@@ -1,13 +1,13 @@
 package com.karbherin.flatterxml;
 
 import com.karbherin.flatterxml.helper.XmlHelpers;
-import com.karbherin.flatterxml.model.ElementWithAttributes;
+import com.karbherin.flatterxml.model.SchemaElementWithAttributes;
 import com.karbherin.flatterxml.model.Pair;
 import com.karbherin.flatterxml.model.RecordFieldsCascade;
 import com.karbherin.flatterxml.model.RecordDefinitions;
 import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.xsd.XmlSchema;
-import com.karbherin.flatterxml.xsd.XsdElement;
+import com.karbherin.flatterxml.xsd.XsdSchemaElement;
 
 import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 
@@ -304,7 +304,7 @@ public class FlattenXml {
         }
 
         // User specified list of output fields takes the top priority
-        List<? extends ElementWithAttributes> outputFieldsSeq = outputRecordFieldsSeq.getRecordFields(recordName);
+        List<? extends SchemaElementWithAttributes> outputFieldsSeq = outputRecordFieldsSeq.getRecordFields(recordName);
 
         // Final sequence of fields will be captured in this list
         List<List<Pair<String, String>>> records = null;
@@ -318,14 +318,14 @@ public class FlattenXml {
             // 2: Align data from XML with the sequence of fields in XSDs
 
             // Lookup schema for a list of fields a record can legitimately have
-            XsdElement schemaEl = xsds.stream()
+            XsdSchemaElement schemaEl = xsds.stream()
                     .map(xsd -> xsd.getElementByName(recordName))
                     .filter(xsd -> xsd != null)
                     .findFirst().orElse(null);
 
             if (schemaEl != null) {
                 // Collect the list of fields a record should have
-                List<ElementWithAttributes> recordSchemaFields = schemaEl.getChildElements().stream()
+                List<SchemaElementWithAttributes> recordSchemaFields = schemaEl.getChildElements().stream()
                         .filter(ch -> !XmlSchema.COMPLEX_TYPE.equals(ch.getType()))
                         .collect(Collectors.toList());
 
@@ -345,22 +345,32 @@ public class FlattenXml {
             recordHandler.write(recordName.getLocalPart(), record, cascadingStack.peek(), cascadingStack.peek());
     }
 
-    private List<Pair<String, String>> extractAttributesData(StartElement dataElem, ElementWithAttributes schemaElem) {
+    private List<Pair<String, String>> extractAttributesData(StartElement dataElem, SchemaElementWithAttributes schemaElem) {
         String elemName = toPrefixedTag(dataElem.getName());
-        return schemaElem.getAttributes().stream().map(schemaAttr -> {
-            Attribute attrData = dataElem.getAttributeByName(schemaAttr);
-            if (attrData == null) {
-                return new Pair<>(String.format(ELEM_ATTR_FMT, elemName, toPrefixedTag(schemaAttr)),
-                        EMPTY);
-            } else {
-                return new Pair<>(String.format(ELEM_ATTR_FMT, elemName, toPrefixedTag(attrData.getName())),
-                        attrData.getValue());
-            }
-        }).collect(Collectors.toList());
+        if (schemaElem != null) {
+            // Xml schema passed. Dump only listed attributes as per schema
+            return schemaElem.getAttributes().stream().map(schemaAttr -> {
+                Attribute attrData = dataElem.getAttributeByName(schemaAttr);
+                if (attrData == null) {
+                    return new Pair<>(String.format(ELEM_ATTR_FMT, elemName, toPrefixedTag(schemaAttr)),
+                            EMPTY);
+                } else {
+                    return new Pair<>(String.format(ELEM_ATTR_FMT, elemName, toPrefixedTag(attrData.getName())),
+                            attrData.getValue());
+                }
+            }).collect(Collectors.toList());
+        } else {
+            // Xml schema not found. Dump all attributes on an element
+            return iteratorStream(attributesIterator(dataElem))
+                    .map(attrData -> new Pair<>(
+                            String.format(ELEM_ATTR_FMT, elemName, toPrefixedTag(attrData.getName())),
+                            attrData.getValue()))
+                    .collect(Collectors.toList());
+        }
     }
 
     private List<List<Pair<String, String>>> alignFieldsToSchema(
-            Collection<Pair<StartElement, String>> pairStack, List<? extends ElementWithAttributes> schemaFields) {
+            Collection<Pair<StartElement, String>> pairStack, List<? extends SchemaElementWithAttributes> schemaFields) {
 
         // Make a field-value map first. Group by tag names to catch repetitions.
         Map<QName, List<Pair<StartElement, String>>> fieldGroups = pairStack.stream()
@@ -373,10 +383,10 @@ public class FlattenXml {
         boolean fieldSeqPref;
 
         if (schemaFields == null || schemaFields.isEmpty()) {
-            fieldsListing = fieldGroups.keySet().stream().collect(Collectors.toList());
+            fieldsListing = new ArrayList<>(fieldGroups.keySet());
             fieldSeqPref = false;
         } else {
-            fieldsListing = schemaFields.stream().map(field -> field.getName()).collect(Collectors.toList());
+            fieldsListing = schemaFields.stream().map(SchemaElementWithAttributes::getName).collect(Collectors.toList());
             fieldSeqPref = true;
         }
 
@@ -403,8 +413,7 @@ public class FlattenXml {
 
                 // Clone the records list if we are dealing with the first repetition of a field
                 if (repetition == 1) {
-                    baseRecords = new ArrayList<>(records.size());
-                    baseRecords.addAll(records);
+                    baseRecords = new ArrayList<>(records);
                 }
 
                 StartElement dataElem = fv.getKey();
@@ -412,10 +421,13 @@ public class FlattenXml {
                 List<Pair<String, String>> attrsData = null;
                 int numAttrs = 0;
                 if (fieldSeqPref) {
-                    ElementWithAttributes schemaElem = schemaFields.get(i);
+                    SchemaElementWithAttributes schemaElem = schemaFields.get(i);
                     attrsData = extractAttributesData(dataElem, schemaElem);
-                    numAttrs = attrsData.size();
+                } else {
+                    attrsData = extractAttributesData(dataElem, null);
                 }
+
+                numAttrs = attrsData.size();
 
                 for (List<Pair<String, String>> rec : baseRecords) {
 
@@ -429,7 +441,7 @@ public class FlattenXml {
                     } else {
 
                         // Clone the record if we have tags repeated
-                        List<Pair<String, String>> recCopy = rec.stream().collect(Collectors.toList());
+                        List<Pair<String, String>> recCopy = new ArrayList<>(rec);
                         // Update the last field in the record
                         recCopy.set(recCopy.size() - numAttrs - 1, fieldNameValue);
                         if (numAttrs > 0) {

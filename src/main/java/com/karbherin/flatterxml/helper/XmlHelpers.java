@@ -63,7 +63,7 @@ public class XmlHelpers {
 
                 if (ev.isStartElement()) {
                     StartElement startEl = ev.asStartElement();
-                    String attrStr = attributeString(startEl.getAttributes());
+                    String attrStr = attributeString(attributesIterator(startEl));
                     String prefix = startEl.getName().getPrefix();
                     String tagName = (prefix.length() > 0 ? prefix + PREFIX_SEP : EMPTY)
                             + startEl.getName().getLocalPart();
@@ -152,7 +152,7 @@ public class XmlHelpers {
     }
 
     public static QName extractAttrValue(StartElement el, QName attrName, String targetNamespace) {
-        for (Iterator<Attribute> it = el.getAttributes(); it.hasNext(); ) {
+        for (Iterator<Attribute> it = attributesIterator(el); it.hasNext(); ) {
             Attribute attr = it.next();
             QName attrQName = attr.getName();
             String nsUri = attrQName.getNamespaceURI();
@@ -214,6 +214,10 @@ public class XmlHelpers {
         } catch (NumberFormatException ex) {
             return defaultValue;
         }
+    }
+
+    public static Iterator<Attribute> attributesIterator(StartElement el) {
+        return (Iterator<Attribute>) el.getAttributes();
     }
 
 }
