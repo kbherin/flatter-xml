@@ -113,7 +113,14 @@ public class DelimitedFileWriter implements RecordHandler {
                     + " Regularizing all records to have same sequence of columns");
 
             for (String fileName : fileStreams.keySet()) {
-                realignRecords(allRecHeaders.get(fileName).keySet().toArray(new String[0]), fileName);
+                new Thread(() -> {
+                    try {
+                        realignRecords(allRecHeaders.get(fileName).keySet().toArray(new String[0]), fileName);
+                    } catch (IOException ex) {
+                        statusReporter.logError(
+                                new RuntimeException("Could not post process " + fileName, ex), 1);
+                    }
+                }).start();
             }
 
             long endTime = System.currentTimeMillis();
