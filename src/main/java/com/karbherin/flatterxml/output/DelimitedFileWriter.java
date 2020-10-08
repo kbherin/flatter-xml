@@ -238,9 +238,10 @@ public class DelimitedFileWriter implements RecordHandler {
         OpenCan<IOException> exception = new OpenCan<>();
         inFile.lines().map(line -> line.split(DATA_HEADER_SEP)).forEach(lineParts -> {
             assert lineParts.length == 2;
-            String[] values = lineParts[0].split(delimiterRx);
             String[] colNames = indexToHeader.get(Integer.parseInt(lineParts[1]));
+            String[] values = lineParts[0].split(delimiterRx, colNames.length);
             assert colNames.length == values.length;
+            assert colNames.length <= allCols.size();
 
             String[] outRec = new String[allCols.size()];
             for (int i = 0, len = colNames.length; i < len; i++) {
