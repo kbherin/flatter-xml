@@ -29,23 +29,28 @@ public class DelimitedFileWriter implements RecordHandler {
     private final String outDir;
     // If user does not provide output fields sequence then the fields can vary between records
     private final boolean outFieldsDefined;
+    private final StatusReporter statusReporter;
 
     private final List<GeneratedResult> filesWritten = new ArrayList<>();
+    // {filename: fileChannel}
     private final ConcurrentHashMap<String, ByteChannel> fileStreams = new ConcurrentHashMap<>();
     private final ThreadLocal<ByteBuffer> buffer = ThreadLocal.withInitial(() -> ByteBuffer.allocate(8192));
+    // {filename: {recordHeader: (headerId, numOfColumns)}}
     private final Map<String, ConcurrentHashMap<String, Pair<Integer, Integer>>> allRecHeaders = new HashMap<>();
     private final AtomicInteger headingNumber = new AtomicInteger(0);
 
     private enum KeyValuePart {FIELD_PART, VALUE_PART}
     private static final String DATA_HEADER_SEP = "##HEADER>#";
 
-    public DelimitedFileWriter(String delimiter, String outDir, boolean outFieldsDefined) {
+    public DelimitedFileWriter(String delimiter, String outDir,
+                               boolean outFieldsDefined, StatusReporter statusReporter) {
         this.delimiterStr = delimiter;
         this.outDir = outDir;
         this.outFieldsDefined = outFieldsDefined;
         this.delimiter = delimiter.getBytes();
         this.delimiterRx = String.format("\\%s",
                 String.join("\\", delimiterStr.split("")));
+        this.statusReporter = statusReporter;
     }
 
     @Override
@@ -102,9 +107,18 @@ public class DelimitedFileWriter implements RecordHandler {
         }
 
         if (!outFieldsDefined) {
+            long startTime = System.currentTimeMillis();
+            statusReporter.logInfo("\nPost processing files:"
+                    + " Output record definitions not provided."
+                    + " Regularizing all records to have same sequence of columns");
+
             for (String fileName : fileStreams.keySet()) {
                 realignRecords(allRecHeaders.get(fileName).keySet().toArray(new String[0]), fileName);
             }
+
+            long endTime = System.currentTimeMillis();
+            statusReporter.logInfo(String.format("\nPost processed all files in %d seconds",
+                    (endTime - startTime)/1000));
         }
     }
 
@@ -200,13 +214,15 @@ public class DelimitedFileWriter implements RecordHandler {
         if (headers.length == 0)
             return;
 
+        long startTime = System.currentTimeMillis();
         Map<String, Pair<Integer, Integer>> fileHeaders = allRecHeaders.get(fileName);
 
-        // Arrays.sort(headers, Comparator.comparingInt(String::length).reversed());
+        // [(header, headerId, numOfColumns), ...]
         List<Map.Entry<String, Pair<Integer, Integer>>> headerStats = fileHeaders.entrySet().stream()
                 .sorted((e1, e2) -> e2.getKey().compareTo(e1.getKey()))
                 .collect(Collectors.toList());
 
+        // Merge column list of all headers into a single header with all columns of all records
         List<String> allCols = Utils.collapseSequences(
                 headerStats.stream()
                         .map(h -> h.getKey().split(delimiterRx))
@@ -221,6 +237,7 @@ public class DelimitedFileWriter implements RecordHandler {
             colsPos.put(col, pos++);
         }
 
+        // {headerId : [headerColumn1, headerColumn2, ...]}
         Map<Integer, String[]> indexToHeader = headerStats.stream()
                 .collect(Collectors.toMap(
                         entry -> entry.getValue().getKey(),
@@ -236,6 +253,7 @@ public class DelimitedFileWriter implements RecordHandler {
 
         // Reformat the file for each record to have the same list of columns
         OpenCan<IOException> exception = new OpenCan<>();
+        OpenCan<Long> recCount = new OpenCan<>(0L);
         inFile.lines().map(line -> line.split(DATA_HEADER_SEP)).forEach(lineParts -> {
             assert lineParts.length == 2;
             String[] colNames = indexToHeader.get(Integer.parseInt(lineParts[1]));
@@ -261,6 +279,8 @@ public class DelimitedFileWriter implements RecordHandler {
             } catch (IOException ex) {
                 exception.val = ex;
             }
+
+            recCount.val++;
         });
 
         if (exception.val != null) {
@@ -272,6 +292,10 @@ public class DelimitedFileWriter implements RecordHandler {
 
         Files.deleteIfExists(Paths.get(inFileName));
         Files.move(Paths.get(outFileName), Paths.get(inFileName));
+
+        long endTime = System.currentTimeMillis();
+        statusReporter.logInfo(String.format("\nRegularized %d records of %s in %d seconds",
+                recCount.val, fileName, (endTime - startTime)/1000));
     }
 
     private String previousFile(RecordTypeHierarchy recordTypeAncestry, String fileName) {
