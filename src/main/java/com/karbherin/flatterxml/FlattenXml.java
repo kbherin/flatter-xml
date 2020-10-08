@@ -1,5 +1,6 @@
 package com.karbherin.flatterxml;
 
+import com.karbherin.flatterxml.helper.Utils;
 import com.karbherin.flatterxml.helper.XmlHelpers;
 import com.karbherin.flatterxml.model.SchemaElementWithAttributes;
 import com.karbherin.flatterxml.model.Pair;
@@ -140,7 +141,7 @@ public class FlattenXml {
                 } else {
                     rootElementVisited = true;
                     rootElement = el;
-                    iteratorStream((Iterator<Namespace>) rootElement.getNamespaces()).forEach(ns -> {
+                    Utils.iteratorStream(namespacesIterator(rootElement)).forEach(ns -> {
                         xmlnsUriToPrefix.put(ns.getNamespaceURI(), ns);
                     });
                     // The actual record tag string is parsed here as we now have the namespace context
@@ -361,7 +362,7 @@ public class FlattenXml {
             }).collect(Collectors.toList());
         } else {
             // Xml schema not found. Dump all attributes on an element
-            return iteratorStream(attributesIterator(dataElem))
+            return Utils.iteratorStream(attributesIterator(dataElem))
                     .map(attrData -> new Pair<>(
                             String.format(ELEM_ATTR_FMT, elemName, toPrefixedTag(attrData.getName())),
                             attrData.getValue()))
@@ -441,7 +442,7 @@ public class FlattenXml {
                     } else {
 
                         if (prevFv != null) {
-                            numPrevColsAdded = 1 + (int) iteratorStream(attributesIterator(prevFv.getKey())).count();
+                            numPrevColsAdded = 1 + (int) Utils.iteratorStream(attributesIterator(prevFv.getKey())).count();
                         }
 
                         // Clone the record if we have tags repeated

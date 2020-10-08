@@ -7,6 +7,8 @@ import com.karbherin.flatterxml.feeder.XmlEventEmitter;
 import com.karbherin.flatterxml.feeder.XmlRecordEmitter;
 import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 import static com.karbherin.flatterxml.output.RecordHandler.GeneratedResult;
+
+import com.karbherin.flatterxml.helper.Utils;
 import com.karbherin.flatterxml.output.DelimitedFileWriter;
 import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.output.StatusReporter;
@@ -234,7 +236,7 @@ public class FlattenXmlRunner {
             int numProducers = 1;
 
             if (System.getenv(ENV_BYTE_STREAM_MULTI_EMITTER) != null) {
-                int loadFactor = parseInt(System.getenv(ENV_BYTE_STREAM_MULTI_EMITTER), EMITTER_LOAD_FACTOR);
+                int loadFactor = Utils.parseInt(System.getenv(ENV_BYTE_STREAM_MULTI_EMITTER), EMITTER_LOAD_FACTOR);
                 if (numWorkers / loadFactor > 1) {
                     numProducers = numWorkers / loadFactor;
                     System.out.printf("Using %d parallel XML byte stream emitters%n", numProducers);

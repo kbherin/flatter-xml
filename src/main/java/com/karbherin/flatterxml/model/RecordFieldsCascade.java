@@ -1,6 +1,8 @@
 package com.karbherin.flatterxml.model;
 
 import static com.karbherin.flatterxml.helper.XmlHelpers.*;
+
+import com.karbherin.flatterxml.helper.Utils;
 import com.karbherin.flatterxml.xsd.XmlSchema;
 import com.karbherin.flatterxml.xsd.XsdAttribute;
 
@@ -46,7 +48,7 @@ public final class RecordFieldsCascade implements RecordTypeHierarchy, CascadedA
         Integer pos = positions.get(tagLocalName);
         if (pos != null) {
             Pair<String, String> field = cascadePairList.get(pos);
-            if (!isEmpty(field.getVal())) {
+            if (!Utils.isEmpty(field.getVal())) {
                 return;
             }
             // Capture the data value at the designated location

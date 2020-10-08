@@ -10,11 +10,10 @@ import javax.xml.stream.XMLEventFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.Namespace;
 import java.io.FileNotFoundException;
-import java.util.Iterator;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.karbherin.flatterxml.helper.XmlHelpers.iteratorStream;
+import static com.karbherin.flatterxml.helper.Utils.iteratorStream;
 import static com.karbherin.flatterxml.helper.XmlHelpers.namespacesIterator;
 import static org.junit.Assert.*;
 

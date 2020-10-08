@@ -1,5 +1,6 @@
 package com.karbherin.flatterxml.model;
 
+import com.karbherin.flatterxml.helper.Utils;
 import org.yaml.snakeyaml.Yaml;
 
 import static com.karbherin.flatterxml.helper.XmlHelpers.*;
@@ -32,16 +33,19 @@ public final class RecordDefinitions {
      */
     private RecordDefinitions(Map<String, Object> yamlSpec) {
 
+        @SuppressWarnings("unchecked")
         Map<String, String> prefixUri = (Map<String, String>) Optional.ofNullable(
-                        yamlSpec.get("namespaces")
+                yamlSpec.get("namespaces")
         ).orElse(Collections.emptyMap());
 
         prefixUriMap = prefixUri;
         uriPrefixMap = prefixUriMap.entrySet().stream()
                 .collect(Collectors.toMap(preUri -> preUri.getValue(), preUri -> preUri.getKey()));
 
+        @SuppressWarnings("unchecked")
+        Map<String, List<Object>> records = (Map<String, List<Object>>) yamlSpec.get("records");
         recordFieldsMap = unmodifiableMap(
-                Optional.ofNullable((Map<String, List<Object>>) yamlSpec.get("records"))
+                Optional.ofNullable(records)
                         .orElse(Collections.emptyMap())
                 .entrySet().stream()
                 .map(record -> {
@@ -52,19 +56,21 @@ public final class RecordDefinitions {
                                 if (field instanceof String) {
 
                                     QName fieldName = parseNameAddPrefix(record.getKey(), uriPrefixMap, prefixUriMap);
-                                    String namespaceUri = defaultIfEmpty(
+                                    String namespaceUri = Utils.defaultIfEmpty(
                                             fieldName.getNamespaceURI(), recordName.getNamespaceURI());
 
                                     return new Field(field.toString(), Collections.emptyList(), namespaceUri);
 
                                 } else { //if (field instanceof Map)
 
-                                    return ((Map<String, List<String>>) field).entrySet().stream()
+                                    @SuppressWarnings("unchecked")
+                                    Map<String, List<String>> repeatedValuesFields = (Map<String, List<String>>) field;
+                                    return (repeatedValuesFields).entrySet().stream()
                                             .findFirst()
                                             .map(entry -> {
                                                 QName fieldName = parseNameAddPrefix(record.getKey(),
                                                         uriPrefixMap, prefixUriMap);
-                                                String namespaceUri = defaultIfEmpty(
+                                                String namespaceUri = Utils.defaultIfEmpty(
                                                         fieldName.getNamespaceURI(), recordName.getNamespaceURI());
 
                                                 return new Field(entry.getKey(), entry.getValue(), namespaceUri);
@@ -104,17 +110,17 @@ public final class RecordDefinitions {
                                            Map<String, String> prefixUriMap, String defaultNamespace) {
 
         QName qName = QName.valueOf(nameString.trim());
-        if (!isEmpty(qName.getNamespaceURI())) {
+        if (!Utils.isEmpty(qName.getNamespaceURI())) {
 
             // Prefix is missing. Look it up in the uri to prefix mapping
             qName = new QName(qName.getNamespaceURI(), qName.getLocalPart(),
-                    emptyIfNull(uriPrefixMap.get(qName.getNamespaceURI())));
+                    Utils.emptyIfNull(uriPrefixMap.get(qName.getNamespaceURI())));
         } else {
             String[] prefixName = nameString.split(PREFIX_TAG_SEP);
             if (prefixName.length == 2) {
                 String prefix = prefixName[0].trim();
                 String tagName = prefixName[1].trim();
-                qName = new QName(emptyIfNull(prefixUriMap.get(prefix)), tagName, prefix);
+                qName = new QName(Utils.emptyIfNull(prefixUriMap.get(prefix)), tagName, prefix);
             } else {
                 if (defaultNamespace != null && !defaultNamespace.isEmpty()) {
                     qName = parseNameAddPrefix(String.format("{%s}%s", defaultNamespace, nameString.trim()),

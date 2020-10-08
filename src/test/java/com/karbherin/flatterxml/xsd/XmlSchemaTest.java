@@ -3,7 +3,7 @@ package com.karbherin.flatterxml.xsd;
 import static com.karbherin.flatterxml.helper.XmlHelpers.namespacesIterator;
 import static org.junit.Assert.*;
 
-import static com.karbherin.flatterxml.helper.XmlHelpers.iteratorStream;
+import static com.karbherin.flatterxml.helper.Utils.iteratorStream;
 
 import com.karbherin.flatterxml.helper.XmlHelpers;
 import org.junit.BeforeClass;
