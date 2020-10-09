@@ -1,7 +1,6 @@
 package com.karbherin.flatterxml.output;
 
 import com.karbherin.flatterxml.helper.Utils;
-import com.karbherin.flatterxml.helper.XmlHelpers;
 import com.karbherin.flatterxml.model.CascadedAncestorFields;
 import com.karbherin.flatterxml.model.OpenCan;
 import com.karbherin.flatterxml.model.Pair;
@@ -12,14 +11,14 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static com.karbherin.flatterxml.helper.XmlHelpers.EMPTY;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import static java.nio.file.StandardOpenOption.*;
 
 
 public class DelimitedFileWriter implements RecordHandler {
@@ -70,7 +69,7 @@ public class DelimitedFileWriter implements RecordHandler {
                 String filePath = String.format("%s/%s.csv", outDir, fName);
 
                 newOut = Files.newByteChannel(Paths.get(filePath),
-                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+                        CREATE, TRUNCATE_EXISTING, WRITE);
 
                 // Register the new file stream.
                 filesWritten.add(new GeneratedResult(currLevel, fName, previousFileName));
@@ -311,9 +310,9 @@ public class DelimitedFileWriter implements RecordHandler {
 
         outFile.flush();
         outFile.close();
+        inFile.close();
 
-        Files.deleteIfExists(Paths.get(inFileName));
-        Files.move(Paths.get(outFileName), Paths.get(inFileName));
+        Files.move(Paths.get(outFileName), Paths.get(inFileName), REPLACE_EXISTING);
 
         long endTime = System.currentTimeMillis();
         statusReporter.logInfo(String.format("\nRegularized %d records of %s in %d seconds",
