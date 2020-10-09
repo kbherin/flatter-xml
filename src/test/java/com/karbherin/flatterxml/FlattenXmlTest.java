@@ -7,6 +7,8 @@ import org.junit.Test;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -18,9 +20,12 @@ public class FlattenXmlTest {
 
     @Test
     public void test1() throws IOException, XMLStreamException {
+        String outDir = "target/test/results/emp_fulldump";
+        Files.createDirectories(Paths.get("target/test/results/emp_fulldump"));
         RecordHandler recordHandler = new DelimitedFileWriter(
-                "|", "target/test/results/emp_fulldump",
+                "|", outDir,
                 false, new StatusReporter());
+
         FlattenXml flattener = new FlattenXmlBuilder()
                 .setCascadePolicy(CascadePolicy.ALL)
                 .setRecordWriter(recordHandler)
@@ -31,13 +36,13 @@ public class FlattenXmlTest {
         assertEquals(3, flattener.parseFlatten());
         recordHandler.closeAllFileStreams();
 
-        List<String> employee = fileLines("target/test/results/emp_fulldump/employee.csv");
-        List<String> contact = fileLines("target/test/results/emp_fulldump/contact.csv");
-        List<String> addresses = fileLines("target/test/results/emp_fulldump/addresses.csv");
-        List<String> address = fileLines("target/test/results/emp_fulldump/address.csv");
-        List<String> phones = fileLines("target/test/results/emp_fulldump/phones.csv");
-        List<String> phone = fileLines("target/test/results/emp_fulldump/phone.csv");
-        List<String> reroute = fileLines("target/test/results/emp_fulldump/reroute.csv");
+        List<String> employee = fileLines(outDir + "/employee.csv");
+        List<String> contact = fileLines(outDir + "/contact.csv");
+        List<String> addresses = fileLines(outDir + "/addresses.csv");
+        List<String> address = fileLines(outDir + "/address.csv");
+        List<String> phones = fileLines(outDir + "/phones.csv");
+        List<String> phone = fileLines(outDir + "/phone.csv");
+        List<String> reroute = fileLines(outDir + "/reroute.csv");
 
         assertEquals(0, addresses.size());
         assertEquals(0, contact.size());
