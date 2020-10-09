@@ -15,6 +15,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -112,6 +113,7 @@ public class DelimitedFileWriter implements RecordHandler {
                     + " Output record definitions not provided."
                     + " Regularizing all records to have same sequence of columns");
 
+            final CountDownLatch latch = new CountDownLatch(fileStreams.keySet().size());
             for (String fileName : fileStreams.keySet()) {
                 new Thread(() -> {
                     try {
@@ -120,7 +122,15 @@ public class DelimitedFileWriter implements RecordHandler {
                         statusReporter.logError(
                                 new RuntimeException("Could not post process " + fileName, ex), 1);
                     }
+                    latch.countDown();
                 }).start();
+            }
+
+            try {
+                latch.await();
+            } catch (InterruptedException ex) {
+                statusReporter.logError(
+                        new RuntimeException("All the file post processing threads did not complete", ex), 0);
             }
 
             long endTime = System.currentTimeMillis();
@@ -229,6 +239,9 @@ public class DelimitedFileWriter implements RecordHandler {
                 .sorted((e1, e2) -> e2.getKey().compareTo(e1.getKey()))
                 .collect(Collectors.toList());
 
+        if (fileName.equals("address"))
+            headerStats.size();
+
         // Merge column list of all headers into a single header with all columns of all records
         List<String> allCols = Utils.collapseSequences(
                 headerStats.stream()
@@ -237,6 +250,7 @@ public class DelimitedFileWriter implements RecordHandler {
                 headerStats.stream()
                         .map(h -> h.getValue().getVal())
                         .collect(Collectors.toList()));
+
 
         Map<String, Integer> colsPos = new HashMap<>();
         int pos = 0;
@@ -277,12 +291,13 @@ public class DelimitedFileWriter implements RecordHandler {
             try {
                 for (int i = 0, len = outRec.length; i < len; i++) {
                     String col = outRec[i];
-                    outFile.write(col == null ? EMPTY : col);
                     if (i != 0) {
                         outFile.write(delimiterStr);
                     }
+                    outFile.write(col == null ? EMPTY : col);
                 }
                 outFile.newLine();
+
             } catch (IOException ex) {
                 exception.val = ex;
             }

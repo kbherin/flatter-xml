@@ -7,6 +7,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static java.util.Collections.*;
+import static java.util.Comparator.comparing;
+import static java.util.Optional.ofNullable;
+import static java.util.stream.Collectors.toList;
+
 public class Utils {
     public static<T> Stream<T> iteratorStream(Iterator<T> iterator) {
         return StreamSupport.stream(
@@ -46,43 +51,69 @@ public class Utils {
             String precede = null;
             for (String successor : seq) {
                 successors.putIfAbsent(precede, new LinkedHashMap<>());
-                Map<String, Integer> nextToken = successors.get(precede);
+                Map<String, Integer> nextTokens = successors.get(precede);
 
-                nextToken.put(successor, counts.get(i) + nextToken.getOrDefault(successor, 0));
+                nextTokens.put(successor, counts.get(i) + nextTokens.getOrDefault(successor, 0));
                 precede = successor;
             }
         }
 
-        navigateSuccessors(successors, null, collapsed);
+        Map<String, List<String>> successors2 = successors.entrySet().stream()
+                .collect(Collectors.toMap(
+                        e -> e.getKey(),
+                        e -> {
+                            Set<String> exclude = new HashSet<>();
+                            List<String> list = e.getValue().entrySet().stream()
+                                    .sorted(reverseOrder(comparing(Map.Entry::getValue)))
+                                    .map(ent -> {
+                                        exclude.addAll(ofNullable(successors.get(ent.getKey()))
+                                                .orElse(emptyMap())
+                                                .keySet());
+                                        return ent.getKey();
+                                    })
+                                    .filter(col -> !exclude.contains(col))
+                                    .collect(toList());
+                            Collections.reverse(list);
+                            return list;
+                        }
+                ));
+        Deque<String> postOrder = new ArrayDeque<>();
+        dfsSuccessors(successors2, postOrder, collapsed, null);
+
+        for (int i = 0; !postOrder.isEmpty(); i++) {
+            collapsed.set(i, postOrder.pop());
+        }
         return collapsed;
     }
 
-    private static void navigateSuccessors(Map<String, Map<String, Integer>> successors,
-                                                   String startWith,
-                                                   List<String> collapsed) {
+    private static void dfsSuccessors(Map<String, List<String>> successors,
+                                      Deque<String> postOrder,
+                                      List<String> marked,
+                                      String startWith) {
 
-        Map<String, Integer> successorsCount = successors.get(startWith);
-        if (successorsCount == null)
-            return;
+        successors.getOrDefault(startWith, emptyList())
+                .stream()
+                .filter(col -> marked.indexOf(col) < 0)
+                .forEach(nextCol -> {
+                    marked.add(nextCol);
+                    dfsSuccessors(successors, postOrder, marked, nextCol);
+                    postOrder.push(nextCol);
+                });
+    }
 
-        List<Map.Entry<String, Integer>> mostFreqSuccessors = new ArrayList<>(successorsCount.entrySet());
-        Collections.sort(mostFreqSuccessors, (a, b) -> b.getValue() - a.getValue());
+    public static <T, N extends Number> N pathExists(Map<T, Map<T, N>> graph, T src, T tgt, N zeroWeight) {
+        Map<T, N> successors = graph.get(src);
 
-        for (Map.Entry<String, Integer> successor: mostFreqSuccessors) {
-            int pos = collapsed.lastIndexOf(successor.getKey());
-            if (pos < 0) {
-                collapsed.add(successor.getKey());
-            } else {
-                Map<String, Integer> nextSuccessor = successors.get(successor.getKey());
-                if (nextSuccessor == null ||
-                        nextSuccessor.getOrDefault(startWith, 0) < successor.getValue()) {
+        if (successors != null) {
+            for (T successor : successors.keySet()) {
+                if (tgt.equals(successor) ||
+                        !pathExists(graph, successor, tgt, zeroWeight).equals(zeroWeight)) {
 
-                    collapsed.add(collapsed.remove(pos));
+                    return successors.get(successor);
                 }
             }
-
-            if (pos < 0)
-                navigateSuccessors(successors, successor.getKey(), collapsed);
         }
+
+        return zeroWeight;
     }
 }

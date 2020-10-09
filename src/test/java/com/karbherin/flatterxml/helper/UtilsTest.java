@@ -5,6 +5,7 @@ import org.junit.Test;
 import java.util.*;
 
 import static com.karbherin.flatterxml.helper.Utils.collapseSequences;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 public class UtilsTest {
@@ -110,15 +111,37 @@ public class UtilsTest {
         assertEquals("Testing against cycles in the graph",
                 "col1,col2,col3,col5,col4", String.join(",", collapseSequences(seqs, counts)));
 
+        // Flip order of last two sequences
         seqs.add(seqs.remove(1));
         assertEquals("Testing against cycles in the graph but elements reversed",
                 "col1,col2,col3,col4,col5", String.join(",", collapseSequences(seqs, counts)));
     }
 
     @Test
-    public void testSplit() {
-        String[] parts = "someval1|someval2##HEADER>#somekey1|somekey2".split("##HEADER>#");
-        assertEquals("someval1|someval2", parts[0]);
-        assertEquals("somekey1|somekey2", parts[1]);
+    public void testCollapseSequences5() {
+        List<String[]> seqs = new ArrayList<>();
+        List<Integer> counts = new ArrayList<>();
+        seqs.add(new String[] {"emp:identifiers","emp:identifiers[emp:id-doc-type]","emp:identifiers[emp:id-doc-expiry]","emp:employee-no","emp:employee-no[emp:status]","emp:employee-name","emp:department","emp:salary"});
+        seqs.add(new String[] {"emp:identifiers","emp:identifiers[emp:id-doc-type]","emp:employee-no","emp:employee-no[emp:status]","emp:employee-name","emp:department","emp:salary"});
+        counts.add(1);
+        counts.add(1);
+        assertEquals(
+                "emp:identifiers,emp:identifiers[emp:id-doc-type],emp:identifiers[emp:id-doc-expiry],emp:employee-no,emp:employee-no[emp:status],emp:employee-name,emp:department,emp:salary",
+                String.join(",", collapseSequences(seqs, counts)));
+    }
+
+    @Test
+    public void testCollapseSequences6() {
+        List<String[]> seqs = new ArrayList<>();
+        List<Integer> counts = new ArrayList<>();
+        seqs.add("emp:address-type|emp:line1|emp:line2|emp:state|emp:zip|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary"
+                .split("\\|"));
+        seqs.add("emp:address-type|emp:line1|emp:state|emp:zip|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary"
+                .split("\\|"));
+        counts.add(2);
+        counts.add(2);
+        assertEquals("emp:address-type|emp:line1|emp:line2|emp:state|emp:zip" +
+                        "|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary",
+                String.join("|", collapseSequences(seqs, counts)));
     }
 }

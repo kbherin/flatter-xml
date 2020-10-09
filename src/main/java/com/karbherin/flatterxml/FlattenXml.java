@@ -99,7 +99,11 @@ public class FlattenXml {
      * @throws IOException
      */
     public long parseFlatten(long firstNRecords) throws XMLStreamException, IOException {
-        return flattenXmlDoc(firstNRecords);
+        long nRecs = flattenXmlDoc(firstNRecords);
+        if (nRecs < firstNRecords) {
+            recordHandler.closeAllFileStreams();
+        }
+        return nRecs;
     }
 
     /**
