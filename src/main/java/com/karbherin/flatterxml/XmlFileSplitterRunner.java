@@ -1,7 +1,6 @@
 package com.karbherin.flatterxml;
 
-import com.karbherin.flatterxml.feeder.XmlByteStreamEmitter;
-import com.karbherin.flatterxml.feeder.XmlEventEmitter;
+import com.karbherin.flatterxml.feeder.XmlRecordStringEmitter;
 import com.karbherin.flatterxml.consumer.XmlEventWorkerPool;
 import com.karbherin.flatterxml.consumer.XmlFileSplitterFactory;
 import org.apache.commons.cli.*;
@@ -59,7 +58,7 @@ public class XmlFileSplitterRunner {
         XmlEventWorkerPool workerPool = new XmlEventWorkerPool();
         XmlFileSplitterFactory workerFactory = XmlFileSplitterFactory.newInstance(outDir, xmlFilePath);
 
-        workerPool.execute(numSplits, new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder()
+        workerPool.execute(numSplits, new XmlRecordStringEmitter.XmlByteStreamEmitterBuilder()
                 .setXmlFile(xmlFilePath).create(), workerFactory);
 
         Long[] recCountsBySplit = workerFactory.getRecordsCount();

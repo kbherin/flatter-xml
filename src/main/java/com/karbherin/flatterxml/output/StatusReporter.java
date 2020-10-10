@@ -2,6 +2,8 @@ package com.karbherin.flatterxml.output;
 
 import static com.karbherin.flatterxml.output.RecordHandler.GeneratedResult;
 
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -10,15 +12,30 @@ public class StatusReporter {
 
     private AtomicLong recordCounter = new AtomicLong(0L);
     private Map<String, GeneratedResult> filesGenerated = new HashMap<>();
+    private final PrintStream out;
+    private final PrintStream err;
 
+    public StatusReporter() {
+        out = System.out;
+        err = System.err;
+    }
+
+    public StatusReporter(PrintStream outputStream, PrintStream errorStream) {
+        out = outputStream;
+        err = errorStream;
+    }
 
     public synchronized void logError(Throwable exception, int workerNum) {
-        System.err.println(String.format("\nWorker %d: %s", workerNum, exception.getMessage()));
-        exception.printStackTrace(System.err);
+        err.println(String.format("\nWorker %d: %s", workerNum, exception.getMessage()));
+        exception.printStackTrace(err);
+    }
+
+    public synchronized void logError(String message) {
+        err.println(String.format("Error: %s", message));
     }
 
     public synchronized void logInfo(String message) {
-        System.out.print(message);
+        out.print(message);
     }
 
     public long incrementRecordCounter(long increment) {

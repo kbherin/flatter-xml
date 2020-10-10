@@ -166,11 +166,6 @@ public class XmlHelpers {
         return null;
     }
 
-    public static<T> Stream<T> iteratorStream(Iterator<T> iterator) {
-        return StreamSupport.stream(
-                Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false);
-    }
-
     public static void validateXml(String xmlFile, String xsdFiles[]) throws SAXException, IOException {
         Source[] xsds = new StreamSource[xsdFiles.length];
         Arrays.asList(xsdFiles).stream().map(f -> new StreamSource(f)).collect(Collectors.toList()).toArray(xsds);
@@ -191,30 +186,6 @@ public class XmlHelpers {
 
         XmlSchema.resolveReferences(xsds);
         return xsds;
-    }
-
-    public static boolean isEmpty(String str) {
-        return str == null || str.trim().length() == 0;
-    }
-
-    public static <T> T defaultIfNull(T val, T defaultVal) {
-        return val == null ? defaultVal : val;
-    }
-
-    public static String emptyIfNull(String str) {
-        return defaultIfNull(str, EMPTY);
-    }
-
-    public static String defaultIfEmpty(String val, String defaultVal) {
-        return val == null ? defaultVal : val;
-    }
-
-    public static int parseInt(String str, int defaultValue) {
-        try {
-            return Integer.valueOf(str);
-        } catch (NumberFormatException ex) {
-            return defaultValue;
-        }
     }
 
     @SuppressWarnings("unchecked")

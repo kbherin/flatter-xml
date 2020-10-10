@@ -12,7 +12,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 
-public class XmlEventEmitter implements XmlRecordEmitter {
+public class XmlRecordEventEmitter implements XmlRecordEmitter {
 
     private final XMLOutputFactory outputFactory = XMLOutputFactory.newFactory();
     private final List<XMLEventWriter> channels = new ArrayList<>();
@@ -35,7 +35,7 @@ public class XmlEventEmitter implements XmlRecordEmitter {
      * @throws IOException
      * @throws XMLStreamException
      */
-    private XmlEventEmitter(String xmlFile, long skipRecs, long firstNRecs) {
+    private XmlRecordEventEmitter(String xmlFile, long skipRecs, long firstNRecs) {
         this.xmlFile = xmlFile;
         this.skipRecs = skipRecs;
         this.firstNRecs = firstNRecs;
@@ -204,8 +204,8 @@ public class XmlEventEmitter implements XmlRecordEmitter {
             return this;
         }
 
-        public XmlEventEmitter create() {
-            return new XmlEventEmitter(xmlFile, skipRecs, firstNRecs);
+        public XmlRecordEventEmitter create() {
+            return new XmlRecordEventEmitter(xmlFile, skipRecs, firstNRecs);
         }
     }
 

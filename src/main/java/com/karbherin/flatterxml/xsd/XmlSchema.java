@@ -1,5 +1,6 @@
 package com.karbherin.flatterxml.xsd;
 
+import com.karbherin.flatterxml.helper.Utils;
 import com.karbherin.flatterxml.model.OpenCan;
 
 import javax.xml.XMLConstants;
@@ -149,7 +150,7 @@ public class XmlSchema {
             String importedSchemaLocation = el.getAttributeByName(SCHEMA_LOCATION).getValue();
             final OpenCan<Throwable> exception = new OpenCan<>();
 
-            iteratorStream((Iterator<Namespace>) schema.getNamespaces())
+            Utils.iteratorStream(namespacesIterator(schema))
                     .filter(ns -> ns.getNamespaceURI().equals(importedNamespace))
                     .findFirst().ifPresent(ns -> {
                 try {

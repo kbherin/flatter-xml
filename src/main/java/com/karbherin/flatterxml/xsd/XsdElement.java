@@ -1,5 +1,6 @@
 package com.karbherin.flatterxml.xsd;
 
+import com.karbherin.flatterxml.helper.Utils;
 import com.karbherin.flatterxml.model.SchemaElementWithAttributes;
 
 import static com.karbherin.flatterxml.helper.XmlHelpers.*;
@@ -77,7 +78,7 @@ public class XsdElement implements SchemaElementWithAttributes {
 
     public boolean isList() {
         return UNBOUNDED.equals(maxOccurs)
-                || Integer.parseInt(defaultIfNull(maxOccurs, "1")) > 1;
+                || Integer.parseInt(Utils.defaultIfNull(maxOccurs, "1")) > 1;
     }
 
     @Override

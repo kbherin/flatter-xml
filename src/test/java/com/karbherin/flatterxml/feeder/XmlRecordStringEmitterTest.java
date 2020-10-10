@@ -5,7 +5,7 @@ import static org.junit.Assert.assertEquals;
 import com.karbherin.flatterxml.consumer.XmlEventWorkerFactory;
 import com.karbherin.flatterxml.consumer.XmlEventWorkerPool;
 import com.karbherin.flatterxml.consumer.XmlFileSplitterFactory;
-import static com.karbherin.flatterxml.feeder.XmlByteStreamEmitter.XmlByteStreamEmitterBuilder;
+import static com.karbherin.flatterxml.feeder.XmlRecordStringEmitter.XmlByteStreamEmitterBuilder;
 
 import com.karbherin.flatterxml.helper.XmlHelpers;
 import org.junit.Test;
@@ -21,10 +21,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.CountDownLatch;
 
-public class XmlByteStreamEmitterTest {
+public class XmlRecordStringEmitterTest {
     /*@Test
     public void test() throws IOException, XMLStreamException {
-        XmlByteStreamEmitter emitter = new XmlByteStreamEmitterBuilder()
+        XmlRecordStringEmitter emitter = new XmlByteStreamEmitterBuilder()
                 .setXmlFile("src/test/resources/emp_ns.xml")
                 .setSkipRecs(0)
                 .setFirstNRecs(0)
@@ -53,18 +53,18 @@ public class XmlByteStreamEmitterTest {
                 workerPool.execute(1, new XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath).create(),
                         new XmlPipeToFileWriter(outDir, "emp_bytestream.xml")));
         assertEquals("Skip 5 records", 16,
-                workerPool.execute(3, new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath)
+                workerPool.execute(3, new XmlRecordStringEmitter.XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath)
                         .setSkipRecs(5).create(), workerFactory));
         assertEquals("Skip 5 records", 16,
-                workerPool.execute(3, new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath)
+                workerPool.execute(3, new XmlRecordStringEmitter.XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath)
                         .setSkipRecs(5).create(), workerFactory));
         assertEquals("Skip 5 and pick first 4", 4,
-                workerPool.execute(3, new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath)
+                workerPool.execute(3, new XmlRecordStringEmitter.XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath)
                         .setSkipRecs(5).setFirstNRecs(4).create(), workerFactory));
         assertEquals("First 4 records", 4,
-                workerPool.execute(3, new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath)
+                workerPool.execute(3, new XmlRecordStringEmitter.XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath)
                         .setSkipRecs(0).setFirstNRecs(4).create(), workerFactory));
-        XmlRecordEmitter emitter = new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath)
+        XmlRecordEmitter emitter = new XmlRecordStringEmitter.XmlByteStreamEmitterBuilder().setXmlFile(xmlFilePath)
                 .setSkipRecs(18).setFirstNRecs(10).create();
         assertEquals("Overshoot the end", 3,
                 workerPool.execute(3, emitter, workerFactory));
@@ -77,7 +77,7 @@ public class XmlByteStreamEmitterTest {
     public void splitterNSXml_test() throws IOException, XMLStreamException, InterruptedException {
         String xmlFilePath = "src/test/resources/emp.xml";
         String outDir = "target/test/results/emp_bytestream_splits";
-        XmlRecordEmitter emitter = new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder()
+        XmlRecordEmitter emitter = new XmlRecordStringEmitter.XmlByteStreamEmitterBuilder()
                 .setXmlFile("src/test/resources/emp_ns.xml").setSkipRecs(1).setFirstNRecs(10).create();
         XmlFileSplitterFactory workerFactory = XmlFileSplitterFactory.newInstance(outDir, xmlFilePath);
         XmlEventWorkerPool workerPool = new XmlEventWorkerPool();
