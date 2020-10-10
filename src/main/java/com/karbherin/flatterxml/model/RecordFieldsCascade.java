@@ -1,5 +1,6 @@
 package com.karbherin.flatterxml.model;
 
+import static com.karbherin.flatterxml.AppConstants.*;
 import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 
 import com.karbherin.flatterxml.helper.Utils;
@@ -19,8 +20,6 @@ public final class RecordFieldsCascade implements RecordTypeHierarchy, CascadedA
     private final RecordFieldsCascade parent;
     private List<Pair<String, String>> toCascadeToChild = null;
     private final int level;
-
-    public enum CascadePolicy {NONE, ALL, XSD}
 
     public RecordFieldsCascade(StartElement recordName, List<RecordDefinitions.Field> cascadingFields,
                                RecordFieldsCascade parent, List<XmlSchema> xsds) {

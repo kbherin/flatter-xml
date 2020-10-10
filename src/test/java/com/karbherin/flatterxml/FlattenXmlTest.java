@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.karbherin.flatterxml.FlattenXml.FlattenXmlBuilder;
-import static com.karbherin.flatterxml.model.RecordFieldsCascade.CascadePolicy;
+import static com.karbherin.flatterxml.AppConstants.*;
 import static org.junit.Assert.assertEquals;
 
 public class FlattenXmlTest {
@@ -34,7 +34,6 @@ public class FlattenXmlTest {
                 .create();
 
         assertEquals(3, flattener.parseFlatten());
-        recordHandler.closeAllFileStreams();
 
         List<String> employee = fileLines(outDir + "/employee.csv");
         List<String> contact = fileLines(outDir + "/contact.csv");

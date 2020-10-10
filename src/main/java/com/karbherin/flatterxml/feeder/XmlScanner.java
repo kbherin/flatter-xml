@@ -11,7 +11,7 @@ import java.nio.channels.WritableByteChannel;
 import java.nio.charset.CharsetDecoder;
 import java.util.List;
 
-public class XmlScanner {
+class XmlScanner {
 
     // Reader
     private final CharsetDecoder decoder;

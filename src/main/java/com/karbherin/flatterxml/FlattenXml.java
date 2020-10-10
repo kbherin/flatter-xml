@@ -10,6 +10,7 @@ import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.xsd.XmlSchema;
 import com.karbherin.flatterxml.xsd.XsdElement;
 
+import static com.karbherin.flatterxml.AppConstants.*;
 import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 
 import javax.xml.namespace.QName;
@@ -32,7 +33,7 @@ public class FlattenXml {
     private QName recordTag = null;  // Will be populated from recordTagGiven
     private final XMLEventReader reader;
     private final List<XmlSchema> xsds = new ArrayList<>();
-    private final RecordFieldsCascade.CascadePolicy cascadePolicy;
+    private final CascadePolicy cascadePolicy;
     private StartElement rootElement;
     private final RecordDefinitions recordCascadesRegistry;
     private final RecordDefinitions outputRecordFieldsSeq;
@@ -61,7 +62,7 @@ public class FlattenXml {
     private final XMLEventFactory eventFactory = XMLEventFactory.newFactory();
 
     private FlattenXml(InputStream xmlStream, String recordTag,
-                       RecordFieldsCascade.CascadePolicy cascadePolicy,
+                       CascadePolicy cascadePolicy,
                        RecordDefinitions recordCascadesRegistry,
                        RecordDefinitions outputRecordFieldsSeq,
                        List<XmlSchema> xsds, RecordHandler recordHandler)
@@ -100,6 +101,9 @@ public class FlattenXml {
      */
     public long parseFlatten(long firstNRecords) throws XMLStreamException, IOException {
         long nRecs = flattenXmlDoc(firstNRecords);
+        if (nRecs < firstNRecords) {
+            recordHandler.closeAllFileStreams();
+        }
         return nRecs;
     }
 
@@ -508,7 +512,7 @@ public class FlattenXml {
     public static class FlattenXmlBuilder {
         private InputStream xmlStream;
         private String recordTag = null;
-        private RecordFieldsCascade.CascadePolicy cascadePolicy = RecordFieldsCascade.CascadePolicy.NONE;
+        private CascadePolicy cascadePolicy = CascadePolicy.NONE;
         private RecordDefinitions recordCascadeFieldsSeq = RecordDefinitions.newInstance();
         private RecordDefinitions recordOutputFieldsSeq = RecordDefinitions.newInstance();
         private List<XmlSchema> xsds = Collections.emptyList();
@@ -524,7 +528,7 @@ public class FlattenXml {
             return this;
         }
 
-        public FlattenXmlBuilder setCascadePolicy(RecordFieldsCascade.CascadePolicy cascadePolicy) {
+        public FlattenXmlBuilder setCascadePolicy(CascadePolicy cascadePolicy) {
             this.cascadePolicy = cascadePolicy;
             return this;
         }

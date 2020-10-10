@@ -17,11 +17,10 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.StringJoiner;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class XmlByteStreamEmitter implements XmlRecordEmitter {
+public class XmlRecordStringEmitter implements XmlRecordEmitter {
 
     private final String xmlFile;
     private final Path xmlFilePath;
@@ -47,8 +46,8 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
     private static final String END_TAG_FORMAT = "</%s>";
     private static final int ALIGN_WORD_SIZE = 4;
 
-    private XmlByteStreamEmitter(String xmlFile, long skipRecs, long firstNRecs, Charset charset,
-                                int numProducers) throws IOException {
+    private XmlRecordStringEmitter(String xmlFile, long skipRecs, long firstNRecs, Charset charset,
+                                   int numProducers) throws IOException {
         this.xmlFile = xmlFile;
         this.skipRecs = skipRecs;
         this.firstNRecs = firstNRecs;
@@ -403,8 +402,8 @@ public class XmlByteStreamEmitter implements XmlRecordEmitter {
             return this;
         }
 
-        public XmlByteStreamEmitter create() throws IOException {
-            return new XmlByteStreamEmitter(xmlFile, skipRecs, firstNRecs, charset, numProducers);
+        public XmlRecordStringEmitter create() throws IOException {
+            return new XmlRecordStringEmitter(xmlFile, skipRecs, firstNRecs, charset, numProducers);
         }
     }
 

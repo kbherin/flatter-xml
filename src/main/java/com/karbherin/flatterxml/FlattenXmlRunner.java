@@ -1,10 +1,11 @@
 package com.karbherin.flatterxml;
 
-import com.karbherin.flatterxml.feeder.XmlByteStreamEmitter;
+import com.karbherin.flatterxml.feeder.XmlRecordStringEmitter;
 import com.karbherin.flatterxml.consumer.XmlEventWorkerPool;
 import com.karbherin.flatterxml.consumer.XmlFlattenerWorkerFactory;
-import com.karbherin.flatterxml.feeder.XmlEventEmitter;
+import com.karbherin.flatterxml.feeder.XmlRecordEventEmitter;
 import com.karbherin.flatterxml.feeder.XmlRecordEmitter;
+import static com.karbherin.flatterxml.AppConstants.*;
 import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 import static com.karbherin.flatterxml.output.RecordHandler.GeneratedResult;
 
@@ -25,8 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.karbherin.flatterxml.model.RecordFieldsCascade.CascadePolicy;
-
 /**
  * CLI main class for flattening an XML file into tabular files.
  *
@@ -37,8 +36,7 @@ public class FlattenXmlRunner {
     private static final int DEFAULT_BATCH_SIZE = 100;
     private static final String INDENT = "  ";
     private static final HelpFormatter HELP_FORMATTER = new HelpFormatter();
-    private static final String ENV_BYTE_STREAM_EMITTER = "BYTE_STREAM_EMITTER";
-    private static final String ENV_BYTE_STREAM_MULTI_EMITTER = "BYTE_STREAM_MULTI_EMITTER";
+    private static final String ENV_STRING_STREAM_MULTI_EMITTER = "MULTI_EMITTER";
     private static final int EMITTER_LOAD_FACTOR = 4;
 
     private final Options options = new Options();
@@ -46,6 +44,7 @@ public class FlattenXmlRunner {
     private String delimiter = "|";
     private String outDir = "csvs";
     private int numWorkers = 1;
+    private boolean streamRecStrings = false;
     private String recordTag = null;
     private CascadePolicy cascadePolicy = CascadePolicy.NONE;
     private File recordCascadeFieldsDefFile = null;
@@ -82,6 +81,10 @@ public class FlattenXmlRunner {
                 "XSD files. Comma separated list.\nFormat: emp_ns.xsd,phone_ns.xsd,...");
         options.addOption("w", "workers", true,
                 "Number of parallel workers. Defaults to 1");
+        options.addOption("s", "stream-record-strings", true,
+                "Distribute XML records as strings to multiple workers."+
+                "\nLess safe but highly performant"+
+                "\nDefaults to streaming records as events");
 
         setup = new FlattenXml.FlattenXmlBuilder();
     }
@@ -117,6 +120,10 @@ public class FlattenXmlRunner {
             if (numWorkers < 1) {
                 throw new IllegalArgumentException("Number of workers cannot be less than 1");
             }
+        }
+
+        if (cmd.hasOption("s")) {
+            streamRecStrings = true;
         }
 
         if (cmd.hasOption("r")) {
@@ -216,7 +223,6 @@ public class FlattenXmlRunner {
             }
         }
 
-        recordHandler.closeAllFileStreams();
         filesGenerated = recordHandler.getFilesWritten();
         rootTagName =  flattener.getRootElement().getName().getLocalPart();
         displayFilesGenerated(filesGenerated, rootTagName);
@@ -233,25 +239,25 @@ public class FlattenXmlRunner {
 
         // Initiate concurrent workers
         XmlRecordEmitter emitter;
-        if (System.getenv(ENV_BYTE_STREAM_EMITTER) != null) {
-            System.out.println("Employing XML byte stream for dispatching to workers");
+        if (streamRecStrings) {
+            System.out.println("Employing string streaming for dispatching XML records dispatching to workers");
             int numProducers = 1;
 
-            if (System.getenv(ENV_BYTE_STREAM_MULTI_EMITTER) != null) {
-                int loadFactor = Utils.parseInt(System.getenv(ENV_BYTE_STREAM_MULTI_EMITTER), EMITTER_LOAD_FACTOR);
+            if (System.getenv(ENV_STRING_STREAM_MULTI_EMITTER) != null) {
+                int loadFactor = Utils.parseInt(System.getenv(ENV_STRING_STREAM_MULTI_EMITTER), EMITTER_LOAD_FACTOR);
                 if (numWorkers / loadFactor > 1) {
                     numProducers = numWorkers / loadFactor;
                     System.out.printf("Using %d parallel XML byte stream emitters%n", numProducers);
                 }
             }
 
-            emitter = new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder()
+            emitter = new XmlRecordStringEmitter.XmlByteStreamEmitterBuilder()
                     .setXmlFile(xmlFilePath)
                     .setNumProducers(numProducers)
                     .create();
         } else {
-            System.out.println("Employing XML event stream for dispatching to workers");
-            emitter = new XmlEventEmitter.XmlEventEmitterBuilder()
+            System.out.println("Employing event streaming for dispatching XML records to workers");
+            emitter = new XmlRecordEventEmitter.XmlEventEmitterBuilder()
                     .setXmlFile(xmlFilePath)
                     .create();
         }
@@ -264,7 +270,6 @@ public class FlattenXmlRunner {
         XmlEventWorkerPool workerPool = new XmlEventWorkerPool();
         workerPool.execute(numWorkers, emitter, workerFactory);
         statusReporter.showProgress();
-        recordHandler.closeAllFileStreams();
         rootTagName = emitter.getRootTag().getLocalPart();
 
         System.out.println();

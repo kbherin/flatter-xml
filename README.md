@@ -30,11 +30,17 @@ Java: 1.8 and above.
 ```
 ##### Concurrent Workers
 ```java 
+    RecordHandler recordHandler = new DelimitedFileWriter(delimiter, outDir,
+                    recordOutputFieldsDefFile != null || !xsds.isEmpty(),
+                    statusReporter);
     XmlFlattenerWorkerFactory workerFactory = XmlFlattenerWorkerFactory.newInstance(
-                    xmlFilePath, outDir, delimiter, /* Required */
-                    recordTag, xsds, cascadePolicy, recordCascadeFieldsDefFile, recordOutputFieldsDefFile,
-                    batchSize, statusReporter);     /* Required */
+                    recordTag, xsds, cascadePolicy,
+                    recordCascadeFieldsDefFile, recordOutputFieldsDefFile, /* yaml files */
+                    batchSize, statusReporter);
     XmlEventWorkerPool workerPool = new XmlEventWorkerPool();
+    XmlRecordEmitter emitter = new XmlRecordEventEmitter.XmlEventEmitterBuilder()
+                                       .setXmlFile(xmlFilePath)
+                                       .create();
     workerPool.execute(numberOfWorkers, emitter, workerFactory);
 
 ```
@@ -44,23 +50,26 @@ Multiple workers version generates multiple partial files suffixed with _part1, 
 Use the main function in FlattenXmlRunner to run this on command line.
 ```shell script
 usage: FlattenXmlRunner XMLFile [OPTIONS]
- -c,--cascades <arg>        Data for tags under a record(complex) type
-                            element is cascaded to child records.
-                            NONE|ALL|XSD|<record-fields-yaml>.
-                            Defaults to NONE
- -d,--delimiter <arg>       Delimiter. Defaults to a comma(,)
- -f,--output-fields <arg>   Desired output fields for each record(complex)
-                            type in a YAML file
- -n,--n-records <arg>       Number of records to process in the XML
-                            document
- -o,--output-dir <arg>      Output directory for generating tabular files.
-                            Defaults to current directory
- -p,--progress <arg>        Report progress after a batch. Defaults to 100
- -r,--record-tag <arg>      Primary record tag from where parsing begins.
-                            If not provided entire file will be parsed
- -w,--workers <arg>         Number of parallel workers. Defaults to 1
- -x,--xsd <arg>             XSD files. Comma separated list.
-                            Format: emp_ns.xsd,phone_ns.xsd,...
+ -c,--cascades <arg>           Data for tags under a record(complex) type
+                               element is cascaded to child records.
+                               NONE|ALL|XSD|<record-fields-yaml>.
+                               Defaults to NONE
+ -d,--delimiter <arg>          Delimiter. Defaults to a comma(,)
+ -f,--output-fields <arg>      Desired output fields for each record(complex)
+                               type in a YAML file
+ -n,--n-records <int>          Number of records to process in the XML
+                               document
+ -o,--output-dir <arg>         Output directory for generating tabular files.
+                               Defaults to current directory
+ -p,--progress <int>           Report progress after a batch. Defaults to 100
+ -r,--record-tag <arg>         Primary record tag from where parsing begins.
+                               If not provided entire file will be parsed
+ -w,--workers <int>            Number of parallel workers. Defaults to 1
+ -s,--stream-record-strings Y  Distribute XML records as strings to multiple workers.
+                               Less safe but highly performant.
+                               Defaults to streaming records as events
+ -x,--xsd <arg>                XSD files. Comma separated list.
+                               Format: emp_ns.xsd,phone_ns.xsd,...
 ```
 
 #### Output Definition

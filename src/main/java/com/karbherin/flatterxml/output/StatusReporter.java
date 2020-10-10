@@ -30,6 +30,10 @@ public class StatusReporter {
         exception.printStackTrace(err);
     }
 
+    public synchronized void logError(String message) {
+        err.println(String.format("Error: %s", message));
+    }
+
     public synchronized void logInfo(String message) {
         out.print(message);
     }
