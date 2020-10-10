@@ -5,8 +5,10 @@ import com.karbherin.flatterxml.model.RecordFieldsCascade;
 import com.karbherin.flatterxml.model.Pair;
 import com.karbherin.flatterxml.model.RecordTypeHierarchy;
 
+import javax.xml.stream.events.Namespace;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 public interface RecordHandler {
 
@@ -18,6 +20,7 @@ public interface RecordHandler {
 
     void closeAllFileStreams() throws IOException;
 
+    void setXmlnsUriToPrefix(Map<String, Namespace> xmlnsUriToPrefix);
 
     final class GeneratedResult {
         public final int recordLevel;

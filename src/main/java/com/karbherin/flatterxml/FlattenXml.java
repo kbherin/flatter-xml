@@ -75,6 +75,7 @@ public class FlattenXml {
         this.recordHandler = recordHandler;
         this.xsds.addAll(xsds);
         this.outputRecordFieldsSeq = outputRecordFieldsSeq;
+        recordHandler.setXmlnsUriToPrefix(xmlnsUriToPrefix);
     }
 
     /**
@@ -507,6 +508,10 @@ public class FlattenXml {
 
     public long getBatchRecCounter() {
         return batchRecCounter;
+    }
+
+    public Map<String, Namespace> getXmlnsUriToPrefix() {
+        return xmlnsUriToPrefix;
     }
 
     public static class FlattenXmlBuilder {

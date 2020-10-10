@@ -1,11 +1,13 @@
 package com.karbherin.flatterxml.output;
 
+import com.karbherin.flatterxml.helper.ParsingHelpers;
 import com.karbherin.flatterxml.helper.Utils;
 import com.karbherin.flatterxml.model.CascadedAncestorFields;
 import com.karbherin.flatterxml.model.OpenCan;
 import com.karbherin.flatterxml.model.Pair;
 import com.karbherin.flatterxml.model.RecordTypeHierarchy;
 
+import javax.xml.stream.events.Namespace;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.ByteChannel;
@@ -14,8 +16,11 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.karbherin.flatterxml.helper.Utils.defaultIfEmpty;
 import static com.karbherin.flatterxml.helper.XmlHelpers.EMPTY;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.nio.file.StandardOpenOption.*;
@@ -30,6 +35,7 @@ public class DelimitedFileWriter implements RecordHandler {
     // If user does not provide output fields sequence then the fields can vary between records
     private final boolean outFieldsDefined;
     private final StatusReporter statusReporter;
+    private Map<String, Namespace> xmlnsUriToPrefix;
 
     private final List<GeneratedResult> filesWritten = new ArrayList<>();
     // {filename: fileChannel}
@@ -38,6 +44,9 @@ public class DelimitedFileWriter implements RecordHandler {
     // {filename: {recordHeader: (headerId, numOfColumns)}}
     private final Map<String, ConcurrentHashMap<String, Pair<Integer, Integer>>> allRecHeaders = new HashMap<>();
     private final AtomicInteger headingNumber = new AtomicInteger(0);
+    // To generate record definitions for reuse
+    // record: [header-col1, header-col2, ...]
+    private final Map<String, List<String>> recordDefs = new HashMap<>();
 
     private enum KeyValuePart {FIELD_PART, VALUE_PART}
     private static final String DATA_HEADER_SEP = "##HEADER>#";
@@ -131,6 +140,12 @@ public class DelimitedFileWriter implements RecordHandler {
                 statusReporter.logError(
                         new RuntimeException("All the file post processing threads did not complete", ex), 0);
             }
+
+            statusReporter.logInfo(String.format("\nGenerating 'output record definitions' file: %s/%s",
+                    outDir, "record_defs.yaml"));
+            statusReporter.logInfo(
+                    "\nSpecify it for -o and -c options to gain on performance and for predictable sequence of columns");
+            writeOutputRecordDefs();
 
             long endTime = System.currentTimeMillis();
             statusReporter.logInfo(String.format("\nPost processed all files in %d seconds",
@@ -250,6 +265,7 @@ public class DelimitedFileWriter implements RecordHandler {
                         .map(h -> h.getValue().getVal())
                         .collect(Collectors.toList()));
 
+        recordDefs.put(fileName, allCols);
 
         Map<String, Integer> colsPos = new HashMap<>();
         int pos = 0;
@@ -319,6 +335,67 @@ public class DelimitedFileWriter implements RecordHandler {
                 recCount.val, fileName, (endTime - startTime)/1000));
     }
 
+    private void writeOutputRecordDefs() throws IOException {
+
+        OpenCan<IOException> excp = new OpenCan<>();
+        Pattern elemAttrRx = Pattern.compile("^(?<elem>.*?)(\\[(?<attr>.*?)?\\])?$");
+        Map<String, Map<String, List<String>>> recElemsAttrs = new HashMap<>();
+        recordDefs.entrySet()
+                .forEach(ent -> {
+                    Map<String, List<String>> elemAttrs = new LinkedHashMap<>();
+                    ent.getValue().stream()
+                            .filter(h -> h.split("\\.").length == 1)
+                            .forEach(h -> {
+                                Matcher mat = elemAttrRx.matcher(h);
+                                if (!mat.find()) {
+                                    return;
+                                }
+                                List<String> attrs = elemAttrs.computeIfAbsent(
+                                        mat.group("elem"), ign -> new ArrayList<>());
+                                Optional.ofNullable(mat.group("attr")).ifPresent(attrData -> attrs.add(attrData));
+                            });
+
+                    if (excp.val == null)
+                        recElemsAttrs.put(ent.getKey(), elemAttrs);
+                });
+
+        if (excp.val != null) {
+            throw excp.val;
+        }
+
+        String indent = "  ";
+        FileWriter writer = new FileWriter(outDir+"/record_defs.yaml");
+
+        writer.write("namespaces:\n");
+        for (Namespace ns: xmlnsUriToPrefix.values()) {
+            writer.write(String.format("%s\"%s\": \"%s\"\n", indent, ns.getPrefix(), ns.getNamespaceURI()));
+        }
+        writer.write("\n");
+
+        writer.write("records:\n");
+        recElemsAttrs.entrySet().stream()
+                .sorted(Comparator.comparing(Map.Entry::getKey))
+                .forEach(ent -> {
+                    try {
+                        writer.write(String.format("\n%s\"%s\":\n", indent, ent.getKey()));
+                        ent.getValue().forEach((elem, attrs) -> {
+                            StringJoiner joiner = (new StringJoiner("\",\"", "\"", "\""));
+                            attrs.forEach(attr -> joiner.add(attr));
+                            try {
+                                String attrsDelimited = joiner.toString();
+                                writer.write(String.format("%s%s- {\"%s\": [%s]}\n", indent, indent, elem,
+                                        "\"\"".equals(attrsDelimited) ? EMPTY : attrsDelimited));
+                            } catch (IOException ex) {
+                                excp.val = ex;
+                            }
+                        });
+                    } catch (IOException ex) {
+                        excp.val = ex;
+                    }
+                });
+        writer.close();
+    }
+
     private String previousFile(RecordTypeHierarchy recordTypeAncestry, String fileName) {
         String previousFileName = recordTypeAncestry.parentRecordType().recordName().getLocalPart();
         if (fileName.equals(previousFileName)) {
@@ -327,4 +404,8 @@ public class DelimitedFileWriter implements RecordHandler {
         return previousFileName;
     }
 
+    @Override
+    public void setXmlnsUriToPrefix(Map<String, Namespace> xmlnsUriToPrefix) {
+        this.xmlnsUriToPrefix = xmlnsUriToPrefix;
+    }
 }
