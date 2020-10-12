@@ -54,6 +54,7 @@ public class FlattenXmlRunner {
     private long batchSize;
     private String xmlFilePath;
     private CommandLine cmd;
+    private String newlineReplacement;
 
     private Collection<GeneratedResult> filesGenerated = Collections.emptyList();
     private String rootTagName = EMPTY;
@@ -85,6 +86,8 @@ public class FlattenXmlRunner {
                 "Distribute XML records as strings to multiple workers."+
                 "\nLess safe but highly performant"+
                 "\nDefaults to streaming records as events");
+        options.addOption("l", "newline", true,
+                "Replacement character for newline character in the data");
 
         setup = new FlattenXml.FlattenXmlBuilder();
     }
@@ -154,6 +157,13 @@ public class FlattenXmlRunner {
             xsds = parseXsds(xmlFiles);
         }
 
+        if (cmd.hasOption("l")) {
+            newlineReplacement = cmd.getOptionValue("l");
+            if (newlineReplacement == null || newlineReplacement.isEmpty()) {
+                newlineReplacement = "~";
+            }
+        }
+
         try {
             firstNRecs = cmd.hasOption("n") ? Long.parseLong(cmd.getOptionValue("n")) : 0;
             batchSize = cmd.hasOption("p") && cmd.getOptionValue("p") != null
@@ -187,7 +197,7 @@ public class FlattenXmlRunner {
         // Create XML flattener
         DelimitedFileWriter recordHandler = new DelimitedFileWriter(delimiter, outDir,
                 recordOutputFieldsDefFile != null || !xsds.isEmpty(),
-                statusReporter);
+                statusReporter, newlineReplacement);
         setup.setRecordWriter(recordHandler);
         final FlattenXml flattener = setup.create();
 
@@ -236,7 +246,7 @@ public class FlattenXmlRunner {
 
         RecordHandler recordHandler = new DelimitedFileWriter(delimiter, outDir,
                 recordOutputFieldsDefFile != null || !xsds.isEmpty(),
-                statusReporter);
+                statusReporter, newlineReplacement);
 
         // Initiate concurrent workers
         XmlRecordEmitter emitter;

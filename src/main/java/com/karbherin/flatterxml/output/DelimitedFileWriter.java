@@ -1,6 +1,5 @@
 package com.karbherin.flatterxml.output;
 
-import com.karbherin.flatterxml.helper.ParsingHelpers;
 import com.karbherin.flatterxml.helper.Utils;
 import com.karbherin.flatterxml.model.CascadedAncestorFields;
 import com.karbherin.flatterxml.model.OpenCan;
@@ -20,7 +19,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.karbherin.flatterxml.helper.Utils.defaultIfEmpty;
 import static com.karbherin.flatterxml.helper.XmlHelpers.EMPTY;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.nio.file.StandardOpenOption.*;
@@ -36,6 +34,7 @@ public class DelimitedFileWriter implements RecordHandler {
     private final boolean outFieldsDefined;
     private final StatusReporter statusReporter;
     private Map<String, Namespace> xmlnsUriToPrefix;
+    private final String newlineReplacement;
 
     private final List<GeneratedResult> filesWritten = new ArrayList<>();
     // {filename: fileChannel}
@@ -53,6 +52,13 @@ public class DelimitedFileWriter implements RecordHandler {
 
     public DelimitedFileWriter(String delimiter, String outDir,
                                boolean outFieldsDefined, StatusReporter statusReporter) {
+        this(delimiter, outDir, outFieldsDefined, statusReporter, "~");
+    }
+
+    public DelimitedFileWriter(String delimiter, String outDir,
+                               boolean outFieldsDefined, StatusReporter statusReporter,
+                               String newlineReplacement) {
+
         this.delimiterStr = delimiter;
         this.outDir = outDir;
         this.outFieldsDefined = outFieldsDefined;
@@ -60,6 +66,7 @@ public class DelimitedFileWriter implements RecordHandler {
         this.delimiterRx = String.format("\\%s",
                 String.join("\\", delimiterStr.split("")));
         this.statusReporter = statusReporter;
+        this.newlineReplacement = newlineReplacement;
     }
 
     @Override
@@ -195,7 +202,7 @@ public class DelimitedFileWriter implements RecordHandler {
             while (dataIt.hasNext()) {
                 fv = dataIt.next();
                 buf.put(delimiter)
-                        .put(fv.getVal().getBytes());
+                        .put( replaceNewline(fv.getVal()).getBytes() );
 
                 if (!outFieldsDefined) {
                     colNames.add(fv.getKey());
@@ -205,7 +212,7 @@ public class DelimitedFileWriter implements RecordHandler {
             // Appendix
             for (Pair<String, String> fva: appendList) {
                 buf.put(delimiter)
-                        .put(fva.getVal().getBytes());
+                        .put( replaceNewline(fva.getVal()).getBytes() );
 
                 if (!outFieldsDefined) {
                     colNames.add(fva.getKey());
@@ -402,6 +409,10 @@ public class DelimitedFileWriter implements RecordHandler {
             previousFileName = EMPTY;
         }
         return previousFileName;
+    }
+
+    private String replaceNewline(String data) {
+        return data.replace(System.lineSeparator(), newlineReplacement);
     }
 
     @Override
