@@ -223,6 +223,7 @@ public class FlattenXmlRunner {
             }
         }
 
+        recordHandler.closeAllFileStreams();
         filesGenerated = recordHandler.getFilesWritten();
         rootTagName =  flattener.getRootElement().getName().getLocalPart();
         displayFilesGenerated(filesGenerated, rootTagName);
@@ -270,6 +271,7 @@ public class FlattenXmlRunner {
         XmlEventWorkerPool workerPool = new XmlEventWorkerPool();
         workerPool.execute(numWorkers, emitter, workerFactory);
         statusReporter.showProgress();
+        recordHandler.closeAllFileStreams();
         rootTagName = emitter.getRootTag().getLocalPart();
 
         System.out.println();

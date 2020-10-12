@@ -34,6 +34,7 @@ public class FlattenXmlTest {
                 .create();
 
         assertEquals(3, flattener.parseFlatten());
+        recordHandler.closeAllFileStreams();
 
         List<String> employee = fileLines(outDir + "/employee.csv");
         List<String> contact = fileLines(outDir + "/contact.csv");

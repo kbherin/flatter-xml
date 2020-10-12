@@ -102,9 +102,6 @@ public class FlattenXml {
      */
     public long parseFlatten(long firstNRecords) throws XMLStreamException, IOException {
         long nRecs = flattenXmlDoc(firstNRecords);
-        if (nRecs < firstNRecords) {
-            recordHandler.closeAllFileStreams();
-        }
         return nRecs;
     }
 
