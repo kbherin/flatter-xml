@@ -412,7 +412,11 @@ public class DelimitedFileWriter implements RecordHandler {
     }
 
     private String replaceNewline(String data) {
-        return data.replace(System.lineSeparator(), newlineReplacement);
+        try {
+            return data.replace(System.lineSeparator(), newlineReplacement);
+        } catch (NullPointerException ex) {
+            return EMPTY;
+        }
     }
 
     @Override

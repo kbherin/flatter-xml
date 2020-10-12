@@ -159,9 +159,9 @@ public class FlattenXmlRunner {
 
         if (cmd.hasOption("l")) {
             newlineReplacement = cmd.getOptionValue("l");
-            if (newlineReplacement == null || newlineReplacement.isEmpty()) {
-                newlineReplacement = "~";
-            }
+        }
+        if (newlineReplacement == null || newlineReplacement.isEmpty()) {
+            newlineReplacement = "~";
         }
 
         try {
