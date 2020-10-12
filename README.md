@@ -55,6 +55,7 @@ usage: FlattenXmlRunner XMLFile [OPTIONS]
                                NONE|ALL|XSD|<record-fields-yaml>.
                                Defaults to NONE
  -d,--delimiter <arg>          Delimiter. Defaults to a comma(,)
+ -l,--newline <arg>            Newline replacement character. Defaults to tilde(~)
  -f,--output-fields <arg>      Desired output fields for each record(complex)
                                type in a YAML file
  -n,--n-records <int>          Number of records to process in the XML
