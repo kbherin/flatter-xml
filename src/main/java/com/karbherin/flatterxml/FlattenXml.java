@@ -406,7 +406,7 @@ public class FlattenXml {
             if (fieldValues == null) {
                 String prefix = xmlnsUriToPrefix.get(tagName.getNamespaceURI()).getPrefix();
                 for (List<Pair<String, String>> rec : records) {
-                    rec.add(new Pair<>(prefix+":"+tagName.getLocalPart(), EMPTY));
+                    rec.add(new Pair<>(toPrefixedTag(tagName), EMPTY));
                 }
                 continue;
             }

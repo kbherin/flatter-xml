@@ -94,7 +94,7 @@ public final class RecordDefinitions {
     public static QName parseNameAddPrefix(String nameString, Map<String, String> uriPrefixMap,
                                            Map<String, String> prefixUriMap) {
 
-        return parseNameAddPrefix(nameString, uriPrefixMap, prefixUriMap, EMPTY);
+        return parseNameAddPrefix(nameString, uriPrefixMap, prefixUriMap, prefixUriMap.getOrDefault(EMPTY, EMPTY));
     }
 
     /**
