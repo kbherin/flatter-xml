@@ -51,11 +51,6 @@ public class DelimitedFileWriter implements RecordHandler {
     private static final String DATA_HEADER_SEP = "##HEADER>#";
 
     public DelimitedFileWriter(String delimiter, String outDir,
-                               boolean outFieldsDefined, StatusReporter statusReporter) {
-        this(delimiter, outDir, outFieldsDefined, statusReporter, "~");
-    }
-
-    public DelimitedFileWriter(String delimiter, String outDir,
                                boolean outFieldsDefined, StatusReporter statusReporter,
                                String newlineReplacement) {
 

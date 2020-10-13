@@ -48,7 +48,7 @@ public class RecordDefinitionsTest {
     @Test
     public void testNewInstance() throws IOException {
         RecordDefinitions recSpec = newInstance(
-                new File("src/test/resources/emp_output_fields.yaml"));
+                new File("src/test/resources/empns_output_fields.yaml"));
 
         // Config line: emp=http://kbps.com/emp
         // Config line: xsi=http://www.w3.org/2001/XMLSchema-instance
@@ -87,7 +87,7 @@ public class RecordDefinitionsTest {
     @Test
     public void testNewInstance_Namespaced() throws IOException {
         RecordDefinitions outputSpec = newInstance(
-                new File("src/test/resources/emp_output_fields_attrs.yaml"));
+                new File("src/test/resources/empns_output_fields_attrs.yaml"));
 
         assertEquals(3, outputSpec.getNamespaces().size());
 

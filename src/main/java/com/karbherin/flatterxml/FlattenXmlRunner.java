@@ -42,6 +42,7 @@ public class FlattenXmlRunner {
     private final Options options = new Options();
     private final FlattenXml.FlattenXmlBuilder setup;
     private String delimiter = "|";
+    private String newlineReplacement = "~";
     private String outDir = "csvs";
     private int numWorkers = 1;
     private boolean streamRecStrings = false;
@@ -54,7 +55,6 @@ public class FlattenXmlRunner {
     private long batchSize;
     private String xmlFilePath;
     private CommandLine cmd;
-    private String newlineReplacement;
 
     private Collection<GeneratedResult> filesGenerated = Collections.emptyList();
     private String rootTagName = EMPTY;
