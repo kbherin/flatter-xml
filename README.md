@@ -91,15 +91,17 @@ Both lists only support inclusion.
 |-f Output Def|-c Cascade Def|-x XSD| _Result:_ Output Fields                | _Result:_ Cascaded Fields              |
 |-------------|--------------|------|----------------------------------------|----------------------------------------|
 |    No       |       No     |  No  |All simple tags as they appear in XML   |No cascading from parent record         |
+|    No       |       No     | Yes  |All simple tags in same seq as in XSD   |No cascading from parent record         |
 |    No       |      "ALL"   |  No  |All simple tags as they appear in XML   |All tags cascade to child record        |
-|    No       |       No     | Yes  |All simple tags in same seq as in XSD   |All XSD mandatory tags cascade to child |
-|    No       |      "ALL"   | Yes  |All simple tags in same seq as in XSD   |All tags cascade to child record        |
-|    Yes      |       No     | Yes  |Simple tags & their seq as in Output Def|All XSD mandatory tags cascade to child |
+|    No       |      "ALL"   | Yes  |All simple tags in same seq as in XSD   |All XSD tags cascade to child record    |
+|    No       |       Yes    |  No  |All simple tags as their appear in XML  |Specified tags & seq as in Cascade Def  |
 |    No       |       Yes    | Yes  |All simple tags, but in XSD seq         |Specified tags & seq as in Cascade Def  |
 |    Yes      |       No     |  No  |Simple tags & their seq as in Output Def|No cascading from parent record         |
-|    No       |       Yes    |  No  |All simple tags as their appear in XML  |Specified tags & seq as in Cascade Def  |
+|    Yes      |       No     | Yes  |Simple tags & their seq as in Output Def|All XSD required tags cascade to child  |
 |    Yes      |       Yes    |  No  |Simple tags & their seq as in Output Def|Specified tags & seq as in Cascade Def  |
 |    Yes      |       Yes    | Yes  |Simple tags & their seq as in Output Def|Specified tags & seq as in Cascade Def  |
+|    Yes      |      "ALL"   | No   |Simple tags & their seq as in Output Def|Tags in Output Def cascade to child rec |
+|    Yes      |      "ALL"   | Yes  |Simple tags & their seq as in Output Def|All XSD tags cascade to child record    |
 
 ## Examples
 

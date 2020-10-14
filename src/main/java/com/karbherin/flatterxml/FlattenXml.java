@@ -11,6 +11,7 @@ import com.karbherin.flatterxml.xsd.XmlSchema;
 import com.karbherin.flatterxml.xsd.XsdElement;
 
 import static com.karbherin.flatterxml.AppConstants.*;
+import static com.karbherin.flatterxml.helper.Utils.iteratorStream;
 import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 
 import javax.xml.namespace.QName;
@@ -144,7 +145,7 @@ public class FlattenXml {
                 } else {
                     rootElementVisited = true;
                     rootElement = el;
-                    Utils.iteratorStream(namespacesIterator(rootElement)).forEach(ns -> {
+                    iteratorStream(namespacesIterator(rootElement)).forEach(ns -> {
                         xmlnsUriToPrefix.put(ns.getNamespaceURI(), ns);
                     });
                     // The actual record tag string is parsed here as we now have the namespace context
@@ -365,7 +366,7 @@ public class FlattenXml {
             }).collect(Collectors.toList());
         } else {
             // Xml schema not found. Dump all attributes on an element
-            return Utils.iteratorStream(attributesIterator(dataElem))
+            return iteratorStream(attributesIterator(dataElem))
                     .map(attrData -> new Pair<>(
                             String.format(ELEM_ATTR_FMT, elemName, toPrefixedTag(attrData.getName())),
                             attrData.getValue()))
@@ -404,9 +405,12 @@ public class FlattenXml {
             List<Pair<StartElement, String>> fieldValues = fieldGroups.get(tagName);
 
             if (fieldValues == null) {
-                String prefix = xmlnsUriToPrefix.get(tagName.getNamespaceURI()).getPrefix();
                 for (List<Pair<String, String>> rec : records) {
-                    rec.add(new Pair<>(toPrefixedTag(tagName), EMPTY));
+                    String tagNameStr = toPrefixedTag(tagName);
+                    rec.add(new Pair<>(tagNameStr, EMPTY));
+                    for (QName attr: schemaFields.get(i).getAttributes()) {
+                        rec.add(new Pair<>(String.format("%s[%s]", tagNameStr, toPrefixedTag(attr)), EMPTY));
+                    }
                 }
                 continue;
             }
@@ -445,7 +449,7 @@ public class FlattenXml {
                     } else {
 
                         if (prevFv != null) {
-                            numPrevColsAdded = 1 + (int) Utils.iteratorStream(attributesIterator(prevFv.getKey())).count();
+                            numPrevColsAdded = 1 + (int) iteratorStream(attributesIterator(prevFv.getKey())).count();
                         }
 
                         // Clone the record if we have tags repeated
@@ -576,6 +580,14 @@ public class FlattenXml {
         }
 
         public FlattenXml create() throws XMLStreamException {
+            if (cascadePolicy == CascadePolicy.ALL
+                    && recordCascadeFieldsSeq.getRecords().isEmpty()
+                    && ! recordOutputFieldsSeq.getRecords().isEmpty()) {
+
+                recordCascadeFieldsSeq = recordOutputFieldsSeq;
+                cascadePolicy = CascadePolicy.NONE;
+            }
+
             // Input XML file, tag that identifies a record
             return new FlattenXml(xmlStream, recordTag,
                     // Cascading data from parent record to child records

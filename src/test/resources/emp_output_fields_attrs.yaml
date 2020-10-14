@@ -3,6 +3,9 @@
 namespaces:
   "xsi": "http://www.w3.org/2001/XMLSchema-instance"
 
+  # Default namespace for the XML should be specified against empty string ""
+  "": "http://kbps.com/emp"
+
 
 records:
   "employee":

@@ -49,7 +49,10 @@ public class FlattenXmlTest {
         assertEquals(0, phones.size());
 
         assertEquals(7, employee.size());
-        assertEquals("emp:identifiers|emp:identifiers[emp:id-doc-type]|emp:identifiers[emp:id-doc-expiry]|emp:employee-no|emp:employee-no[emp:status]|emp:employee-name|emp:department|emp:salary",
+
+        assertEquals("Check if all columns from employee are exported",
+                // ALL columns and their attributes from employee record
+                "emp:identifiers|emp:identifiers[emp:id-doc-type]|emp:identifiers[emp:id-doc-expiry]|emp:employee-no|emp:employee-no[emp:status]|emp:employee-name|emp:department|emp:salary",
                 employee.get(0));
         assertEquals("1234567890|SSN|1945-05-25|00000001|active|Steve Rogers|public relations|150,000.00",
                 employee.get(1));
@@ -66,9 +69,11 @@ public class FlattenXmlTest {
 
         // One level nesting
         assertEquals(5, address.size());
-        assertEquals("Address record appended with cascaded employee columns",
+        assertEquals("Check if all columns from address record + all columns cascaded from employee",
+                // ALL columns and their attributes from address record
                 "emp:address-type|emp:line1|emp:line2|emp:state|emp:zip" +
-                "|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary",
+                        // all columns and their attributes cascaded from employee record (parent)
+                        "|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary",
                 address.get(0));
         assertEquals("primary|1 Tudor & Place||NY, US|12345" +
                 "|1234567890|SSN|1945-05-25|00000001|active|Steve Rogers|public relations|150,000.00",
@@ -85,10 +90,14 @@ public class FlattenXmlTest {
 
         // Deeply nested
         assertEquals(2, reroute.size());
-        assertEquals("Reroute header with cascaded columns from address & employee. No line2",
-                "emp:employee-name|emp:line1|emp:state|emp:zip" +
-                "|emp:address.emp:address-type|emp:address.emp:line1|emp:address.emp:state|emp:address.emp:zip" +
-                "|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary",
+        assertEquals("Check if all columns in reroute appended + all columns cascaded from address & employee."
+                        + "No line2 column in address",
+                // all columns from reroute record
+                "emp:employee-name|emp:line1|emp:state|emp:zip"
+                        // all columns and their attributes cascaded from address record (parent)
+                        + "|emp:address.emp:address-type|emp:address.emp:line1|emp:address.emp:state|emp:address.emp:zip"
+                        // all columns and their attributes cascaded from employee record (parent of address)
+                        + "|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary",
                 reroute.get(0));
         assertEquals("Reroute columns with cascaded columns from address & employee. No line2",
                 "Nick Fury|541E Summer St.|NY, US|92478" +
@@ -98,8 +107,11 @@ public class FlattenXmlTest {
 
         // Deeply nested with attributes
         assertEquals(5, phone.size());
-        assertEquals("ph:phone-num|ph:phone-num[ph:contact-type]|ph:phone-type" +
-                "|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary",
+        assertEquals("Check if all columns in phone record + all columns cascaded from employee",
+                // ALL columns from phone record
+                "ph:phone-num|ph:phone-num[ph:contact-type]|ph:phone-type" +
+                        // ALL columns and their attributes cascaded from employee record (parent)
+                        "|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary",
                 phone.get(0));
         assertEquals("1234567890|primary|landline" +
                         "|1234567890|SSN|1945-05-25|00000001|active|Steve Rogers|public relations|150,000.00",
@@ -182,115 +194,121 @@ public class FlattenXmlTest {
         assertEquals(0, phones.size());
 
         assertEquals("#employee recs + header", 22, employee.size());
-        assertEquals("employee header cols check", employee.get(0),
-                "employee-no|employee-name|department|salary|contact");
+
+        assertEquals("Check if all columns from employee are exported",
+                // all columns and their attributes from employee record
+                "identifiers|employee-no|employee-name|department|salary|contact",
+                employee.get(0));
         checkColCount(employee);
 
-        assertEquals("00000001|Steve Rogers|public relations|150,000.00|", employee.get(1));
-        assertEquals("00000002|Tony Stark|sales|89,000.00|", employee.get(2));
-        assertEquals("00000003|Natasha Romanov|finance|110,000.00|", employee.get(3));
-        assertEquals("00000004|Clint Barton|sales|75,000.00|", employee.get(4));
-        assertEquals("00000004|Bruce Banner|sales|110,000.00|", employee.get(5));
-        assertEquals("00000001|Steve Rogers|public relations|150,000.00|", employee.get(6));
-        assertEquals("00000002|Tony Stark|sales|89,000.00|", employee.get(7));
-        assertEquals("00000003|Natasha Romanov|finance|110,000.00|", employee.get(8));
-        assertEquals("00000004|Clint Barton|sales|75,000.00|", employee.get(9));
-        assertEquals("00000004|Bruce Banner|sales|110,000.00|", employee.get(10));
-        assertEquals("00000001|Steve Rogers|public relations|150,000.00|", employee.get(11));
-        assertEquals("00000002|Tony Stark|sales|89,000.00|", employee.get(12));
-        assertEquals("00000003|Natasha Romanov|finance|110,000.00|", employee.get(13));
-        assertEquals("00000004|Clint Barton|sales|75,000.00|", employee.get(14));
-        assertEquals("00000004|Bruce Banner|sales|110,000.00|", employee.get(15));
-        assertEquals("00000001|Steve Rogers|public relations|150,000.00|", employee.get(16));
-        assertEquals("00000002|Tony Stark|sales|89,000.00|", employee.get(17));
-        assertEquals("00000003|Natasha Romanov|finance|110,000.00|", employee.get(18));
-        assertEquals("00000004|Clint Barton|sales|75,000.00|", employee.get(19));
-        assertEquals("00000004|Bruce Banner|sales|110,000.00|", employee.get(20));
-        assertEquals("00000001|Steve Rogers|public relations|150,000.00|", employee.get(21));
+
+        assertEquals("|00000001|Steve Rogers|public relations|150,000.00|", employee.get(1));
+        assertEquals("|00000002|Tony Stark|sales|89,000.00|", employee.get(2));
+        assertEquals("|00000003|Natasha Romanov|finance|110,000.00|", employee.get(3));
+        assertEquals("11111111|00000004|Clint Barton|sales|75,000.00|", employee.get(4));
+        assertEquals("|00000004|Bruce Banner|sales|110,000.00|", employee.get(5));
+        assertEquals("|00000001|Steve Rogers|public relations|150,000.00|", employee.get(6));
+        assertEquals("|00000002|Tony Stark|sales|89,000.00|", employee.get(7));
+        assertEquals("|00000003|Natasha Romanov|finance|110,000.00|", employee.get(8));
+        assertEquals("|00000004|Clint Barton|sales|75,000.00|", employee.get(9));
+        assertEquals("|00000004|Bruce Banner|sales|110,000.00|", employee.get(10));
+        assertEquals("|00000001|Steve Rogers|public relations|150,000.00|", employee.get(11));
+        assertEquals("|00000002|Tony Stark|sales|89,000.00|", employee.get(12));
+        assertEquals("|00000003|Natasha Romanov|finance|110,000.00|", employee.get(13));
+        assertEquals("|00000004|Clint Barton|sales|75,000.00|", employee.get(14));
+        assertEquals("|00000004|Bruce Banner|sales|110,000.00|", employee.get(15));
+        assertEquals("|00000001|Steve Rogers|public relations|150,000.00|", employee.get(16));
+        assertEquals("|00000002|Tony Stark|sales|89,000.00|", employee.get(17));
+        assertEquals("|00000003|Natasha Romanov|finance|110,000.00|", employee.get(18));
+        assertEquals("|00000004|Clint Barton|sales|75,000.00|", employee.get(19));
+        assertEquals("|00000004|Bruce Banner|sales|110,000.00|", employee.get(20));
+        assertEquals("|00000001|Steve Rogers|public relations|150,000.00|", employee.get(21));
 
 
-        assertEquals("address-type|line1|line2|state|zip|employee.employee-no|employee.employee-name|employee.department|employee.salary",
+        assertEquals("Check if all columns from address record + all columns cascaded from employee",
+                // all columns and their attributes from address record
+                "address-type|line1|line2|state|zip" +
+                        // all columns and their attributes cascaded from employee record
+                        "|employee.employee-no|employee.employee-name|employee.department|employee.salary|employee.identifiers",
                 address.get(0));
         checkColCount(address);
-
-        assertEquals("primary|1 Tudor & Place||NY, US|12345|00000001|Steve Rogers|public relations|150,000.00",
+        assertEquals("primary|1 Tudor & Place||NY, US|12345|00000001|Steve Rogers|public relations|150,000.00|",
                 address.get(1));
-        assertEquals("primary|1 Bloomington St||DC, US|22344|00000002|Tony Stark|sales|89,000.00",
+        assertEquals("primary|1 Bloomington St||DC, US|22344|00000002|Tony Stark|sales|89,000.00|",
                 address.get(2));
-        assertEquals("holiday|19 Wilmington View||NC, US|27617|00000002|Tony Stark|sales|89,000.00",
+        assertEquals("holiday|19 Wilmington View||NC, US|27617|00000002|Tony Stark|sales|89,000.00|",
                 address.get(3));
-        assertEquals("primary|36 Washinton Ave.||CO, US|22987|00000003|Natasha Romanov|finance|110,000.00",
+        assertEquals("primary|36 Washinton Ave.||CO, US|22987|00000003|Natasha Romanov|finance|110,000.00|",
                 address.get(4));
-        assertEquals("primary|23 Lead Mine Rd.||NC, US|26516|00000004|Clint Barton|sales|75,000.00",
+        assertEquals("primary|23 Lead Mine Rd.||NC, US|26516|00000004|Clint Barton|sales|75,000.00|11111111",
                 address.get(5));
-        assertEquals("primary|1 Tudor & Place||NY, US|12345|00000001|Steve Rogers|public relations|150,000.00",
+        assertEquals("primary|1 Tudor & Place||NY, US|12345|00000001|Steve Rogers|public relations|150,000.00|",
                 address.get(6));
-        assertEquals("primary|1 Bloomington St||DC, US|22344|00000002|Tony Stark|sales|89,000.00",
+        assertEquals("primary|1 Bloomington St||DC, US|22344|00000002|Tony Stark|sales|89,000.00|",
                 address.get(7));
-        assertEquals("holiday|19 Wilmington View|Apt 311|NC, US|27617|00000002|Tony Stark|sales|89,000.00",
+        assertEquals("holiday|19 Wilmington View|Apt 311|NC, US|27617|00000002|Tony Stark|sales|89,000.00|",
                 address.get(8));
-        assertEquals("primary|36 Washinton Ave.||CO, US|22987|00000003|Natasha Romanov|finance|110,000.00",
+        assertEquals("primary|36 Washinton Ave.||CO, US|22987|00000003|Natasha Romanov|finance|110,000.00|",
                 address.get(9));
-        assertEquals("primary|23 Lead Mine Rd.||NC, US|26516|00000004|Clint Barton|sales|75,000.00",
+        assertEquals("primary|23 Lead Mine Rd.||NC, US|26516|00000004|Clint Barton|sales|75,000.00|",
                 address.get(10));
-        assertEquals("primary|1 Tudor & Place||NY, US|12345|00000001|Steve Rogers|public relations|150,000.00",
+        assertEquals("primary|1 Tudor & Place||NY, US|12345|00000001|Steve Rogers|public relations|150,000.00|",
                 address.get(11));
-        assertEquals("primary|1 Bloomington St||DC, US|22344|00000002|Tony Stark|sales|89,000.00",
+        assertEquals("primary|1 Bloomington St||DC, US|22344|00000002|Tony Stark|sales|89,000.00|",
                 address.get(12));
-        assertEquals("holiday|19 Wilmington View|Apt 311|NC, US|27617|00000002|Tony Stark|sales|89,000.00",
+        assertEquals("holiday|19 Wilmington View|Apt 311|NC, US|27617|00000002|Tony Stark|sales|89,000.00|",
                 address.get(13));
-        assertEquals("primary|36 Washinton Ave.||CO, US|22987|00000003|Natasha Romanov|finance|110,000.00",
+        assertEquals("primary|36 Washinton Ave.||CO, US|22987|00000003|Natasha Romanov|finance|110,000.00|",
                 address.get(14));
-        assertEquals("primary|23 Lead Mine Rd.||NC, US|26516|00000004|Clint Barton|sales|75,000.00",
+        assertEquals("primary|23 Lead Mine Rd.||NC, US|26516|00000004|Clint Barton|sales|75,000.00|",
                 address.get(15));
-        assertEquals("primary|1 Tudor & Place||NY, US|12345|00000001|Steve Rogers|public relations|150,000.00",
+        assertEquals("primary|1 Tudor & Place||NY, US|12345|00000001|Steve Rogers|public relations|150,000.00|",
                 address.get(16));
-        assertEquals("primary|1 Bloomington St||DC, US|22344|00000002|Tony Stark|sales|89,000.00",
+        assertEquals("primary|1 Bloomington St||DC, US|22344|00000002|Tony Stark|sales|89,000.00|",
                 address.get(17));
-        assertEquals("holiday|19 Wilmington View|Apt 311|NC, US|27617|00000002|Tony Stark|sales|89,000.00",
+        assertEquals("holiday|19 Wilmington View|Apt 311|NC, US|27617|00000002|Tony Stark|sales|89,000.00|",
                 address.get(18));
-        assertEquals("primary|36 Washinton Ave.||CO, US|22987|00000003|Natasha Romanov|finance|110,000.00",
+        assertEquals("primary|36 Washinton Ave.||CO, US|22987|00000003|Natasha Romanov|finance|110,000.00|",
                 address.get(19));
-        assertEquals("primary|23 Lead Mine Rd.||NC, US|26516|00000004|Clint Barton|sales|75,000.00",
+        assertEquals("primary|23 Lead Mine Rd.||NC, US|26516|00000004|Clint Barton|sales|75,000.00|",
                 address.get(20));
-        assertEquals("primary|1 Tudor & Place||NY, US|12345|00000001|Steve Rogers|public relations|150,000.00",
+        assertEquals("primary|1 Tudor & Place||NY, US|12345|00000001|Steve Rogers|public relations|150,000.00|",
                 address.get(21));
 
 
-        assertEquals("phone-num|phone-type|employee.employee-no|employee.employee-name|employee.department|employee.salary",
+        assertEquals("Check if all columns in phone record + all columns cascaded from employee",
+                // all columns from phone record
+                "phone-num|phone-type" +
+                        // all columns and their attributes cascaded from employee record (parent)
+                        "|employee.employee-no|employee.employee-name|employee.department|employee.salary|employee.identifiers",
                 phone.get(0));
         checkColCount(phone);
-        assertEquals("1234567890|landline|00000001|Steve Rogers|public relations|150,000.00",
-                phone.get(1));
-        assertEquals("7279237008|cell|00000002|Tony Stark|sales|89,000.00",
-                phone.get(2));
-        assertEquals("9090909090|office|00000002|Tony Stark|sales|89,000.00",
-                phone.get(3));
-        assertEquals("1234567890|landline|00000001|Steve Rogers|public relations|150,000.00",
-                phone.get(4));
-        assertEquals("7279237008|cell|00000002|Tony Stark|sales|89,000.00",
-                phone.get(5));
-        assertEquals("9090909090|office|00000002|Tony Stark|sales|89,000.00",
-                phone.get(6));
-        assertEquals("1234567890|landline|00000001|Steve Rogers|public relations|150,000.00",
-                phone.get(7));
-        assertEquals("7279237008|cell|00000002|Tony Stark|sales|89,000.00",
-                phone.get(8));
-        assertEquals("9090909090|office|00000002|Tony Stark|sales|89,000.00",
-                phone.get(9));
-        assertEquals("1234567890|landline|00000001|Steve Rogers|public relations|150,000.00",
-                phone.get(10));
-        assertEquals("7279237008|cell|00000002|Tony Stark|sales|89,000.00",
-                phone.get(11));
-        assertEquals("9090909090|office|00000002|Tony Stark|sales|89,000.00",
-                phone.get(12));
-        assertEquals("1234567890|landline|00000001|Steve Rogers|public relations|150,000.00",
-                phone.get(13));
+        assertEquals("1234567890|landline|00000001|Steve Rogers|public relations|150,000.00|", phone.get(1));
+        assertEquals("7279237008|cell|00000002|Tony Stark|sales|89,000.00|", phone.get(2));
+        assertEquals("9090909090|office|00000002|Tony Stark|sales|89,000.00|", phone.get(3));
+        assertEquals("1234567890|landline|00000001|Steve Rogers|public relations|150,000.00|", phone.get(4));
+        assertEquals("7279237008|cell|00000002|Tony Stark|sales|89,000.00|", phone.get(5));
+        assertEquals("9090909090|office|00000002|Tony Stark|sales|89,000.00|", phone.get(6));
+        assertEquals("1234567890|landline|00000001|Steve Rogers|public relations|150,000.00|", phone.get(7));
+        assertEquals("7279237008|cell|00000002|Tony Stark|sales|89,000.00|", phone.get(8));
+        assertEquals("9090909090|office|00000002|Tony Stark|sales|89,000.00|", phone.get(9));
+        assertEquals("1234567890|landline|00000001|Steve Rogers|public relations|150,000.00|", phone.get(10));
+        assertEquals("7279237008|cell|00000002|Tony Stark|sales|89,000.00|", phone.get(11));
+        assertEquals("9090909090|office|00000002|Tony Stark|sales|89,000.00|", phone.get(12));
+        assertEquals("1234567890|landline|00000001|Steve Rogers|public relations|150,000.00|", phone.get(13));
 
-        assertEquals("employee-name|line1|state|zip|address.address-type|address.line1|address.state|address.zip|employee.employee-no|employee.employee-name|employee.department|employee.salary",
+
+        assertEquals("Check if all columns in reroute appended + all columns cascaded from address & employee.",
+                // all columns from reroute record
+                "employee-name|line1|state|zip" +
+                        // all columns and their attributes cascaded from address record (parent)
+                        "|address.address-type|address.line1|address.state|address.zip" +
+                        // all columns and their attributes cascaded from employee record (parent of address)
+                        "|employee.employee-no|employee.employee-name|employee.department|employee.salary",
                 reroute.get(0));
-        assertEquals("Newline replaced with '~'", "Nick Fury|541E~              Summer St.|NY, US|92478|primary|1 Tudor & Place|NY, US|12345|00000001|Steve Rogers|public relations|150,000.00",
+        assertEquals("Nick Fury|541E~              Summer St.|NY, US|92478|primary|1 Tudor & Place|NY, US|12345|00000001|Steve Rogers|public relations|150,000.00",
                 reroute.get(1));
+
 
         char[] buf = new char[8192];
         int bytesRead = new BufferedReader(new FileReader(outDir + "/record_defs.yaml")).read(buf);
@@ -309,6 +327,7 @@ public class FlattenXmlTest {
                 "    - {\"zip\": []}\n" +
                 "\n" +
                 "  \"employee\":\n" +
+                "    - {\"identifiers\": []}\n" +
                 "    - {\"employee-no\": []}\n" +
                 "    - {\"employee-name\": []}\n" +
                 "    - {\"department\": []}\n" +
@@ -353,16 +372,20 @@ public class FlattenXmlTest {
         recordHandler.closeAllFileStreams();
 
         List<String> employee = fileLines(outDir + "/employee.csv");
-        assertEquals("No empty contact column for empty complex type <contact/>",
-                "employee-no|employee-name|department|salary", employee.get(0)); // No |contact
-        assertEquals("No empty contact field in rec#1 for corresponding to <contact/>",
-                "00000001|Steve Rogers|public relations|150,000.00", employee.get(1));
+        assertEquals("No contact column in the export for empty complex type element <contact/>",
+                // all columns and their attributes from employee record, excluding the empty complex column contact
+                "identifiers|employee-no|employee-name|department|salary", employee.get(0)); // No |contact
+        assertEquals("No empty contact column in rec#1 corresponding to empty <contact/> element",
+                "|00000001|Steve Rogers|public relations|150,000.00", employee.get(1));
 
         List<String> address = fileLines(outDir + "/address.csv");
         assertEquals("Only simple type columns in employee cascade to address record",
-                "address-type|line1|line2|state|zip|employee.employee-no|employee.employee-name|employee.department|employee.salary",
+                // all columns and their attributes from address record
+                "address-type|line1|line2|state|zip" +
+                        // all simple type columns and their attributes cascaded from employee record. No contact column
+                        "|employee.employee-no|employee.employee-name|employee.department|employee.salary|employee.identifiers",
                 address.get(0));
-        assertEquals("primary|1 Tudor & Place||NY, US|12345|00000001|Steve Rogers|public relations|150,000.00",
+        assertEquals("primary|1 Tudor & Place||NY, US|12345|00000001|Steve Rogers|public relations|150,000.00|",
                 address.get(1));
     }
 
@@ -374,6 +397,7 @@ public class FlattenXmlTest {
                 "|", outDir,
                 false, new StatusReporter(), "~");
 
+
         FlattenXml flattener = new FlattenXmlBuilder()
                 .setCascadePolicy(CascadePolicy.ALL)
                 .setRecordWriter(recordHandler)
@@ -384,7 +408,12 @@ public class FlattenXmlTest {
         assertEquals(3, flattener.parseFlatten());
         recordHandler.closeAllFileStreams();
 
+        // A FULL EXPORT (all cols & all cols cascaded cols) flattening generates an
+        // output record definitions file record_defs.yaml
         // ----------------------------------------------
+        // This record_defs.yaml can be reused for faster processing.
+        // The tests below check if using it maintains the same exact output as that produced from full export flattening
+
         Files.createDirectories(Paths.get("target/test/results/empns_fulldump_reuserecdefs/reused_recdefs"));
         recordHandler = new DelimitedFileWriter(
                 "|", outDir+"/reused_recdefs",
@@ -443,7 +472,9 @@ public class FlattenXmlTest {
         assertEquals(0, contact.size());
         assertEquals(0, phones.size());
 
-        assertEquals("emp:employee-no|emp:department|emp:identifiers|emp:identifiers[emp:id-doc-expiry]|emp:identifiers[emp:id-doc-type]",
+        assertEquals("Check if all columns from employee are exported",
+                // all columns and their attributes from employee record
+                "emp:employee-no|emp:department|emp:identifiers|emp:identifiers[emp:id-doc-expiry]|emp:identifiers[emp:id-doc-type]",
             employee.get(0));
         assertEquals("00000001|public relations|1234567890|1945-05-25|SSN",
             employee.get(1));
@@ -459,7 +490,11 @@ public class FlattenXmlTest {
             employee.get(6));
 
 
-        assertEquals("emp:address-type|emp:line1|emp:state|emp:zip|emp:employee.emp:employee-no|emp:employee.emp:department|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:salary",
+        assertEquals("Check if all columns from address record + all columns cascaded from employee",
+                // all columns and their attributes from address record
+                "emp:address-type|emp:line1|emp:state|emp:zip" +
+                        // all columns and their attributes cascaded from employee record
+                        "|emp:employee.emp:employee-no|emp:employee.emp:department|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:salary",
                 address.get(0));
         assertEquals("primary|1 Tudor & Place|NY, US|12345|00000001|public relations|1234567890|1945-05-25|SSN|active|Steve Rogers|150,000.00",
                 address.get(1));
@@ -471,7 +506,11 @@ public class FlattenXmlTest {
                 address.get(4));
 
 
-        assertEquals("ph:phone-num|ph:phone-num[ph:contact-type]|ph:phone-type|emp:employee.emp:employee-no|emp:employee.emp:department|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:salary",
+        assertEquals("Check if all columns in phone record + all columns cascaded from employee",
+                // all columns from phone record
+                "ph:phone-num|ph:phone-num[ph:contact-type]|ph:phone-type" +
+                        // all columns and their attributes cascaded from employee record (parent)
+                        "|emp:employee.emp:employee-no|emp:employee.emp:department|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:salary",
                 phone.get(0));
         assertEquals("1234567890|primary|landline|00000001|public relations|1234567890|1945-05-25|SSN|active|Steve Rogers|150,000.00",
                 phone.get(1));
@@ -483,7 +522,13 @@ public class FlattenXmlTest {
                 phone.get(4));
 
 
-        assertEquals("emp:employee-name|emp:line1|emp:state|emp:zip|emp:address.emp:address-type|emp:address.emp:line1|emp:address.emp:state|emp:address.emp:zip|emp:employee.emp:employee-no|emp:employee.emp:department|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:salary",
+        assertEquals("Check if all columns in reroute appended + all columns cascaded from address & employee.",
+                // all columns from reroute record
+                "emp:employee-name|emp:line1|emp:state|emp:zip" +
+                        // all columns and their attributes cascaded from address record (parent)
+                        "|emp:address.emp:address-type|emp:address.emp:line1|emp:address.emp:state|emp:address.emp:zip" +
+                        // all columns and their attributes cascaded from employee record (parent of address)
+                        "|emp:employee.emp:employee-no|emp:employee.emp:department|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:salary",
                 reroute.get(0));
         assertEquals("Nick Fury|541E Summer St.|NY, US|92478|primary|1 Tudor & Place|NY, US|12345|00000001|public relations|1234567890|1945-05-25|SSN|active|Steve Rogers|150,000.00",
                 reroute.get(1));
@@ -491,19 +536,18 @@ public class FlattenXmlTest {
     }
 
     @Test
-    public void definedRecsOutTest() throws IOException, XMLStreamException {
-        String outDir = "target/test/results/emp_recdefs";
+    public void definedRecsOutNoCascadeTest() throws IOException, XMLStreamException {
+        String outDir = "target/test/results/emp_recdefs_nocasc";
         Files.createDirectories(Paths.get(outDir));
         RecordHandler recordHandler = new DelimitedFileWriter(
                 "|", outDir,
                 true, new StatusReporter(), "~");
 
         FlattenXml flattener = new FlattenXmlBuilder()
-                .setCascadePolicy(CascadePolicy.ALL)
+                .setCascadePolicy(CascadePolicy.NONE)
                 .setRecordWriter(recordHandler)
                 .setXmlStream(new FileInputStream(
                         new File("src/test/resources/emp.xml")))
-                .setRecordOutputFieldsSeq(new File("src/test/resources/emp_output_fields_attrs.yaml"))
                 .setRecordOutputFieldsSeq(new File("src/test/resources/emp_output_fields_attrs.yaml"))
                 .create();
 
@@ -522,108 +566,324 @@ public class FlattenXmlTest {
         assertEquals(0, addresses.size());
         assertEquals(0, contact.size());
         assertEquals(0, phones.size());
-        
-        assertEquals("employee-no|employee-name|department|salary", employee.get(0));
-        assertEquals("00000001|Steve Rogers|public relations|150,000.00", employee.get(1));
-        assertEquals("00000002|Tony Stark|sales|89,000.00", employee.get(2));
-        assertEquals("00000003|Natasha Romanov|finance|110,000.00", employee.get(3));
-        assertEquals("00000004|Clint Barton|sales|75,000.00", employee.get(4));
-        assertEquals("00000004|Bruce Banner|sales|110,000.00|", employee.get(5));
-        assertEquals("00000001|Steve Rogers|public relations|150,000.00", employee.get(6));
-        assertEquals("00000002|Tony Stark|sales|89,000.00", employee.get(7));
-        assertEquals("00000003|Natasha Romanov|finance|110,000.00", employee.get(8));
-        assertEquals("00000004|Clint Barton|sales|75,000.00", employee.get(9));
-        assertEquals("00000004|Bruce Banner|sales|110,000.00|", employee.get(10));
-        assertEquals("00000001|Steve Rogers|public relations|150,000.00", employee.get(11));
-        assertEquals("00000002|Tony Stark|sales|89,000.00", employee.get(12));
-        assertEquals("00000003|Natasha Romanov|finance|110,000.00", employee.get(13));
-        assertEquals("00000004|Clint Barton|sales|75,000.00", employee.get(14));
-        assertEquals("00000004|Bruce Banner|sales|110,000.00|", employee.get(15));
-        assertEquals("00000001|Steve Rogers|public relations|150,000.00", employee.get(16));
-        assertEquals("00000002|Tony Stark|sales|89,000.00", employee.get(17));
-        assertEquals("00000003|Natasha Romanov|finance|110,000.00", employee.get(18));
-        assertEquals("00000004|Clint Barton|sales|75,000.00", employee.get(19));
-        assertEquals("00000004|Bruce Banner|sales|110,000.00|", employee.get(20));
-        assertEquals("00000001|Steve Rogers|public relations|150,000.00", employee.get(21));
 
-        assertEquals("address-type|line1|state|zip|employee.employee-no|employee.employee-name|employee.department|employee.salary",
+
+        assertEquals("Check if user defined columns from employee are exported",
+                // user defined output columns and their attributes from employee record. No cascaded columns
+                "employee-no|department|identifiers|identifiers[id-doc-expiry]|identifiers[id-doc-type]",
+                employee.get(0));
+        assertEquals("00000001|public relations|||", employee.get(1));
+        assertEquals("00000002|sales|||", employee.get(2));
+        assertEquals("00000003|finance|||", employee.get(3));
+        assertEquals("00000004|sales|11111111||", employee.get(4));
+        assertEquals("00000004|sales|||", employee.get(5));
+        assertEquals("00000001|public relations|||", employee.get(6));
+        assertEquals("00000002|sales|||", employee.get(7));
+        assertEquals("00000003|finance|||", employee.get(8));
+        assertEquals("00000004|sales|||", employee.get(9));
+        assertEquals("00000004|sales|||", employee.get(10));
+        assertEquals("00000001|public relations|||", employee.get(11));
+        assertEquals("00000002|sales|||", employee.get(12));
+        assertEquals("00000003|finance|||", employee.get(13));
+        assertEquals("00000004|sales|||", employee.get(14));
+        assertEquals("00000004|sales|||", employee.get(15));
+        assertEquals("00000001|public relations|||", employee.get(16));
+        assertEquals("00000002|sales|||", employee.get(17));
+        assertEquals("00000003|finance|||", employee.get(18));
+        assertEquals("00000004|sales|||", employee.get(19));
+        assertEquals("00000004|sales|||", employee.get(20));
+        assertEquals("00000001|public relations|||", employee.get(21));
+
+
+        assertEquals("Check if user defined columns from address record are exported. No cascaded columns from employee",
+                // user defined output columns and their attributes from address record. No cascaded columns
+                "address-type|line1|state|zip", address.get(0));
+        assertEquals("primary|1 Tudor & Place|NY, US|12345", address.get(1));
+        assertEquals("primary|1 Bloomington St|DC, US|22344", address.get(2));
+        assertEquals("holiday|19 Wilmington View|NC, US|27617", address.get(3));
+        assertEquals("primary|36 Washinton Ave.|CO, US|22987", address.get(4));
+        assertEquals("primary|23 Lead Mine Rd.|NC, US|26516", address.get(5));
+        assertEquals("primary|1 Tudor & Place|NY, US|12345", address.get(6));
+        assertEquals("primary|1 Bloomington St|DC, US|22344", address.get(7));
+        assertEquals("holiday|19 Wilmington View|NC, US|27617", address.get(8));
+        assertEquals("primary|36 Washinton Ave.|CO, US|22987", address.get(9));
+        assertEquals("primary|23 Lead Mine Rd.|NC, US|26516", address.get(10));
+        assertEquals("primary|1 Tudor & Place|NY, US|12345", address.get(11));
+        assertEquals("primary|1 Bloomington St|DC, US|22344", address.get(12));
+        assertEquals("holiday|19 Wilmington View|NC, US|27617", address.get(13));
+        assertEquals("primary|36 Washinton Ave.|CO, US|22987", address.get(14));
+        assertEquals("primary|23 Lead Mine Rd.|NC, US|26516", address.get(15));
+        assertEquals("primary|1 Tudor & Place|NY, US|12345", address.get(16));
+        assertEquals("primary|1 Bloomington St|DC, US|22344", address.get(17));
+        assertEquals("holiday|19 Wilmington View|NC, US|27617", address.get(18));
+        assertEquals("primary|36 Washinton Ave.|CO, US|22987", address.get(19));
+        assertEquals("primary|23 Lead Mine Rd.|NC, US|26516", address.get(20));
+        assertEquals("primary|1 Tudor & Place|NY, US|12345", address.get(21));
+
+        assertEquals("Check if user defined columns in phone record. No cascaded columns from employee",
+                // user defined output columns from phone record. No cascaded columns
+                "phone-num|phone-num[contact-type]|phone-type", phone.get(0));
+        assertEquals("1234567890||landline", phone.get(1));
+        assertEquals("7279237008||cell", phone.get(2));
+        assertEquals("9090909090||office", phone.get(3));
+        assertEquals("1234567890||landline", phone.get(4));
+        assertEquals("7279237008||cell", phone.get(5));
+        assertEquals("9090909090||office", phone.get(6));
+        assertEquals("1234567890||landline", phone.get(7));
+        assertEquals("7279237008||cell", phone.get(8));
+        assertEquals("9090909090||office", phone.get(9));
+        assertEquals("1234567890||landline", phone.get(10));
+        assertEquals("7279237008||cell", phone.get(11));
+        assertEquals("9090909090||office", phone.get(12));
+        assertEquals("1234567890||landline", phone.get(13));
+
+
+        assertEquals("Check if all columns in reroute appended. No columns cascaded from employee or address",
+                // user defined columns from reroute record. No cascaded columns
+                "employee-name|line1|state|zip", reroute.get(0));
+        assertEquals("Nick Fury|541E~              Summer St.|NY, US|92478", reroute.get(1));
+
+    }
+
+    @Test
+    public void definedRecsOutAllCascadeTest() throws IOException, XMLStreamException {
+        String outDir = "target/test/results/emp_recdefs";
+        Files.createDirectories(Paths.get(outDir));
+        RecordHandler recordHandler = new DelimitedFileWriter(
+                "|", outDir,
+                true, new StatusReporter(), "~");
+
+        FlattenXml flattener = new FlattenXmlBuilder()
+                .setCascadePolicy(CascadePolicy.ALL)
+                .setRecordWriter(recordHandler)
+                .setXmlStream(new FileInputStream(
+                        new File("src/test/resources/emp.xml")))
+                .setRecordOutputFieldsSeq(new File("src/test/resources/emp_output_fields_attrs.yaml"))
+                .create();
+
+        assertEquals(21, flattener.parseFlatten());
+        recordHandler.closeAllFileStreams();
+
+
+        List<String> employee = fileLines(outDir + "/employee.csv");
+        List<String> contact = fileLines(outDir + "/contact.csv");
+        List<String> addresses = fileLines(outDir + "/addresses.csv");
+        List<String> address = fileLines(outDir + "/address.csv");
+        List<String> phones = fileLines(outDir + "/phones.csv");
+        List<String> phone = fileLines(outDir + "/phone.csv");
+        List<String> reroute = fileLines(outDir + "/reroute.csv");
+
+        assertEquals(0, addresses.size());
+        assertEquals(0, contact.size());
+        assertEquals(0, phones.size());
+
+        assertEquals("Check if user defined columns from employee are exported",
+                // user defined output columns and their attributes from employee record
+                "employee-no|department|identifiers|identifiers[id-doc-expiry]|identifiers[id-doc-type]",
+                employee.get(0));
+        assertEquals("00000001|public relations|||", employee.get(1));
+        assertEquals("00000002|sales|||", employee.get(2));
+        assertEquals("00000003|finance|||", employee.get(3));
+        assertEquals("00000004|sales|11111111||", employee.get(4));
+        assertEquals("00000004|sales|||", employee.get(5));
+        assertEquals("00000001|public relations|||", employee.get(6));
+        assertEquals("00000002|sales|||", employee.get(7));
+        assertEquals("00000003|finance|||", employee.get(8));
+        assertEquals("00000004|sales|||", employee.get(9));
+        assertEquals("00000004|sales|||", employee.get(10));
+        assertEquals("00000001|public relations|||", employee.get(11));
+        assertEquals("00000002|sales|||", employee.get(12));
+        assertEquals("00000003|finance|||", employee.get(13));
+        assertEquals("00000004|sales|||", employee.get(14));
+        assertEquals("00000004|sales|||", employee.get(15));
+        assertEquals("00000001|public relations|||", employee.get(16));
+        assertEquals("00000002|sales|||", employee.get(17));
+        assertEquals("00000003|finance|||", employee.get(18));
+        assertEquals("00000004|sales|||", employee.get(19));
+        assertEquals("00000004|sales|||", employee.get(20));
+        assertEquals("00000001|public relations|||", employee.get(21));
+
+        assertEquals("Check if user defined columns from address record + user defined output columns cascaded from employee are exported",
+                // user defined output columns and their attributes from address record
+                "address-type|line1|state|zip" +
+                        // all user defined output columns and their attributes cascaded from employee record
+                        "|employee.employee-no|employee.department|employee.identifiers|employee.identifiers[id-doc-expiry]|employee.identifiers[id-doc-type]",
                 address.get(0));
-        assertEquals("primary|1 Tudor & Place|NY, US|12345|00000001|Steve Rogers|public relations|150,000.00",
-                address.get(1));
-        assertEquals("primary|1 Bloomington St|DC, US|22344|00000002|Tony Stark|sales|89,000.00",
-                address.get(2));
-        assertEquals("holiday|19 Wilmington View||NC, US|27617|00000002|Tony Stark|sales|89,000.00",
-                address.get(3));
-        assertEquals("primary|36 Washinton Ave.|CO, US|22987|00000003|Natasha Romanov|finance|110,000.00",
-                address.get(4));
-        assertEquals("primary|23 Lead Mine Rd.|NC, US|26516|00000004|Clint Barton|sales|75,000.00",
-                address.get(5));
-        assertEquals("primary|1 Tudor & Place|NY, US|12345|00000001|Steve Rogers|public relations|150,000.00",
-                address.get(6));
-        assertEquals("primary|1 Bloomington St|DC, US|22344|00000002|Tony Stark|sales|89,000.00",
-                address.get(7));
-        assertEquals("holiday|19 Wilmington View|Apt 311|NC, US|27617|00000002|Tony Stark|sales|89,000.00",
-                address.get(8));
-        assertEquals("primary|36 Washinton Ave.|CO, US|22987|00000003|Natasha Romanov|finance|110,000.00",
-                address.get(9));
-        assertEquals("primary|23 Lead Mine Rd.|NC, US|26516|00000004|Clint Barton|sales|75,000.00",
-                address.get(10));
-        assertEquals("primary|1 Tudor & Place|NY, US|12345|00000001|Steve Rogers|public relations|150,000.00",
-                address.get(11));
-        assertEquals("primary|1 Bloomington St|DC, US|22344|00000002|Tony Stark|sales|89,000.00",
-                address.get(12));
-        assertEquals("holiday|19 Wilmington View|Apt 311|NC, US|27617|00000002|Tony Stark|sales|89,000.00",
-                address.get(13));
-        assertEquals("primary|36 Washinton Ave.|CO, US|22987|00000003|Natasha Romanov|finance|110,000.00",
-                address.get(14));
-        assertEquals("primary|23 Lead Mine Rd.|NC, US|26516|00000004|Clint Barton|sales|75,000.00",
-                address.get(15));
-        assertEquals("primary|1 Tudor & Place|NY, US|12345|00000001|Steve Rogers|public relations|150,000.00",
-                address.get(16));
-        assertEquals("primary|1 Bloomington St|DC, US|22344|00000002|Tony Stark|sales|89,000.00",
-                address.get(17));
-        assertEquals("holiday|19 Wilmington View|Apt 311|NC, US|27617|00000002|Tony Stark|sales|89,000.00",
-                address.get(18));
-        assertEquals("primary|36 Washinton Ave.|CO, US|22987|00000003|Natasha Romanov|finance|110,000.00",
-                address.get(19));
-        assertEquals("primary|23 Lead Mine Rd.|NC, US|26516|00000004|Clint Barton|sales|75,000.00",
-                address.get(20));
-        assertEquals("primary|1 Tudor & Place|NY, US|12345|00000001|Steve Rogers|public relations|150,000.00",
-                        address.get(21));
+        assertEquals("primary|1 Tudor & Place|NY, US|12345|00000001|public relations|||", address.get(1));
+        assertEquals("primary|1 Bloomington St|DC, US|22344|00000002|sales|||", address.get(2));
+        assertEquals("holiday|19 Wilmington View|NC, US|27617|00000002|sales|||", address.get(3));
+        assertEquals("primary|36 Washinton Ave.|CO, US|22987|00000003|finance|||", address.get(4));
+        assertEquals("primary|23 Lead Mine Rd.|NC, US|26516|00000004|sales|11111111||", address.get(5));
+        assertEquals("primary|1 Tudor & Place|NY, US|12345|00000001|public relations|||", address.get(6));
+        assertEquals("primary|1 Bloomington St|DC, US|22344|00000002|sales|||", address.get(7));
+        assertEquals("holiday|19 Wilmington View|NC, US|27617|00000002|sales|||", address.get(8));
+        assertEquals("primary|36 Washinton Ave.|CO, US|22987|00000003|finance|||", address.get(9));
+        assertEquals("primary|23 Lead Mine Rd.|NC, US|26516|00000004|sales|||", address.get(10));
+        assertEquals("primary|1 Tudor & Place|NY, US|12345|00000001|public relations|||", address.get(11));
+        assertEquals("primary|1 Bloomington St|DC, US|22344|00000002|sales|||", address.get(12));
+        assertEquals("holiday|19 Wilmington View|NC, US|27617|00000002|sales|||", address.get(13));
+        assertEquals("primary|36 Washinton Ave.|CO, US|22987|00000003|finance|||", address.get(14));
+        assertEquals("primary|23 Lead Mine Rd.|NC, US|26516|00000004|sales|||", address.get(15));
+        assertEquals("primary|1 Tudor & Place|NY, US|12345|00000001|public relations|||", address.get(16));
+        assertEquals("primary|1 Bloomington St|DC, US|22344|00000002|sales|||", address.get(17));
+        assertEquals("holiday|19 Wilmington View|NC, US|27617|00000002|sales|||", address.get(18));
+        assertEquals("primary|36 Washinton Ave.|CO, US|22987|00000003|finance|||", address.get(19));
+        assertEquals("primary|23 Lead Mine Rd.|NC, US|26516|00000004|sales|||", address.get(20));
+        assertEquals("primary|1 Tudor & Place|NY, US|12345|00000001|public relations|||", address.get(21));
 
-        assertEquals("phone-num|phone-type|employee.employee-no|employee.employee-name|employee.department|employee.salary",
+
+        assertEquals("Check if user defined columns in phone record + all user defined output columns cascaded from employee are exported",
+                // user defined output columns from phone record
+                "phone-num|phone-num[contact-type]|phone-type" +
+                        // user defined output columns and their attributes cascaded from employee record (parent)
+                        "|employee.employee-no|employee.department|employee.identifiers|employee.identifiers[id-doc-expiry]|employee.identifiers[id-doc-type]",
                 phone.get(0));
-        assertEquals("1234567890|landline|00000001|Steve Rogers|public relations|150,000.00",
-                phone.get(1));
-        assertEquals("7279237008|cell|00000002|Tony Stark|sales|89,000.00",
-                phone.get(2));
-        assertEquals("9090909090|office|00000002|Tony Stark|sales|89,000.00",
-                phone.get(3));
-        assertEquals("1234567890|landline|00000001|Steve Rogers|public relations|150,000.00",
-                phone.get(4));
-        assertEquals("7279237008|cell|00000002|Tony Stark|sales|89,000.00",
-                phone.get(5));
-        assertEquals("9090909090|office|00000002|Tony Stark|sales|89,000.00",
-                phone.get(6));
-        assertEquals("1234567890|landline|00000001|Steve Rogers|public relations|150,000.00",
-                phone.get(7));
-        assertEquals("7279237008|cell|00000002|Tony Stark|sales|89,000.00",
-                phone.get(8));
-        assertEquals("9090909090|office|00000002|Tony Stark|sales|89,000.00",
-                phone.get(9));
-        assertEquals("1234567890|landline|00000001|Steve Rogers|public relations|150,000.00",
-                phone.get(10));
-        assertEquals("7279237008|cell|00000002|Tony Stark|sales|89,000.00",
-                phone.get(11));
-        assertEquals("9090909090|office|00000002|Tony Stark|sales|89,000.00",
-                phone.get(12));
-        assertEquals("1234567890|landline|00000001|Steve Rogers|public relations|150,000.00",
-                phone.get(13));
+        assertEquals("1234567890||landline|00000001|public relations|||", phone.get(1));
+        assertEquals("7279237008||cell|00000002|sales|||", phone.get(2));
+        assertEquals("9090909090||office|00000002|sales|||", phone.get(3));
+        assertEquals("1234567890||landline|00000001|public relations|||", phone.get(4));
+        assertEquals("7279237008||cell|00000002|sales|||", phone.get(5));
+        assertEquals("9090909090||office|00000002|sales|||", phone.get(6));
+        assertEquals("1234567890||landline|00000001|public relations|||", phone.get(7));
+        assertEquals("7279237008||cell|00000002|sales|||", phone.get(8));
+        assertEquals("9090909090||office|00000002|sales|||", phone.get(9));
+        assertEquals("1234567890||landline|00000001|public relations|||", phone.get(10));
+        assertEquals("7279237008||cell|00000002|sales|||", phone.get(11));
+        assertEquals("9090909090||office|00000002|sales|||", phone.get(12));
+        assertEquals("1234567890||landline|00000001|public relations|||", phone.get(13));
 
-        assertEquals("employee-name|line1|state|zip|address.address-type|address.line1|address.state|address.zip|employee.employee-no|employee.employee-name|employee.department|employee.salary",
+
+        assertEquals("Check if user defined columns in reroute appended + user defined columns cascaded from address & employee.",
+                // user defined columns from reroute record
+                "employee-name|line1|state|zip" +
+                        // all user defined output columns and their attributes cascaded from address record (parent)
+                        "|address.address-type|address.line1|address.state|address.zip" +
+                        // all user defined output columns and their attributes cascaded from employee record (parent of address)
+                        "|employee.employee-no|employee.department|employee.identifiers|employee.identifiers[id-doc-expiry]|employee.identifiers[id-doc-type]",
                 reroute.get(0));
-        assertEquals("Nick Fury|541E~              Summer St.|NY, US|92478|primary|1 Tudor & Place|NY, US|12345|00000001|Steve Rogers|public relations|150,000.00",
+        assertEquals("Nick Fury|541E~              Summer St.|NY, US|92478|primary|1 Tudor & Place|NY, US|12345|00000001|public relations|||",
                 reroute.get(1));
+
+
+    }
+
+    @Test
+    public void definedRecsOutDefinedCascadeTest() throws IOException, XMLStreamException {
+        String outDir = "target/test/results/emp_recdefs_cascdefs";
+        Files.createDirectories(Paths.get(outDir));
+        RecordHandler recordHandler = new DelimitedFileWriter(
+                "|", outDir,
+                true, new StatusReporter(), "~");
+
+        FlattenXml flattener = new FlattenXmlBuilder()
+                .setRecordWriter(recordHandler)
+                .setXmlStream(new FileInputStream(
+                        new File("src/test/resources/emp.xml")))
+                .setRecordOutputFieldsSeq(new File("src/test/resources/emp_output_fields.yaml"))
+                .setRecordCascadeFieldsSeq(new File("src/test/resources/emp_output_fields.yaml"))
+                .create();
+
+        assertEquals(21, flattener.parseFlatten());
+        recordHandler.closeAllFileStreams();
+
+
+        List<String> employee = fileLines(outDir + "/employee.csv");
+        List<String> contact = fileLines(outDir + "/contact.csv");
+        List<String> addresses = fileLines(outDir + "/addresses.csv");
+        List<String> address = fileLines(outDir + "/address.csv");
+        List<String> phones = fileLines(outDir + "/phones.csv");
+        List<String> phone = fileLines(outDir + "/phone.csv");
+        List<String> reroute = fileLines(outDir + "/reroute.csv");
+
+        assertEquals(0, addresses.size());
+        assertEquals(0, contact.size());
+        assertEquals(0, phones.size());
+
+        assertEquals("Check if user defined columns from employee are exported",
+                // user defined output columns and their attributes from employee record
+                "employee-no|department", employee.get(0));
+        assertEquals("00000001|public relations", employee.get(1));
+        assertEquals("00000002|sales", employee.get(2));
+        assertEquals("00000003|finance", employee.get(3));
+        assertEquals("00000004|sales", employee.get(4));
+        assertEquals("00000004|sales", employee.get(5));
+        assertEquals("00000001|public relations", employee.get(6));
+        assertEquals("00000002|sales", employee.get(7));
+        assertEquals("00000003|finance", employee.get(8));
+        assertEquals("00000004|sales", employee.get(9));
+        assertEquals("00000004|sales", employee.get(10));
+        assertEquals("00000001|public relations", employee.get(11));
+        assertEquals("00000002|sales", employee.get(12));
+        assertEquals("00000003|finance", employee.get(13));
+        assertEquals("00000004|sales", employee.get(14));
+        assertEquals("00000004|sales", employee.get(15));
+        assertEquals("00000001|public relations", employee.get(16));
+        assertEquals("00000002|sales", employee.get(17));
+        assertEquals("00000003|finance", employee.get(18));
+        assertEquals("00000004|sales", employee.get(19));
+        assertEquals("00000004|sales", employee.get(20));
+        assertEquals("00000001|public relations", employee.get(21));
+
+
+        assertEquals("Check if user defined columns from address record + user defined cascade columns cascaded from employee are exported",
+                // user defined output columns and their attributes from address record
+                "address-type|line1|state|zip" +
+                        // user defined cascade columns and their attributes cascaded from employee record
+                        "|employee.employee-no|employee.department", address.get(0));
+        assertEquals("primary|1 Tudor & Place|NY, US|12345|00000001|public relations", address.get(1));
+        assertEquals("primary|1 Bloomington St|DC, US|22344|00000002|sales", address.get(2));
+        assertEquals("holiday|19 Wilmington View|NC, US|27617|00000002|sales", address.get(3));
+        assertEquals("primary|36 Washinton Ave.|CO, US|22987|00000003|finance", address.get(4));
+        assertEquals("primary|23 Lead Mine Rd.|NC, US|26516|00000004|sales", address.get(5));
+        assertEquals("primary|1 Tudor & Place|NY, US|12345|00000001|public relations", address.get(6));
+        assertEquals("primary|1 Bloomington St|DC, US|22344|00000002|sales", address.get(7));
+        assertEquals("holiday|19 Wilmington View|NC, US|27617|00000002|sales", address.get(8));
+        assertEquals("primary|36 Washinton Ave.|CO, US|22987|00000003|finance", address.get(9));
+        assertEquals("primary|23 Lead Mine Rd.|NC, US|26516|00000004|sales", address.get(10));
+        assertEquals("primary|1 Tudor & Place|NY, US|12345|00000001|public relations", address.get(11));
+        assertEquals("primary|1 Bloomington St|DC, US|22344|00000002|sales", address.get(12));
+        assertEquals("holiday|19 Wilmington View|NC, US|27617|00000002|sales", address.get(13));
+        assertEquals("primary|36 Washinton Ave.|CO, US|22987|00000003|finance", address.get(14));
+        assertEquals("primary|23 Lead Mine Rd.|NC, US|26516|00000004|sales", address.get(15));
+        assertEquals("primary|1 Tudor & Place|NY, US|12345|00000001|public relations", address.get(16));
+        assertEquals("primary|1 Bloomington St|DC, US|22344|00000002|sales", address.get(17));
+        assertEquals("holiday|19 Wilmington View|NC, US|27617|00000002|sales", address.get(18));
+        assertEquals("primary|36 Washinton Ave.|CO, US|22987|00000003|finance", address.get(19));
+        assertEquals("primary|23 Lead Mine Rd.|NC, US|26516|00000004|sales", address.get(20));
+        assertEquals("primary|1 Tudor & Place|NY, US|12345|00000001|public relations", address.get(21));
+
+
+        assertEquals("Check if user defined columns in phone record + user defined cascade columns cascaded from employee are exported",
+                // user defined output columns from phone record
+                "phone-num|phone-type" +
+                        // user defined cascade columns and their attributes cascaded from employee record (parent)
+                        "|employee.employee-no|employee.department", phone.get(0));
+        assertEquals("1234567890|landline|00000001|public relations", phone.get(1));
+        assertEquals("7279237008|cell|00000002|sales", phone.get(2));
+        assertEquals("9090909090|office|00000002|sales", phone.get(3));
+        assertEquals("1234567890|landline|00000001|public relations", phone.get(4));
+        assertEquals("7279237008|cell|00000002|sales", phone.get(5));
+        assertEquals("9090909090|office|00000002|sales", phone.get(6));
+        assertEquals("1234567890|landline|00000001|public relations", phone.get(7));
+        assertEquals("7279237008|cell|00000002|sales", phone.get(8));
+        assertEquals("9090909090|office|00000002|sales", phone.get(9));
+        assertEquals("1234567890|landline|00000001|public relations", phone.get(10));
+        assertEquals("7279237008|cell|00000002|sales", phone.get(11));
+        assertEquals("9090909090|office|00000002|sales", phone.get(12));
+        assertEquals("1234567890|landline|00000001|public relations", phone.get(13));
+
+
+        assertEquals("Check if user defined columns in reroute appended + user defined columns cascaded from address & employee.",
+                // user defined output columns from reroute record
+                "employee-name|line1|state|zip" +
+                        // all user defined cascade columns and their attributes cascaded from address record (parent)
+                        "|address.address-type|address.line1|address.state|address.zip" +
+                        // all user defined cascade columns and their attributes cascaded from employee record (parent of address)
+                        "|employee.employee-no|employee.department",
+                reroute.get(0));
+        assertEquals("Nick Fury|541E~              Summer St.|NY, US|92478|primary|1 Tudor & Place|NY, US|12345|00000001|public relations",
+                reroute.get(1));
+
     }
 
 

@@ -41,6 +41,7 @@ public class FlattenXmlRunner {
 
     private final Options options = new Options();
     private final FlattenXml.FlattenXmlBuilder setup;
+    private DelimitedFileWriter recordHandler;
     private String delimiter = "|";
     private String newlineReplacement = "~";
     private String outDir = "csvs";
@@ -133,6 +134,10 @@ public class FlattenXmlRunner {
             recordTag = cmd.getOptionValue("r");
         }
 
+        if (cmd.hasOption("f")) {
+            recordOutputFieldsDefFile = new File(cmd.getOptionValue("f"));
+        }
+
         if (cmd.hasOption("c")) {
             if (cmd.getOptionValue("c").trim().equalsIgnoreCase(
                     CascadePolicy.ALL.toString())) {
@@ -146,10 +151,6 @@ public class FlattenXmlRunner {
                 // Is a filename
                 recordCascadeFieldsDefFile = new File(cmd.getOptionValue("c"));
             }
-        }
-
-        if (cmd.hasOption("f")) {
-            recordOutputFieldsDefFile = new File(cmd.getOptionValue("f"));
         }
 
         if (cmd.hasOption("x")) {
@@ -194,11 +195,6 @@ public class FlattenXmlRunner {
         InputStream xmlStream = new FileInputStream(xmlFilePath);
         setup.setXmlStream(xmlStream);
 
-        // Create XML flattener
-        DelimitedFileWriter recordHandler = new DelimitedFileWriter(delimiter, outDir,
-                recordOutputFieldsDefFile != null || !xsds.isEmpty(),
-                statusReporter, newlineReplacement);
-        setup.setRecordWriter(recordHandler);
         final FlattenXml flattener = setup.create();
 
         System.out.printf("Parsing in batches of %d records%n", batchSize);
@@ -243,10 +239,6 @@ public class FlattenXmlRunner {
 
         InputStream xmlStream = new FileInputStream(xmlFilePath);
         setup.setXmlStream(xmlStream);
-
-        RecordHandler recordHandler = new DelimitedFileWriter(delimiter, outDir,
-                recordOutputFieldsDefFile != null || !xsds.isEmpty(),
-                statusReporter, newlineReplacement);
 
         // Initiate concurrent workers
         XmlRecordEmitter emitter;
@@ -299,6 +291,11 @@ public class FlattenXmlRunner {
         cmd = parseCliArgs(args);
         assignOptions();
 
+        // Create output record handler
+        recordHandler = new DelimitedFileWriter(delimiter, outDir,
+                outputRecordsDefined(),
+                statusReporter, newlineReplacement);
+        setup.setRecordWriter(recordHandler);
 
         if (numWorkers == 1) {
             workAlone();
@@ -356,6 +353,10 @@ public class FlattenXmlRunner {
         }
     }
 
+    private boolean outputRecordsDefined() {
+        return recordOutputFieldsDefFile != null && recordCascadeFieldsDefFile != null ||
+                !xsds.isEmpty();
+    }
 
     private static void createOutputDirectory(String outDir) throws IOException {
         // Create output directory path
