@@ -6,6 +6,7 @@ import com.karbherin.flatterxml.model.OpenCan;
 import com.karbherin.flatterxml.model.Pair;
 import com.karbherin.flatterxml.model.RecordTypeHierarchy;
 
+import javax.xml.namespace.QName;
 import javax.xml.stream.events.Namespace;
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -20,6 +21,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.karbherin.flatterxml.helper.XmlHelpers.EMPTY;
+import static com.karbherin.flatterxml.helper.XmlHelpers.toPrefixedTag;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.nio.file.StandardOpenOption.*;
 
@@ -65,9 +67,11 @@ public class DelimitedFileWriter implements RecordHandler {
     }
 
     @Override
-    public void write(String fileName, Iterable<Pair<String, String>> fieldValueStack,
+    public void write(QName recordName, Iterable<Pair<String, String>> fieldValueStack,
                       CascadedAncestorFields cascadedData, RecordTypeHierarchy recordTypeAncestry)
             throws IOException {
+
+        String fileName = toPrefixedTag(recordName).replace(':', '.');
 
         String previousFileName = previousFile(recordTypeAncestry, fileName);
         int currLevel = recordTypeAncestry.recordLevel();
@@ -147,6 +151,8 @@ public class DelimitedFileWriter implements RecordHandler {
                     outDir, "record_defs.yaml"));
             statusReporter.logInfo(
                     "\nSpecify it for -o and -c options to gain on performance and for predictable sequence of columns");
+
+            // Write output record definitions
             writeOutputRecordDefs();
 
             long endTime = System.currentTimeMillis();
@@ -255,8 +261,6 @@ public class DelimitedFileWriter implements RecordHandler {
                 .sorted((e1, e2) -> e2.getKey().compareTo(e1.getKey()))
                 .collect(Collectors.toList());
 
-        if (fileName.equals("address"))
-            headerStats.size();
 
         // Merge column list of all headers into a single header with all columns of all records
         List<String> allCols = Utils.collapseSequences(
@@ -357,8 +361,9 @@ public class DelimitedFileWriter implements RecordHandler {
                                 Optional.ofNullable(mat.group("attr")).ifPresent(attrData -> attrs.add(attrData));
                             });
 
-                    if (excp.val == null)
+                    if (excp.val == null) {
                         recElemsAttrs.put(ent.getKey(), elemAttrs);
+                    }
                 });
 
         if (excp.val != null) {
@@ -379,7 +384,8 @@ public class DelimitedFileWriter implements RecordHandler {
                 .sorted(Comparator.comparing(Map.Entry::getKey))
                 .forEach(ent -> {
                     try {
-                        writer.write(String.format("\n%s\"%s\":\n", indent, ent.getKey()));
+                        writer.write(String.format("\n%s\"%s\":\n", indent,
+                                ent.getKey().replace('.', ':')));
                         ent.getValue().forEach((elem, attrs) -> {
                             StringJoiner joiner = (new StringJoiner("\",\"", "\"", "\""));
                             attrs.forEach(attr -> joiner.add(attr));
@@ -395,6 +401,8 @@ public class DelimitedFileWriter implements RecordHandler {
                         excp.val = ex;
                     }
                 });
+
+        writer.flush();
         writer.close();
     }
 

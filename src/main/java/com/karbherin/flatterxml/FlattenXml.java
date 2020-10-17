@@ -1,6 +1,5 @@
 package com.karbherin.flatterxml;
 
-import com.karbherin.flatterxml.helper.Utils;
 import com.karbherin.flatterxml.helper.XmlHelpers;
 import com.karbherin.flatterxml.model.SchemaElementWithAttributes;
 import com.karbherin.flatterxml.model.Pair;
@@ -153,7 +152,8 @@ public class FlattenXml {
                         recordTag = XmlHelpers.parsePrefixTag(recordTagGiven,
                                 el.getNamespaceContext(), rootElement.getName().getNamespaceURI());
                     }
-                    cascadingStack.push(new RecordFieldsCascade(el, Collections.emptyList(), null, xsds));
+                    // A new cascading container to the cascade stack
+                    pushNewCascadingRecord(el);
                     tagPath.push(el);
                     prevEv = ev;
                     // User did not specify the primary record tag. Skip root element.
@@ -164,20 +164,8 @@ public class FlattenXml {
                 if (prevEv.isStartElement()) {
                     currRecordCascade = cascadingStack.peek();
 
-                    // Add a cascading rule for a newly nested record.
-                    if (!currRecordCascade.recordName().equals( tagPath.peek().getName() )) {
-
-                        if (reuseRecordCascade != null &&
-                                reuseRecordCascade.recordName().equals(tagPath.peek().getName())) {
-                            // Reuse parent cascades if the record continues to be the same.
-                            // The cascading templates will be reused.
-                            currRecordCascade = reuseRecordCascade.clearCurrentRecordCascades();
-                        } else {
-                            // Cascade fields and values from parent record to this new record.
-                            currRecordCascade = newRecordCascade(tagPath.peek(), currRecordCascade);
-                        }
-                        cascadingStack.push(currRecordCascade);
-                    }
+                    // Add a cascading container for a newly nested record.
+                    pushNewNestedCascadingRecord();
                 }
 
                 if (tagName.equals(recordTag)) {
@@ -198,13 +186,8 @@ public class FlattenXml {
             } else if (tracking && ev.isEndElement()) { // End tag
                 EndElement endElement = ev.asEndElement();
 
-                // Previous element was data. Add it to the container's cascade list
-                if (!tagStack.peek().isStartElement() && !tagStack.peek().isEndElement()) {
-                    currRecordCascade.addCascadingData(
-                            tagPath.peek(),
-                            tagStack.peek().asCharacters().getData(),
-                            cascadePolicy);
-                }
+                // Previous element was data. Add it to the container's cascading data
+                addCascadingData();
 
                 if (!inElement) {
                     // If parser is already outside an element and meets end of enclosing element
@@ -213,7 +196,7 @@ public class FlattenXml {
 
                     // A structural envelope does not contain its own data. Remove it from stack.
                     tagStack.pop();
-                    reuseRecordCascade = cascadingStack.pop().clearToCascadeToChildList();
+                    reuseRecordCascade = popCascadingRecord();
                 } else {
                     tagStack.push(ev);
                     inElement = false;
@@ -254,6 +237,44 @@ public class FlattenXml {
         }
 
         return batchRecCounter;
+    }
+
+    private void pushNewCascadingRecord(StartElement el) {
+        cascadingStack.push(new RecordFieldsCascade(el, Collections.emptyList(), null, xsds));
+    }
+
+    private void pushNewNestedCascadingRecord() {
+        if (cascadePolicy != CascadePolicy.NONE
+                && !currRecordCascade.recordName().equals( tagPath.peek().getName() )) {
+
+            if (reuseRecordCascade != null &&
+                    reuseRecordCascade.recordName().equals(tagPath.peek().getName())) {
+                // Reuse parent cascades if the record continues to be the same.
+                // The cascading templates will be reused.
+                currRecordCascade = reuseRecordCascade.clearCurrentRecordCascades();
+            } else {
+                // Cascade fields and values from parent record to this new record.
+                currRecordCascade = newRecordCascade(tagPath.peek(), currRecordCascade);
+            }
+            cascadingStack.push(currRecordCascade);
+        }
+    }
+
+    private RecordFieldsCascade popCascadingRecord() {
+        if (cascadePolicy == CascadePolicy.NONE) {
+            return null;
+        }
+        return cascadingStack.pop().clearToCascadeToChildList();
+    }
+
+    private void addCascadingData() {
+        if (!tagStack.peek().isStartElement() && !tagStack.peek().isEndElement()) {
+
+            currRecordCascade.addCascadingData(
+                    tagPath.peek(),
+                    tagStack.peek().asCharacters().getData(),
+                    cascadePolicy);
+        }
     }
 
 
@@ -346,11 +367,14 @@ public class FlattenXml {
         }
 
         // Write record to file if there are no errors.
-        for (List<Pair<String, String>> record: records)
-            recordHandler.write(recordName.getLocalPart(), record, cascadingStack.peek(), cascadingStack.peek());
+        for (List<Pair<String, String>> record: records) {
+            recordHandler.write(recordName, record, cascadingStack.peek(), cascadingStack.peek());
+        }
     }
 
-    private List<Pair<String, String>> extractAttributesData(StartElement dataElem, SchemaElementWithAttributes schemaElem) {
+    private List<Pair<String, String>> extractAttributesData(StartElement dataElem,
+                                                             SchemaElementWithAttributes schemaElem) {
+
         String elemName = toPrefixedTag(dataElem.getName());
         if (schemaElem != null) {
             // Xml schema passed. Dump only listed attributes as per schema
@@ -416,11 +440,11 @@ public class FlattenXml {
             }
 
             int repetition = 0;
+            int numPrevColsAdded;
             List<List<Pair<String, String>>> baseRecords = records;
 
             // Replicate result records as many times a field is repeated and
             // add each value for a repeated field to one set of replicated records
-            Pair<StartElement, String> prevFv = null;
             for (Pair<StartElement, String> fv : fieldValues) {
 
                 // Clone the records list if we are dealing with the first repetition of a field
@@ -431,13 +455,15 @@ public class FlattenXml {
                 StartElement dataElem = fv.getKey();
                 Pair<String, String> fieldNameValue = new Pair<>(toPrefixedTag(dataElem.getName()), fv.getVal());
                 List<Pair<String, String>> attrsData = null;
-                int numPrevColsAdded = 0;
                 if (fieldSeqPref) {
                     SchemaElementWithAttributes schemaElem = schemaFields.get(i);
                     attrsData = extractAttributesData(dataElem, schemaElem);
                 } else {
                     attrsData = extractAttributesData(dataElem, null);
                 }
+
+                // Number of columns added to all the records as part of incorporating previous element
+                numPrevColsAdded = 1 + attrsData.size();
 
                 for (List<Pair<String, String>> rec : baseRecords) {
 
@@ -448,13 +474,9 @@ public class FlattenXml {
                         }
                     } else {
 
-                        if (prevFv != null) {
-                            numPrevColsAdded = 1 + (int) iteratorStream(attributesIterator(prevFv.getKey())).count();
-                        }
-
                         // Clone the record if we have tags repeated
                         List<Pair<String, String>> recCopy = new ArrayList<>(
-                                rec.subList(0, rec.size() - numPrevColsAdded));
+                                rec.subList(0, Math.max(rec.size() - numPrevColsAdded, 0)));
                         // Add the new element's data and attributes to the records
                         recCopy.add(fieldNameValue);
                         if (attrsData != null) {
@@ -467,7 +489,6 @@ public class FlattenXml {
                 }
 
                 repetition++;
-                prevFv = fv;
             }
         }
 
@@ -475,9 +496,8 @@ public class FlattenXml {
     }
 
     private RecordFieldsCascade newRecordCascade(StartElement tag, RecordFieldsCascade parentRecCascade) {
-        RecordFieldsCascade recordFieldsCascade = new RecordFieldsCascade(
+        return new RecordFieldsCascade(
                 tag, recordCascadesRegistry.getRecordFields(tag.getName()), parentRecCascade, xsds);
-        return recordFieldsCascade;
     }
 
     private XMLStreamException decorateParseError(XMLStreamException ex) throws IOException {
@@ -585,8 +605,11 @@ public class FlattenXml {
                     && ! recordOutputFieldsSeq.getRecords().isEmpty()) {
 
                 recordCascadeFieldsSeq = recordOutputFieldsSeq;
-                cascadePolicy = CascadePolicy.NONE;
             }
+            if (! recordCascadeFieldsSeq.getRecords().isEmpty()) {
+                cascadePolicy = CascadePolicy.DEF;
+            }
+
 
             // Input XML file, tag that identifies a record
             return new FlattenXml(xmlStream, recordTag,

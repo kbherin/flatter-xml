@@ -5,6 +5,7 @@ import com.karbherin.flatterxml.model.RecordFieldsCascade;
 import com.karbherin.flatterxml.model.Pair;
 import com.karbherin.flatterxml.model.RecordTypeHierarchy;
 
+import javax.xml.namespace.QName;
 import javax.xml.stream.events.Namespace;
 import java.io.IOException;
 import java.util.List;
@@ -12,7 +13,7 @@ import java.util.Map;
 
 public interface RecordHandler {
 
-    void write(String fileName, Iterable<Pair<String, String>> fieldValueStack,
+    void write(QName recordName, Iterable<Pair<String, String>> fieldValueStack,
                CascadedAncestorFields cascadedData, RecordTypeHierarchy recordTypeAncestry)
             throws IOException;
 

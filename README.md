@@ -3,12 +3,16 @@ Collapse nested records in an XML into a collection of tabular files.
 
 Useful for flattening a deeply nested XML data into delimited files to facilitate loading into tables.
 
-Flattening starts from a primary `record-tag`, an element that identifies a _record_.
-The record element and all the elements nested under it are flattened.
+Flattening starts from a primary `record-tag`, an element that identifies a top-level _record_.
+The record element and all the elements nested under it are flattened into tabular files.
 If it is not specified then the first tag that appears after the root tag is considered as the primary record tag.
 
 ## Minimum Requirements
 Java: 1.8 and above.
+
+## Dependencies
+* Snake Yaml
+* Commons CLI
 
 ## Usage
 
@@ -103,6 +107,20 @@ Both lists only support inclusion.
 |    Yes      |      "ALL"   | No   |Simple tags & their seq as in Output Def|Tags in Output Def cascade to child rec |
 |    Yes      |      "ALL"   | Yes  |Simple tags & their seq as in Output Def|All XSD tags cascade to child record    |
 
+###### Column sequence handling summary
+For columns in current record
+
+1. `-x emp.xsd`           = record's columns follow XSD
+2. `-f record_defs.yaml`  = record's columns follow the user defined order. Overrides -x
+
+For columns cascaded to descendant record
+
+1. `-x emp.xsd -c XSD`    = columns cascaded to child records follow XSD
+2. `-x emp.xsd -c ALL`    = columns cascaded to child records follow XSD
+3. `-c NONE`              = no cascading to child records. Overrides -x and -f
+4. `-c cascade_defs.yaml` = columns cascaded to child records follow user defined order. Overrides -x
+5. `-f record_defs.yaml -c ALL` = means the same as `-f record_defs.yaml -c record_defs.yaml`
+
 ## Examples
 
 #### Example 1
@@ -159,6 +177,7 @@ The same file has been used for specifying output fields and cascading fields to
 namespaces:
   "emp": "http://kbps.com/emp"
   "xsi": "http://www.w3.org/2001/XMLSchema-instance"
+  "": "http://kbps.com/emp"              # Default namespace is specified with a "" and is required
 
 records:
   "emp:employee":
@@ -168,7 +187,7 @@ records:
   "{http://kbps.com/emp}address":        # Record name itsel should form a QName
     - "address-type"                     # Record's fields do not need a prefix or NS URI
     - "line1"
-    - "emp:state"                        # With NS prefixAML
+    - "emp:state"                        # With NS prefix
     - "zip"
 ```
 
