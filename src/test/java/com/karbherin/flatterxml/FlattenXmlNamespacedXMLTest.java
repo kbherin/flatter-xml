@@ -3,7 +3,6 @@ package com.karbherin.flatterxml;
 import com.karbherin.flatterxml.output.DelimitedFileWriter;
 import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.output.StatusReporter;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import javax.xml.stream.XMLStreamException;
@@ -17,13 +16,13 @@ import java.util.stream.Collectors;
 import static com.karbherin.flatterxml.FlattenXml.FlattenXmlBuilder;
 import static com.karbherin.flatterxml.AppConstants.*;
 import static com.karbherin.flatterxml.helper.XmlHelpers.parseXsds;
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
-public class FlattenXmlTest {
+public class FlattenXmlNamespacedXMLTest {
 
     private static final String[] TEST_FILENAMES = {"employee", "address", "phone", "reroute"};
 
-    // -f ALL|<missing>, -c ALL|<missing>
+    // Equivalent to FlattenXmlRunner CLI options: -c NONE|<missing>
     @Test
     public void fullRecordNoCascade_nsXML() throws IOException, XMLStreamException {
         String outDir = "target/test/results/fullRecordNoCascade_nsXML";
@@ -92,7 +91,7 @@ public class FlattenXmlTest {
                 phone.get(0));
     }
 
-    // -c ALL, -f ALL|<missing>
+    // Equivalent to FlattenXmlRunner CLI options: -c OUT
     @Test
     public void fullDump_nsXML() throws IOException, XMLStreamException {
         String outDir = "target/test/results/fullDump_nsXML";
@@ -107,7 +106,7 @@ public class FlattenXmlTest {
                 "~");
 
         FlattenXml flattener = new FlattenXmlBuilder()
-                .setCascadePolicy(CascadePolicy.ALL)
+                .setCascadePolicy(CascadePolicy.OUT)
                 .setRecordWriter(recordHandler)
                 .setXmlStream(new FileInputStream(
                         new File("src/test/resources/emp_ns.xml")))
@@ -208,7 +207,7 @@ public class FlattenXmlTest {
     }
 
     // Reuse record definitions to speed up processing in a 2nd run.
-    // Record definitions are produced by -c ALL, -f ALL|<missing>
+    // Record definitions are produced by -c OUT, -f ALL|<missing>
     @Test
     public void reuseRecordDefinitionsGeneratedByFullDump_nsXML() throws IOException, XMLStreamException {
         String outDir = "target/test/results/reuseRecordDefinitionsGeneratedByFullDump_nsXML";
@@ -228,7 +227,7 @@ public class FlattenXmlTest {
 
 
         flattener = new FlattenXmlBuilder()
-                .setCascadePolicy(CascadePolicy.ALL)
+                .setCascadePolicy(CascadePolicy.OUT)
                 .setRecordWriter(recordHandler)
                 .setXmlStream(new FileInputStream(
                         new File("src/test/resources/emp_ns.xml")))
@@ -249,7 +248,7 @@ public class FlattenXmlTest {
                 "|", outDir + reusedDefsDir,
                 true, new StatusReporter(), "~");
         flattener = new FlattenXmlBuilder()
-                .setCascadePolicy(CascadePolicy.ALL)
+                .setCascadePolicy(CascadePolicy.OUT)
                 .setRecordWriter(recordHandler)
                 .setXmlStream(new FileInputStream(
                         new File("src/test/resources/emp_ns.xml")))
@@ -263,14 +262,18 @@ public class FlattenXmlTest {
         compareOutFiles(outDir + "/emp.employee.csv", outDir + "/reused_recdefs/emp.employee.csv");
         compareOutFiles(outDir + "/emp.address.csv", outDir + "/reused_recdefs/emp.address.csv");
         compareOutFiles(outDir + "/ph.phone.csv", outDir + "/reused_recdefs/ph.phone.csv");
+        // This behavior cannot be fixed
         //compareOutFiles(outDir + "/emp.reroute.csv", outDir + "/reused_recdefs/emp.reroute.csv");
-        compareOutFiles(outDir + "/emp.addresses.csv", outDir + "/reused_recdefs/emp.addresses.csv");
-        compareOutFiles(outDir + "/ph.phones.csv", outDir + "/reused_recdefs/ph.phones.csv");
-        compareOutFiles(outDir + "/emp.contact.csv", outDir + "/reused_recdefs/emp.contact.csv");
 
+        assertTrue(new File(outDir + "/emp.contact.csv").exists());
+        assertTrue(new File(outDir + "/emp.addresses.csv").exists());
+        assertTrue(new File(outDir + "/ph.phones.csv").exists());
+        assertFalse(new File(outDir + "/reused_recdefs/emp.contact.csv").exists());
+        assertFalse(new File(outDir + "/reused_recdefs/emp.addresses.csv").exists());
+        assertFalse(new File(outDir + "/reused_recdefs/ph.phones.csv").exists());
     }
 
-    // -f out.yaml, -c casc.yaml
+    // Equivalent to FlattenXmlRunner CLI options: -f out.yaml, -c casc.yaml
     @Test
     public void definedRecordDefinedCascade_nsXML() throws IOException, XMLStreamException {
         String outDir = "target/test/results/definedRecordDefinedCascade_nsXML";
@@ -282,7 +285,7 @@ public class FlattenXmlTest {
                 new StatusReporter(), "~");
 
         FlattenXml flattener = new FlattenXmlBuilder()
-                .setCascadePolicy(CascadePolicy.ALL)
+                .setCascadePolicy(CascadePolicy.OUT)
                 .setRecordWriter(recordHandler)
                 .setXmlStream(new FileInputStream(
                         new File("src/test/resources/emp_ns.xml")))
@@ -296,16 +299,16 @@ public class FlattenXmlTest {
         recordHandler.closeAllFileStreams();
 
         List<String> employee = fileLines(outDir + "/emp.employee.csv");
-        List<String> contact = fileLines(outDir + "/emp.contact.csv");
-        List<String> addresses = fileLines(outDir + "/emp.addresses.csv");
+        //List<String> contact = fileLines(outDir + "/emp.contact.csv");
+        //List<String> addresses = fileLines(outDir + "/emp.addresses.csv");
         List<String> address = fileLines(outDir + "/emp.address.csv");
-        List<String> phones = fileLines(outDir + "/ph.phones.csv");
+        //List<String> phones = fileLines(outDir + "/ph.phones.csv");
         List<String> phone = fileLines(outDir + "/ph.phone.csv");
         List<String> reroute = fileLines(outDir + "/emp.reroute.csv");
 
-        assertEquals(0, addresses.size());
+        /*assertEquals(0, addresses.size());
         assertEquals(0, contact.size());
-        assertEquals(0, phones.size());
+        assertEquals(0, phones.size());*/
         checkColCount(Arrays.asList(employee, address, phone, reroute), TEST_FILENAMES, outDir);
 
         assertEquals("Check if all columns from employee are exported",
@@ -332,18 +335,18 @@ public class FlattenXmlTest {
 
         assertEquals("Check if all columns in reroute appended + all columns cascaded from address & employee.",
                 // all columns from reroute record
-                "emp:employee-name|emp:line1|emp:state|emp:zip" +
+                "emp:employee-name|emp:line1|emp:line2|emp:state|emp:zip" +
                         // all columns and their attributes cascaded from address record (parent)
                         "|emp:address.emp:address-type|emp:address.emp:line1|emp:address.emp:state|emp:address.emp:zip" +
                         // all columns and their attributes cascaded from employee record (parent of address)
                         "|emp:employee.emp:employee-no|emp:employee.emp:department|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:identifiers[emp:id-doc-type]",
                 reroute.get(0));
-        assertEquals("Nick Fury|541E Summer St.|NY, US|92478|primary|1 Tudor & Place|NY, US|12345|00000001|public relations|1234567890|1945-05-25|SSN",
+        assertEquals("Nick Fury|541E Summer St.||NY, US|92478|primary|1 Tudor & Place|NY, US|12345|00000001|public relations|1234567890|1945-05-25|SSN",
                 reroute.get(1));
 
     }
 
-    // -f out.yaml, -c casc.yaml, -x x1.xsd
+    // Equivalent to FlattenXmlRunner CLI options: -f out.yaml, -c casc.yaml, -x x1.xsd
     @Test
     public void definedRecordDefinedCascadeWithXSDBackup_nsXML() throws IOException, XMLStreamException {
         String outDir = "target/test/results/definedRecordDefinedCascadeWithXSDBackup_nsXML";
@@ -355,7 +358,7 @@ public class FlattenXmlTest {
                 new StatusReporter(), "~");
 
         FlattenXml flattener = new FlattenXmlBuilder()
-                .setCascadePolicy(CascadePolicy.ALL)
+                .setCascadePolicy(CascadePolicy.OUT)
                 .setRecordWriter(recordHandler)
                 .setXmlStream(new FileInputStream(
                         new File("src/test/resources/emp_ns.xml")))
@@ -408,7 +411,7 @@ public class FlattenXmlTest {
 
         assertEquals("Check if all columns in reroute appended + all columns cascaded from address & employee.",
                 // all columns from reroute record
-                "emp:employee-name|emp:line1|line2|emp:state|emp:zip" +
+                "emp:employee-name|emp:line1|emp:line2|emp:state|emp:zip" +
                         // all columns and their attributes cascaded from address record (parent)
                         "|emp:address.emp:address-type|emp:address.emp:line1|emp:address.emp:state|emp:address.emp:zip" +
                         // all columns and their attributes cascaded from employee record (parent of address)
@@ -419,7 +422,7 @@ public class FlattenXmlTest {
 
     }
 
-    // -f out.yaml, -c NONE|<missing>
+    // Equivalent to FlattenXmlRunner CLI options: -f out.yaml, -c NONE|<missing>
     @Test
     public void definedRecordNoCascade_nsXML() throws IOException, XMLStreamException {
         String outDir = "target/test/results/definedRecordNoCascade_nsXML";
@@ -445,16 +448,14 @@ public class FlattenXmlTest {
 
 
         List<String> employee = fileLines(outDir + "/emp.employee.csv");
-        List<String> contact = fileLines(outDir + "/emp.contact.csv");
-        List<String> addresses = fileLines(outDir + "/emp.addresses.csv");
         List<String> address = fileLines(outDir + "/emp.address.csv");
-        List<String> phones = fileLines(outDir + "/ph.phones.csv");
         List<String> phone = fileLines(outDir + "/ph.phone.csv");
         List<String> reroute = fileLines(outDir + "/emp.reroute.csv");
 
-        assertEquals(0, addresses.size());
-        assertEquals(0, contact.size());
-        assertEquals(0, phones.size());
+        assertFalse(new File(outDir + "/emp.contact.csv").exists());
+        assertFalse(new File(outDir + "/emp.addresses.csv").exists());
+        assertFalse(new File(outDir + "/ph.phones.csv").exists());
+
         checkColCount(Arrays.asList(employee, address, phone, reroute), TEST_FILENAMES, outDir);
 
 
@@ -474,12 +475,12 @@ public class FlattenXmlTest {
 
         assertEquals("Check if all columns in reroute appended. No columns cascaded from employee or address",
                 // user defined columns from reroute record. No cascaded columns
-                "emp:employee-name|emp:line1|emp:state|emp:zip", reroute.get(0));
-        assertEquals("Nick Fury|541E Summer St.|NY, US|92478", reroute.get(1));
+                "emp:employee-name|emp:line1|emp:line2|emp:state|emp:zip", reroute.get(0));
+        assertEquals("Nick Fury|541E Summer St.||NY, US|92478", reroute.get(1));
 
     }
 
-    // -f out.yaml, -c ALL
+    // Equivalent to FlattenXmlRunner CLI options: -f out.yaml, -c OUT
     @Test
     public void definedRecordCascadeFullRecord_nsXML() throws IOException, XMLStreamException {
         String outDir = "target/test/results/definedRecordCascadeFullRecord_nsXML";
@@ -493,7 +494,7 @@ public class FlattenXmlTest {
 
         FlattenXml flattener = new FlattenXmlBuilder()
                 // Cascade the whole record to child records
-                .setCascadePolicy(CascadePolicy.ALL)
+                .setCascadePolicy(CascadePolicy.OUT)
                 .setRecordWriter(recordHandler)
                 .setXmlStream(new FileInputStream(
                         new File("src/test/resources/emp_ns.xml")))
@@ -505,16 +506,13 @@ public class FlattenXmlTest {
 
 
         List<String> employee = fileLines(outDir + "/emp.employee.csv");
-        List<String> contact = fileLines(outDir + "/emp.contact.csv");
-        List<String> addresses = fileLines(outDir + "/emp.addresses.csv");
         List<String> address = fileLines(outDir + "/emp.address.csv");
-        List<String> phones = fileLines(outDir + "/ph.phones.csv");
         List<String> phone = fileLines(outDir + "/ph.phone.csv");
         List<String> reroute = fileLines(outDir + "/emp.reroute.csv");
+        assertFalse(new File(outDir + "/emp.contact.csv").exists());
+        assertFalse(new File(outDir + "/emp.addresses.csv").exists());
+        assertFalse(new File(outDir + "/ph.phones.csv").exists());
 
-        assertEquals(0, addresses.size());
-        assertEquals(0, contact.size());
-        assertEquals(0, phones.size());
         checkColCount(Arrays.asList(employee, address, phone, reroute), TEST_FILENAMES, outDir);
 
         assertEquals("Check if user defined columns from employee are exported",
@@ -539,20 +537,20 @@ public class FlattenXmlTest {
 
         assertEquals("Check if user defined columns in reroute appended + user defined columns cascaded from address & employee.",
                 // user defined columns from reroute record
-                "emp:employee-name|emp:line1|emp:state|emp:zip" +
+                "emp:employee-name|emp:line1|emp:line2|emp:state|emp:zip" +
                         // all user defined output columns and their attributes cascaded from address record (parent)
                         "|emp:address.emp:address-type|emp:address.emp:line1|emp:address.emp:state|emp:address.emp:zip" +
                         // all user defined output columns and their attributes cascaded from employee record (parent of address)
                         "|emp:employee.emp:employee-no|emp:employee.emp:department|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:identifiers[emp:id-doc-type]",
                 reroute.get(0));
-        assertEquals("Nick Fury|541E Summer St.|NY, US|92478|primary|1 Tudor & Place|NY, US|12345|00000001|public relations|1234567890|1945-05-25|SSN",
+        assertEquals("Nick Fury|541E Summer St.||NY, US|92478|primary|1 Tudor & Place|NY, US|12345|00000001|public relations|1234567890|1945-05-25|SSN",
                 reroute.get(1));
     }
 
 
-    // -f out.yaml, -c NONE|<missing>, -x x1.xsd
+    // Equivalent to FlattenXmlRunner CLI options: -f out.yaml, -c NONE|<missing>, -x x1.xsd
     @Test
-    public void definedRecordNoCascadeIgnoredXSD_nsXML() throws IOException, XMLStreamException {
+    public void definedRecordNoCascadeIgnoreXSD_nsXML() throws IOException, XMLStreamException {
         String outDir = "target/test/results/definedRecordNoCascadeIgnoredXSD_nsXML";
         Files.createDirectories(Paths.get(outDir));
         RecordHandler recordHandler = new DelimitedFileWriter(
@@ -610,14 +608,13 @@ public class FlattenXmlTest {
 
         assertEquals("Check if all columns in reroute appended + no columns cascaded from address & employee.",
                 // all columns from reroute record
-                // TODO: Fix the prefix issue here
-                "emp:employee-name|emp:line1|line2|emp:state|emp:zip",
+                "emp:employee-name|emp:line1|emp:line2|emp:state|emp:zip",
                 reroute.get(0));
         assertEquals("Nick Fury|541E Summer St.||NY, US|92478",
                 reroute.get(1));
     }
 
-    // -f ALL|<missing>, -c NONE|<missing>, -x x1.xsd
+    // Equivalent to FlattenXmlRunner CLI options: -c NONE|<missing>, -x x1.xsd
     @Test
     public void xsdDrivenRecordNoCascade_nsXML() throws IOException, XMLStreamException {
         String outDir = "target/test/results/xsdDrivenRecordNoCascade_nsXML";
@@ -656,36 +653,34 @@ public class FlattenXmlTest {
         checkColCount(Arrays.asList(employee, address, phone, reroute), TEST_FILENAMES, outDir);
 
         assertEquals("Check if all columns from employee are exported",
-                // all columns and their attributes from employee record
+                // all columns and their attributes from employee record as per XSD
                 "emp:identifiers|emp:identifiers[emp:id-doc-type]|emp:identifiers[emp:id-doc-expiry]|emp:employee-no|emp:employee-no[emp:status]|emp:employee-name|emp:department|emp:salary",
                 employee.get(0));
 
 
         assertEquals("Check if all columns from address record + no columns cascaded from employee",
-                // all columns and their attributes from address record
-                // TODO: fix the prefix for line2
-                "emp:address-type|emp:line1|line2|emp:state|emp:zip",
+                // all columns and their attributes from address record as per XSD
+                "emp:address-type|emp:line1|emp:line2|emp:state|emp:zip",
                 address.get(0));
 
 
         assertEquals("Check if all columns in phone record + no columns cascaded from employee",
-                // all columns from phone record
+                // all columns from phone record as per XSD
                 "ph:phone-num|ph:phone-num[ph:contact-type]|ph:phone-type",
                 phone.get(0));
 
 
         assertEquals("Check if all columns in reroute appended + no columns cascaded from address & employee.",
-                // all columns from reroute record
-                // TODO: Fix the prefix issue here
-                "emp:employee-name|emp:line1|line2|emp:state|emp:zip",
+                // all columns from reroute record as per XSD
+                "emp:employee-name|emp:line1|emp:line2|emp:state|emp:zip",
                 reroute.get(0));
         assertEquals("Nick Fury|541E Summer St.||NY, US|92478",
                 reroute.get(1));
     }
 
-    // -f ALL|<missing>, -c XSD, -x x1.xsd
-    @Test @Ignore
-    public void xsdDrivenRecordCascadeRequiredTagsInXsd_nsXML() throws IOException, XMLStreamException {
+    // Equivalent to FlattenXmlRunner CLI options: -c XSD, -x x1.xsd
+    @Test
+    public void xsdDrivenRecordCascadeAllTagsInXsd_nsXML() throws IOException, XMLStreamException {
         String outDir = "target/test/results/xsdDrivenRecordCascadeRequiredTagsInXsd_nsXML";
         Files.createDirectories(Paths.get(outDir));
         RecordHandler recordHandler = new DelimitedFileWriter(
@@ -724,67 +719,145 @@ public class FlattenXmlTest {
         checkColCount(Arrays.asList(employee, address, phone, reroute), TEST_FILENAMES, outDir);
 
         assertEquals("Check if user defined columns from employee are exported",
-                // user defined output columns and their attributes from employee record
+                // all output columns and their attributes from employee record as per XSD
                 "emp:identifiers|emp:identifiers[emp:id-doc-type]|emp:identifiers[emp:id-doc-expiry]|emp:employee-no|emp:employee-no[emp:status]|emp:employee-name|emp:department|emp:salary",
                 employee.get(0));
 
         assertEquals("Check if user defined columns from address record + user defined output columns cascaded from employee are exported",
-                // user defined output columns and their attributes from address record
-                // TODO: Fix prefix of line2
-                "emp:address-type|emp:line1|line2|emp:state|emp:zip" +
-                        // all user defined output columns and their attributes cascaded from employee record
-                        "|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department",
+                // all output columns and their attributes from address record as per XSD
+                "emp:address-type|emp:line1|emp:line2|emp:state|emp:zip" +
+                        // required columns and their attributes cascaded from employee record as per XSD
+                        "|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary",
                 address.get(0));
 
 
         assertEquals("Check if user defined columns in phone record + all user defined output columns cascaded from employee are exported",
-                // user defined output columns from phone record
+                // all output columns from phone record as per XSD
                 "ph:phone-num|ph:phone-num[ph:contact-type]|ph:phone-type" +
-                        // user defined output columns and their attributes cascaded from employee record (parent)
-                        "|emp:employee.emp:employee-no|emp:employee.emp:department|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:identifiers[emp:id-doc-type]",
+                        // required output columns and their attributes cascaded from employee record (parent) as per XSD
+                        "|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary",
                 phone.get(0));
 
         assertEquals("Check if user defined columns in reroute appended + user defined columns cascaded from address & employee.",
                 // user defined columns from reroute record
-                "emp:employee-name|emp:line1|emp:state|emp:zip" +
-                        // all user defined output columns and their attributes cascaded from address record (parent)
-                        "|emp:address.emp:address-type|emp:address.emp:line1|emp:address.emp:state|emp:address.emp:zip" +
-                        // all user defined output columns and their attributes cascaded from employee record (parent of address)
-                        "|emp:employee.emp:employee-no|emp:employee.emp:department|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:identifiers[emp:id-doc-type]",
+                "emp:employee-name|emp:line1|emp:line2|emp:state|emp:zip" +
+                        // required output columns and their attributes cascaded from address record (parent) as per XSD
+                        "|emp:address.emp:address-type|emp:address.emp:line1|emp:address.emp:line2|emp:address.emp:state|emp:address.emp:zip" +
+                        // required output columns and their attributes cascaded from employee record (parent of address) as per XSD
+                        "|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary",
                 reroute.get(0));
-        assertEquals("Nick Fury|541E Summer St.|NY, US|92478|primary|1 Tudor & Place|NY, US|12345|00000001|public relations|1234567890|1945-05-25|SSN",
+        assertEquals("Nick Fury|541E Summer St.||NY, US|92478|primary|1 Tudor & Place||NY, US|12345|1234567890|SSN|1945-05-25|00000001|active|Steve Rogers|public relations|150,000.00",
                 reroute.get(1));
     }
 
-    //------------- Tests regarding XML with no namespaces ------------------------------------
-
+    // Equivalent to FlattenXmlRunner CLI options: -c XSD, -x x1.xsd
     @Test
-    public void definedRecsOutDefinedCascade_noNsXML() throws IOException, XMLStreamException {
-        String outDir = "target/test/results/definedRecsOutDefinedCascade_noNsXML";
+    public void xsdDrivenRecordCascadeAllTagsInXsdDrivenRecord_nsXML() throws IOException, XMLStreamException {
+        String outDir = "target/test/results/xsdDrivenRecordCascadeRequiredTagsInXsd_nsXML";
         Files.createDirectories(Paths.get(outDir));
         RecordHandler recordHandler = new DelimitedFileWriter(
                 "|", outDir,
-                true, new StatusReporter(), "~");
+                // Field sequence in records are user defined and cascading replicates the output record.
+                // Records dont need post processing
+                true,
+                new StatusReporter(), "~");
 
         FlattenXml flattener = new FlattenXmlBuilder()
+                // Cascade the whole record to child records
+                .setCascadePolicy(CascadePolicy.XSD)
                 .setRecordWriter(recordHandler)
                 .setXmlStream(new FileInputStream(
-                        new File("src/test/resources/emp.xml")))
-                .setRecordOutputFieldsSeq(new File("src/test/resources/emp_output_fields.yaml"))
-                .setRecordCascadeFieldsSeq(new File("src/test/resources/emp_output_fields.yaml"))
+                        new File("src/test/resources/emp_ns.xml")))
+                // XSDs driven
+                .setXsdFiles(parseXsds(
+                        new String[]{"src/test/resources/emp_ns.xsd", "src/test/resources/phone_ns.xsd"}))
                 .create();
 
-        assertEquals(21, flattener.parseFlatten());
+        assertEquals(3, flattener.parseFlatten());
         recordHandler.closeAllFileStreams();
 
 
-        List<String> employee = fileLines(outDir + "/employee.csv");
-        List<String> contact = fileLines(outDir + "/contact.csv");
-        List<String> addresses = fileLines(outDir + "/addresses.csv");
-        List<String> address = fileLines(outDir + "/address.csv");
-        List<String> phones = fileLines(outDir + "/phones.csv");
-        List<String> phone = fileLines(outDir + "/phone.csv");
-        List<String> reroute = fileLines(outDir + "/reroute.csv");
+        List<String> employee = fileLines(outDir + "/emp.employee.csv");
+        List<String> contact = fileLines(outDir + "/emp.contact.csv");
+        List<String> addresses = fileLines(outDir + "/emp.addresses.csv");
+        List<String> address = fileLines(outDir + "/emp.address.csv");
+        List<String> phones = fileLines(outDir + "/ph.phones.csv");
+        List<String> phone = fileLines(outDir + "/ph.phone.csv");
+        List<String> reroute = fileLines(outDir + "/emp.reroute.csv");
+
+        assertEquals(0, addresses.size());
+        assertEquals(0, contact.size());
+        assertEquals(0, phones.size());
+        checkColCount(Arrays.asList(employee, address, phone, reroute), TEST_FILENAMES, outDir);
+
+        assertEquals("Check if user defined columns from employee are exported",
+                // all output columns and their attributes from employee record as per XSD
+                "emp:identifiers|emp:identifiers[emp:id-doc-type]|emp:identifiers[emp:id-doc-expiry]|emp:employee-no|emp:employee-no[emp:status]|emp:employee-name|emp:department|emp:salary",
+                employee.get(0));
+
+        assertEquals("Check if user defined columns from address record + user defined output columns cascaded from employee are exported",
+                // all output columns and their attributes from address record as per XSD
+                "emp:address-type|emp:line1|emp:line2|emp:state|emp:zip" +
+                        // required columns and their attributes cascaded from employee record as per XSD
+                        "|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary",
+                address.get(0));
+
+
+        assertEquals("Check if user defined columns in phone record + all user defined output columns cascaded from employee are exported",
+                // all output columns from phone record as per XSD
+                "ph:phone-num|ph:phone-num[ph:contact-type]|ph:phone-type" +
+                        // required output columns and their attributes cascaded from employee record (parent) as per XSD
+                        "|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary",
+                phone.get(0));
+
+        assertEquals("Check if user defined columns in reroute appended + user defined columns cascaded from address & employee.",
+                // user defined columns from reroute record
+                "emp:employee-name|emp:line1|emp:line2|emp:state|emp:zip" +
+                        // required output columns and their attributes cascaded from address record (parent) as per XSD
+                        "|emp:address.emp:address-type|emp:address.emp:line1|emp:address.emp:line2|emp:address.emp:state|emp:address.emp:zip" +
+                        // required output columns and their attributes cascaded from employee record (parent of address) as per XSD
+                        "|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary",
+                reroute.get(0));
+        assertEquals("Nick Fury|541E Summer St.||NY, US|92478|primary|1 Tudor & Place||NY, US|12345|1234567890|SSN|1945-05-25|00000001|active|Steve Rogers|public relations|150,000.00",
+                reroute.get(1));
+    }
+
+    // Equivalent to FlattenXmlRunner CLI options: -c OUT, -x x1.xsd
+    @Test
+    public void definedRecordCascadeOutputIgnoreXSD_nsXML() throws IOException, XMLStreamException {
+        String outDir = "target/test/results/xsdDrivenRecordCascadeRequiredTagsInXsd_nsXML";
+        Files.createDirectories(Paths.get(outDir));
+        RecordHandler recordHandler = new DelimitedFileWriter(
+                "|", outDir,
+                // Field sequence in records are user defined and cascading replicates the output record.
+                // Records dont need post processing
+                true,
+                new StatusReporter(), "~");
+
+        FlattenXml flattener = new FlattenXmlBuilder()
+                // Cascade the whole record to child records
+                .setCascadePolicy(CascadePolicy.OUT)
+                .setRecordWriter(recordHandler)
+                // user defined output fields sequence in record
+                .setRecordOutputFieldsSeq(new File("src/test/resources/empns_output_fields_attrs.yaml"))
+                .setXmlStream(new FileInputStream(
+                        new File("src/test/resources/emp_ns.xml")))
+                // XSDs driven
+                .setXsdFiles(parseXsds(
+                        new String[]{"src/test/resources/emp_ns.xsd", "src/test/resources/phone_ns.xsd"}))
+                .create();
+
+        assertEquals(3, flattener.parseFlatten());
+        recordHandler.closeAllFileStreams();
+
+
+        List<String> employee = fileLines(outDir + "/emp.employee.csv");
+        List<String> contact = fileLines(outDir + "/emp.contact.csv");
+        List<String> addresses = fileLines(outDir + "/emp.addresses.csv");
+        List<String> address = fileLines(outDir + "/emp.address.csv");
+        List<String> phones = fileLines(outDir + "/ph.phones.csv");
+        List<String> phone = fileLines(outDir + "/ph.phone.csv");
+        List<String> reroute = fileLines(outDir + "/emp.reroute.csv");
 
         assertEquals(0, addresses.size());
         assertEquals(0, contact.size());
@@ -793,181 +866,111 @@ public class FlattenXmlTest {
 
         assertEquals("Check if user defined columns from employee are exported",
                 // user defined output columns and their attributes from employee record
-                "employee-no|department", employee.get(0));
+                "emp:employee-no|emp:department|emp:identifiers|emp:identifiers[emp:id-doc-expiry]|emp:identifiers[emp:id-doc-type]",
+                employee.get(0));
 
-        assertEquals("Check if user defined columns from address record + user defined cascade columns cascaded from employee are exported",
+        assertEquals("Check if user defined columns from address record + user defined output columns cascaded from employee are exported",
                 // user defined output columns and their attributes from address record
-                "address-type|line1|state|zip" +
-                        // user defined cascade columns and their attributes cascaded from employee record
-                        "|employee.employee-no|employee.department", address.get(0));
+                "emp:address-type|emp:line1|emp:state|emp:zip" +
+                        // all columns and their attributes cascaded from employee record as per XSD
+                        "|emp:employee.emp:employee-no|emp:employee.emp:department|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:identifiers[emp:id-doc-type]",
+                address.get(0));
 
-        assertEquals("Check if user defined columns in phone record + user defined cascade columns cascaded from employee are exported",
+
+        assertEquals("Check if user defined columns in phone record + all user defined output columns cascaded from employee are exported",
                 // user defined output columns from phone record
-                "phone-num|phone-type" +
-                        // user defined cascade columns and their attributes cascaded from employee record (parent)
-                        "|employee.employee-no|employee.department", phone.get(0));
+                "ph:phone-num|ph:phone-num[ph:contact-type]|ph:phone-type" +
+                        // required output columns and their attributes cascaded from employee record (parent) as per XSD
+                        "|emp:employee.emp:employee-no|emp:employee.emp:department|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:identifiers[emp:id-doc-type]",
+                phone.get(0));
 
         assertEquals("Check if user defined columns in reroute appended + user defined columns cascaded from address & employee.",
-                // user defined output columns from reroute record
-                "employee-name|line1|state|zip" +
-                        // all user defined cascade columns and their attributes cascaded from address record (parent)
-                        "|address.address-type|address.line1|address.state|address.zip" +
-                        // all user defined cascade columns and their attributes cascaded from employee record (parent of address)
-                        "|employee.employee-no|employee.department",
+                // user defined columns from reroute record
+                "emp:employee-name|emp:line1|emp:line2|emp:state|emp:zip" +
+                        // required output columns and their attributes cascaded from address record (parent) as per XSD
+                        "|emp:address.emp:address-type|emp:address.emp:line1|emp:address.emp:state|emp:address.emp:zip" +
+                        // required output columns and their attributes cascaded from employee record (parent of address) as per XSD
+                        "|emp:employee.emp:employee-no|emp:employee.emp:department|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:identifiers[emp:id-doc-type]",
                 reroute.get(0));
-        assertEquals("Nick Fury|541E~              Summer St.|NY, US|92478|primary|1 Tudor & Place|NY, US|12345|00000001|public relations",
+        assertEquals("Nick Fury|541E Summer St.||NY, US|92478|primary|1 Tudor & Place|NY, US|12345|00000001|public relations|1234567890|1945-05-25|SSN",
                 reroute.get(1));
-
     }
 
-
+    // Equivalent to FlattenXmlRunner CLI options: -c XSD, -x x1.xsd
     @Test
-    public void fullDump_noNsXML() throws IOException, XMLStreamException {
-        String outDir = "target/test/results/fullDump_noNsXML";
+    public void definedRecordCascadeAllTagsInXsd_nsXML() throws IOException, XMLStreamException {
+        String outDir = "target/test/results/xsdDrivenRecordCascadeRequiredTagsInXsd_nsXML";
         Files.createDirectories(Paths.get(outDir));
-
         RecordHandler recordHandler = new DelimitedFileWriter(
                 "|", outDir,
-                false, new StatusReporter(), "~");
+                // Field sequence in records are user defined and cascading replicates the output record.
+                // Records dont need post processing
+                true,
+                new StatusReporter(), "~");
 
         FlattenXml flattener = new FlattenXmlBuilder()
-                .setCascadePolicy(CascadePolicy.ALL)
+                // Cascade the whole record to child records
+                .setCascadePolicy(CascadePolicy.XSD)
                 .setRecordWriter(recordHandler)
+                // user defined output fields sequence in record
+                .setRecordOutputFieldsSeq(new File("src/test/resources/empns_output_fields_attrs.yaml"))
                 .setXmlStream(new FileInputStream(
-                        new File("src/test/resources/emp.xml")))
+                        new File("src/test/resources/emp_ns.xml")))
+                // XSDs driven
+                .setXsdFiles(parseXsds(
+                        new String[]{"src/test/resources/emp_ns.xsd", "src/test/resources/phone_ns.xsd"}))
                 .create();
 
-        assertEquals(21, flattener.parseFlatten());
+        assertEquals(3, flattener.parseFlatten());
         recordHandler.closeAllFileStreams();
 
-        List<String> employee = fileLines(outDir + "/employee.csv");
-        List<String> contact = fileLines(outDir + "/contact.csv");
-        List<String> addresses = fileLines(outDir + "/addresses.csv");
-        List<String> address = fileLines(outDir + "/address.csv");
-        List<String> phones = fileLines(outDir + "/phones.csv");
-        List<String> phone = fileLines(outDir + "/phone.csv");
-        List<String> reroute = fileLines(outDir + "/reroute.csv");
 
-        assertEquals(0, contact.size());
+        List<String> employee = fileLines(outDir + "/emp.employee.csv");
+        List<String> contact = fileLines(outDir + "/emp.contact.csv");
+        List<String> addresses = fileLines(outDir + "/emp.addresses.csv");
+        List<String> address = fileLines(outDir + "/emp.address.csv");
+        List<String> phones = fileLines(outDir + "/ph.phones.csv");
+        List<String> phone = fileLines(outDir + "/ph.phone.csv");
+        List<String> reroute = fileLines(outDir + "/emp.reroute.csv");
+
         assertEquals(0, addresses.size());
+        assertEquals(0, contact.size());
         assertEquals(0, phones.size());
         checkColCount(Arrays.asList(employee, address, phone, reroute), TEST_FILENAMES, outDir);
 
-        assertEquals("#employee recs + header", 22, employee.size());
-
-        assertEquals("Check if all columns from employee are exported",
-                // all columns and their attributes from employee record
-                "identifiers|employee-no|employee-name|department|salary|contact",
+        assertEquals("Check if user defined columns from employee are exported",
+                // user defined output columns and their attributes from employee record
+                "emp:employee-no|emp:department|emp:identifiers|emp:identifiers[emp:id-doc-expiry]|emp:identifiers[emp:id-doc-type]",
                 employee.get(0));
 
-        assertEquals("Check if all columns from address record + all columns cascaded from employee",
-                // all columns and their attributes from address record
-                "address-type|line1|line2|state|zip" +
-                        // all columns and their attributes cascaded from employee record
-                        "|employee.employee-no|employee.employee-name|employee.department|employee.salary|employee.identifiers",
+        assertEquals("Check if user defined columns from address record + user defined output columns cascaded from employee are exported",
+                // user defined output columns and their attributes from address record
+                "emp:address-type|emp:line1|emp:state|emp:zip" +
+                        // all columns and their attributes cascaded from employee record as per XSD
+                        "|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary",
                 address.get(0));
 
 
-        assertEquals("Check if all columns in phone record + all columns cascaded from employee",
-                // all columns from phone record
-                "phone-num|phone-type" +
-                        // all columns and their attributes cascaded from employee record (parent)
-                        "|employee.employee-no|employee.employee-name|employee.department|employee.salary|employee.identifiers",
+        assertEquals("Check if user defined columns in phone record + all user defined output columns cascaded from employee are exported",
+                // user defined output columns from phone record
+                "ph:phone-num|ph:phone-num[ph:contact-type]|ph:phone-type" +
+                        // required output columns and their attributes cascaded from employee record (parent) as per XSD
+                        "|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary",
                 phone.get(0));
 
-        assertEquals("Check if all columns in reroute appended + all columns cascaded from address & employee.",
-                // all columns from reroute record
-                "employee-name|line1|state|zip" +
-                        // all columns and their attributes cascaded from address record (parent)
-                        "|address.address-type|address.line1|address.state|address.zip" +
-                        // all columns and their attributes cascaded from employee record (parent of address)
-                        "|employee.employee-no|employee.employee-name|employee.department|employee.salary",
+        assertEquals("Check if user defined columns in reroute appended + user defined columns cascaded from address & employee.",
+                // user defined columns from reroute record
+                "emp:employee-name|emp:line1|emp:line2|emp:state|emp:zip" +
+                        // required output columns and their attributes cascaded from address record (parent) as per XSD
+                        "|emp:address.emp:address-type|emp:address.emp:line1|emp:address.emp:line2|emp:address.emp:state|emp:address.emp:zip" +
+                        // required output columns and their attributes cascaded from employee record (parent of address) as per XSD
+                        "|emp:employee.emp:identifiers|emp:employee.emp:identifiers[emp:id-doc-type]|emp:employee.emp:identifiers[emp:id-doc-expiry]|emp:employee.emp:employee-no|emp:employee.emp:employee-no[emp:status]|emp:employee.emp:employee-name|emp:employee.emp:department|emp:employee.emp:salary",
                 reroute.get(0));
-        assertEquals("Nick Fury|541E~              Summer St.|NY, US|92478|primary|1 Tudor & Place|NY, US|12345|00000001|Steve Rogers|public relations|150,000.00",
+        assertEquals("Nick Fury|541E Summer St.||NY, US|92478|primary|1 Tudor & Place||NY, US|12345|1234567890|SSN|1945-05-25|00000001|active|Steve Rogers|public relations|150,000.00",
                 reroute.get(1));
-
-
-        char[] buf = new char[8192];
-        int bytesRead = new BufferedReader(new FileReader(outDir + "/record_defs.yaml")).read(buf);
-        assertEquals("Verify record definitions file generated for non-namespaced XML input",
-                "namespaces:\n" +
-                        "  \"xsi\": \"http://www.w3.org/2001/XMLSchema-instance\"\n" +
-                        "  \"\": \"http://kbps.com/emp\"\n" +
-                        "\n" +
-                        "records:\n" +
-                        "\n" +
-                        "  \"address\":\n" +
-                        "    - {\"address-type\": []}\n" +
-                        "    - {\"line1\": []}\n" +
-                        "    - {\"line2\": []}\n" +
-                        "    - {\"state\": []}\n" +
-                        "    - {\"zip\": []}\n" +
-                        "\n" +
-                        "  \"employee\":\n" +
-                        "    - {\"identifiers\": []}\n" +
-                        "    - {\"employee-no\": []}\n" +
-                        "    - {\"employee-name\": []}\n" +
-                        "    - {\"department\": []}\n" +
-                        "    - {\"salary\": []}\n" +
-                        "    - {\"contact\": []}\n" +
-                        "\n" +
-                        "  \"phone\":\n" +
-                        "    - {\"phone-num\": []}\n" +
-                        "    - {\"phone-type\": []}\n" +
-                        "\n" +
-                        "  \"reroute\":\n" +
-                        "    - {\"employee-name\": []}\n" +
-                        "    - {\"line1\": []}\n" +
-                        "    - {\"state\": []}\n" +
-                        "    - {\"zip\": []}\n",
-                new String(buf, 0, bytesRead));
     }
 
-    @Test
-    public void fullDumpNoNSTest_withoutEmptyComplexTypeTag() throws IOException, XMLStreamException {
-        String outDir = "target/test/results/fullDumpNoNSTest_withoutEmptyComplexTypeTag";
-        Files.createDirectories(Paths.get(outDir));
-
-        RecordHandler recordHandler = new DelimitedFileWriter(
-                "|", outDir,
-                false, new StatusReporter(), "~");
-
-        FlattenXml flattener = new FlattenXmlBuilder()
-                .setCascadePolicy(CascadePolicy.ALL)
-                .setRecordWriter(recordHandler)
-                .setXmlStream(
-                        new ByteArrayInputStream(
-                                new BufferedReader(new FileReader(
-                                        new File("src/test/resources/emp.xml")))
-                                        .lines()
-                                        .filter(line -> !line.contains("<contact/>"))
-                                        .collect(Collectors.joining()).getBytes())
-                )
-                .create();
-
-        assertEquals(21, flattener.parseFlatten());
-        recordHandler.closeAllFileStreams();
-
-        List<String> employee = fileLines(outDir + "/employee.csv");
-        assertEquals("No contact column in the export for empty complex type element <contact/>",
-                // all columns and their attributes from employee record, excluding the empty complex column contact
-                "identifiers|employee-no|employee-name|department|salary", employee.get(0)); // No |contact
-        assertEquals("No empty contact column in rec#1 corresponding to empty <contact/> element",
-                "|00000001|Steve Rogers|public relations|150,000.00", employee.get(1));
-
-        List<String> address = fileLines(outDir + "/address.csv");
-        assertEquals("Only simple type columns in employee cascade to address record",
-                // all columns and their attributes from address record
-                "address-type|line1|line2|state|zip" +
-                        // all simple type columns and their attributes cascaded from employee record. No contact column
-                        "|employee.employee-no|employee.employee-name|employee.department|employee.salary|employee.identifiers",
-                address.get(0));
-        assertEquals("primary|1 Tudor & Place||NY, US|12345|00000001|Steve Rogers|public relations|150,000.00|",
-                address.get(1));
-    }
-
-
-    private void compareOutFiles(String file1, String file2) throws IOException {
+    static void compareOutFiles(String file1, String file2) throws IOException {
         char[] buf = new char[102400];
         char[] buf2 = new char[102400];
         int bytesRead = new BufferedReader(new FileReader(file1)).read(buf);
@@ -980,12 +983,12 @@ public class FlattenXmlTest {
         }
     }
 
-    private List<String> fileLines(String filePath) throws FileNotFoundException {
+    static List<String> fileLines(String filePath) throws FileNotFoundException {
         return new BufferedReader(new FileReader(new File(filePath)))
                 .lines().collect(Collectors.toList());
     }
 
-    private void checkColCount(Iterable<Iterable<String>> files, String[] fileNames, String dir) {
+    static void checkColCount(Iterable<Iterable<String>> files, String[] fileNames, String dir) {
         int fileNo = 0;
         for (Iterable<String> lines: files) {
 

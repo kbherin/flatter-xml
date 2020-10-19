@@ -152,6 +152,19 @@ public class XmlHelpers {
         return qname.getLocalPart();
     }
 
+    public static String toPrefixedTag(QName qname, Map<String, Namespace> xmlnsUriToPrefix) {
+        if (qname.getPrefix() != null && qname.getPrefix().length() > 0) {
+            return String.format("%s:%s", qname.getPrefix(), qname.getLocalPart());
+        }
+
+        // Alternate prefix
+        Namespace ns = xmlnsUriToPrefix.get(qname.getNamespaceURI());
+        if (ns != null && ns.getPrefix() != null && ns.getPrefix().length() > 0) {
+            return String.format("%s:%s", ns.getPrefix(), qname.getLocalPart());
+        }
+        return qname.getLocalPart();
+    }
+
     public static QName extractAttrValue(StartElement el, QName attrName, String targetNamespace) {
         for (Iterator<Attribute> it = attributesIterator(el); it.hasNext(); ) {
             Attribute attr = it.next();

@@ -20,5 +20,12 @@ records:
     - "zip"
 
   "phone":
-    - {"phone-num": ["contact-type"]}
+    - "phone-num": []
     - "phone-type"
+
+  "reroute":
+    - "employee-name"
+    - "line1"
+    - "line2"
+    - "state"
+    - "zip"

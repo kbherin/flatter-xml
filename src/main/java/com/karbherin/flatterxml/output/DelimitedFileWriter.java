@@ -387,7 +387,7 @@ public class DelimitedFileWriter implements RecordHandler {
                         writer.write(String.format("\n%s\"%s\":\n", indent,
                                 ent.getKey().replace('.', ':')));
                         ent.getValue().forEach((elem, attrs) -> {
-                            StringJoiner joiner = (new StringJoiner("\",\"", "\"", "\""));
+                            StringJoiner joiner = new StringJoiner("\",\"", "\"", "\"");
                             attrs.forEach(attr -> joiner.add(attr));
                             try {
                                 String attrsDelimited = joiner.toString();
@@ -402,7 +402,10 @@ public class DelimitedFileWriter implements RecordHandler {
                     }
                 });
 
-        writer.flush();
+        if (excp.val != null) {
+            throw excp.val;
+        }
+
         writer.close();
     }
 

@@ -5,7 +5,6 @@ namespaces:
   "xsi": "http://www.w3.org/2001/XMLSchema-instance"
   "ph": "http://kbps.com/phone"
 
-
 records:
   "emp:employee":
     - "employee-no"
@@ -21,3 +20,10 @@ records:
   "{http://kbps.com/phone}phone":
     - {"ph:phone-num": ["contact-type"]}
     - "phone-type"
+
+  "emp:reroute":
+    - "employee-name"
+    - "line1"
+    - "line2"
+    - "state"
+    - "zip"

@@ -11,7 +11,6 @@ import static com.karbherin.flatterxml.output.RecordHandler.GeneratedResult;
 
 import com.karbherin.flatterxml.helper.Utils;
 import com.karbherin.flatterxml.output.DelimitedFileWriter;
-import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.output.StatusReporter;
 import com.karbherin.flatterxml.xsd.XmlSchema;
 import org.apache.commons.cli.*;
@@ -77,8 +76,12 @@ public class FlattenXmlRunner {
         options.addOption("f", "output-fields", true,
                 "Desired output fields for each record(complex) type in a YAML file");
         options.addOption("c", "cascades", true,
-                "Data for tags under a record(complex) type element is cascaded to child records."
-                +"\nNONE|ALL|XSD|<record-fields-yaml>.\nDefaults to NONE");
+                "Data for tags under a record(complex) type element is cascaded to child records." +
+                        "\nNONE|OUT|XSD|<cascade-fields-yaml>.\n" +
+                        "NONE - do not cascade\n" +
+                        "OUT - cascade all output fields on a record\n" +
+                        "XSD - cascade fields defined in XSD for a record\n" +
+                        "<cascade-fields-yaml> - cascade user defined fields in the yaml file" );
         options.addOption("x", "xsd", true,
                 "XSD files. Comma separated list.\nFormat: emp_ns.xsd,phone_ns.xsd,...");
         options.addOption("w", "workers", true,
@@ -110,15 +113,18 @@ public class FlattenXmlRunner {
 
     private void assignOptions() throws IOException, XMLStreamException {
 
+        // Directory to place all the output files in
         if (cmd.hasOption("o")) {
             outDir = cmd.getOptionValue("o");
             createOutputDirectory(outDir);
         }
 
+        // Delimiter for the output file
         if (cmd.hasOption("d")) {
             delimiter = cmd.getOptionValue("d");
         }
 
+        // Number of parallel workers
         if (cmd.hasOption("w")) {
             numWorkers = Integer.parseInt(cmd.getOptionValue("w"));
             if (numWorkers < 1) {
@@ -126,41 +132,55 @@ public class FlattenXmlRunner {
             }
         }
 
+        // Multiplex records as a string blob to multiple XML flattening workers
         if (cmd.hasOption("s")) {
             streamRecStrings = true;
         }
 
+        // The XML tag that identifies a top level record
         if (cmd.hasOption("r")) {
             recordTag = cmd.getOptionValue("r");
         }
 
+        // Read the name of the file that has explicit field sequences for output records
         if (cmd.hasOption("f")) {
             recordOutputFieldsDefFile = new File(cmd.getOptionValue("f"));
         }
 
+        // What fields to cascade from current record to all the child records
         if (cmd.hasOption("c")) {
-            if (cmd.getOptionValue("c").trim().equalsIgnoreCase(
-                    CascadePolicy.ALL.toString())) {
+            String cOptionValue = cmd.getOptionValue("c").trim();
+            if (cOptionValue.equalsIgnoreCase(CascadePolicy.OUT.toString())) {
 
-                cascadePolicy = CascadePolicy.ALL;
-            } else if (cmd.getOptionValue("c").trim().equalsIgnoreCase(
-                    CascadePolicy.XSD.toString())) {
+                // Cascading all the fields that are part of the output for a record
+                cascadePolicy = CascadePolicy.OUT;
+            } else if (cOptionValue.equalsIgnoreCase(CascadePolicy.XSD.toString())) {
 
+                // Cascading fields defined in XSD for a record
                 cascadePolicy = CascadePolicy.XSD;
+            } else if (cOptionValue.equalsIgnoreCase(CascadePolicy.NONE.toString())) {
+
+                // No cascading
+                cascadePolicy = CascadePolicy.NONE;
             } else {
-                // Is a filename
-                recordCascadeFieldsDefFile = new File(cmd.getOptionValue("c"));
+
+                // Is a filename - user defined cascading
+                recordCascadeFieldsDefFile = new File(cOptionValue);
+                cascadePolicy = CascadePolicy.DEF;
             }
         }
 
+        // Read a list of comma separate XSD filenames
         if (cmd.hasOption("x")) {
             String[] xmlFiles = cmd.getOptionValue("x").split(",");
             xsds = parseXsds(xmlFiles);
         }
 
+        // Replace new line characters in the character data of elements
         if (cmd.hasOption("l")) {
             newlineReplacement = cmd.getOptionValue("l");
         }
+        // Default newline replacement to a tilde
         if (newlineReplacement == null || newlineReplacement.isEmpty()) {
             newlineReplacement = "~";
         }

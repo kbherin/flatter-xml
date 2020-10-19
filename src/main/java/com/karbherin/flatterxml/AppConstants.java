@@ -1,5 +1,5 @@
 package com.karbherin.flatterxml;
 
 public class AppConstants {
-    public enum CascadePolicy {NONE, ALL, XSD, DEF}
+    public enum CascadePolicy {NONE, OUT, XSD, DEF}
 }

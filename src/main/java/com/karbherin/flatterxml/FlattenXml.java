@@ -240,7 +240,8 @@ public class FlattenXml {
     }
 
     private void pushNewCascadingRecord(StartElement el) {
-        cascadingStack.push(new RecordFieldsCascade(el, Collections.emptyList(), null, xsds));
+        cascadingStack.push(new RecordFieldsCascade(el, Collections.emptyList(), cascadePolicy, null,
+                xsds, xmlnsUriToPrefix));
     }
 
     private void pushNewNestedCascadingRecord() {
@@ -360,15 +361,17 @@ public class FlattenXml {
             }
         }
 
-        // 2. Final fallback - dump all XML fields and values
-        if (records == null) {
+        // 2. Final fallback - dump all XML fields and values if output was never defined with XSD or record definitions
+        if (records == null && outputRecordFieldsSeq.getRecords().isEmpty()) {
             // Fallback. Dump everything in the sequence they appear in the XML file
             records = alignFieldsToSchema(pairStack, null);
         }
 
         // Write record to file if there are no errors.
-        for (List<Pair<String, String>> record: records) {
-            recordHandler.write(recordName, record, cascadingStack.peek(), cascadingStack.peek());
+        if (records != null) {
+            for (List<Pair<String, String>> record : records) {
+                recordHandler.write(recordName, record, cascadingStack.peek(), cascadingStack.peek());
+            }
         }
     }
 
@@ -381,11 +384,11 @@ public class FlattenXml {
             return schemaElem.getAttributes().stream().map(schemaAttr -> {
                 Attribute attrData = dataElem.getAttributeByName(schemaAttr);
                 if (attrData == null) {
-                    return new Pair<>(String.format(ELEM_ATTR_FMT, elemName, toPrefixedTag(schemaAttr)),
-                            EMPTY);
+                    return new Pair<>(String.format(ELEM_ATTR_FMT, elemName,
+                            toPrefixedTag(schemaAttr, xmlnsUriToPrefix)), EMPTY);
                 } else {
-                    return new Pair<>(String.format(ELEM_ATTR_FMT, elemName, toPrefixedTag(attrData.getName())),
-                            attrData.getValue());
+                    return new Pair<>(String.format(ELEM_ATTR_FMT, elemName,
+                            toPrefixedTag(attrData.getName())), attrData.getValue());
                 }
             }).collect(Collectors.toList());
         } else {
@@ -428,12 +431,14 @@ public class FlattenXml {
             QName tagName = fieldsListing.get(i);
             List<Pair<StartElement, String>> fieldValues = fieldGroups.get(tagName);
 
+            // Tags of the record that do not appear in the XML file but are defined in XSD
             if (fieldValues == null) {
                 for (List<Pair<String, String>> rec : records) {
-                    String tagNameStr = toPrefixedTag(tagName);
+                    String tagNameStr = toPrefixedTag(tagName, xmlnsUriToPrefix);
                     rec.add(new Pair<>(tagNameStr, EMPTY));
                     for (QName attr: schemaFields.get(i).getAttributes()) {
-                        rec.add(new Pair<>(String.format("%s[%s]", tagNameStr, toPrefixedTag(attr)), EMPTY));
+                        rec.add(new Pair<>(String.format("%s[%s]", tagNameStr,
+                                toPrefixedTag(attr, xmlnsUriToPrefix)), EMPTY));
                     }
                 }
                 continue;
@@ -497,7 +502,8 @@ public class FlattenXml {
 
     private RecordFieldsCascade newRecordCascade(StartElement tag, RecordFieldsCascade parentRecCascade) {
         return new RecordFieldsCascade(
-                tag, recordCascadesRegistry.getRecordFields(tag.getName()), parentRecCascade, xsds);
+                tag, recordCascadesRegistry.getRecordFields(tag.getName()), cascadePolicy, parentRecCascade,
+                xsds, xmlnsUriToPrefix);
     }
 
     private XMLStreamException decorateParseError(XMLStreamException ex) throws IOException {
@@ -599,12 +605,35 @@ public class FlattenXml {
             return this;
         }
 
-        public FlattenXml create() throws XMLStreamException {
-            if (cascadePolicy == CascadePolicy.ALL
-                    && recordCascadeFieldsSeq.getRecords().isEmpty()
-                    && ! recordOutputFieldsSeq.getRecords().isEmpty()) {
+        private void validate() {
+            if (cascadePolicy == CascadePolicy.XSD && xsds.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Cascading policy cannot be XSD if XSD files are not provided");
+            }
 
-                recordCascadeFieldsSeq = recordOutputFieldsSeq;
+            if (cascadePolicy == CascadePolicy.DEF && recordCascadeFieldsSeq.getRecords().isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Cascading policy cannot be DEF if user has not defined the " +
+                                "the fields on a record to cascade to descendant records");
+            }
+        }
+
+        public FlattenXml create() throws XMLStreamException {
+
+            // Copy output record definitions as cascading definitions if cascade policy is to follow output
+            if (cascadePolicy == CascadePolicy.OUT && recordCascadeFieldsSeq.getRecords().isEmpty()) {
+                // Cascading policy is to follow output.
+                if (!recordOutputFieldsSeq.getRecords().isEmpty()) {
+                    // Output records are defined by user with an 'out.yaml' file.
+                    // Apply same record definitions for cascading too.
+                    recordCascadeFieldsSeq = recordOutputFieldsSeq;
+                    // Mark cascading as explicitly defined by user
+                    cascadePolicy = CascadePolicy.DEF;
+                } else if (!xsds.isEmpty()) {
+                    // XSDs are provided. Therefore output follows XSD and cascade policy is to follow OUT.
+                    // It 'implies' that cascading should follow XSD.
+                    cascadePolicy = CascadePolicy.XSD;
+                }
             }
             if (! recordCascadeFieldsSeq.getRecords().isEmpty()) {
                 cascadePolicy = CascadePolicy.DEF;

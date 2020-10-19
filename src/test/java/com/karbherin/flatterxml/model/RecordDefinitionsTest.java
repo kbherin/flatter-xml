@@ -91,7 +91,7 @@ public class RecordDefinitionsTest {
 
         assertEquals(3, outputSpec.getNamespaces().size());
 
-        assertEquals(3, outputSpec.getRecords().size());
+        assertEquals(4, outputSpec.getRecords().size());
 
         assertTrue(outputSpec.getRecords().contains(
                 parseNameAddPrefix("emp:employee", uriPrefixMap, prefixUriMap)));
