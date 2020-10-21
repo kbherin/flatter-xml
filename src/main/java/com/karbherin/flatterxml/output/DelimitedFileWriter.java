@@ -51,6 +51,7 @@ public class DelimitedFileWriter implements RecordHandler {
 
     private enum KeyValuePart {FIELD_PART, VALUE_PART}
     private static final String DATA_HEADER_SEP = "##HEADER>#";
+    private static final Pattern NEWLINE_RX = Pattern.compile("\r?\n");
 
     public DelimitedFileWriter(String delimiter, String outDir,
                                boolean outFieldsDefined, StatusReporter statusReporter,
@@ -127,7 +128,7 @@ public class DelimitedFileWriter implements RecordHandler {
             long startTime = System.currentTimeMillis();
             statusReporter.logInfo("\nPost processing files:"
                     + " Output record definitions not provided."
-                    + " Regularizing all records to have same sequence of columns");
+                    + " Normalizing all records to have same sequence of columns");
 
             Map<String, List<String>> realignedRec = new HashMap<>();
 
@@ -346,7 +347,7 @@ public class DelimitedFileWriter implements RecordHandler {
         Files.move(Paths.get(outFileName), Paths.get(inFileName), REPLACE_EXISTING);
 
         long endTime = System.currentTimeMillis();
-        statusReporter.logInfo(String.format("\nRegularized %d records of %s in %d seconds",
+        statusReporter.logInfo(String.format("\nNormalized %d records of %s in %d seconds",
                 recCount.val, fileName, (endTime - startTime)/1000));
 
         return allCols;
@@ -430,7 +431,7 @@ public class DelimitedFileWriter implements RecordHandler {
     }
 
     private String replaceNewline(String data) {
-        return data.replace(System.lineSeparator(), newlineReplacement);
+        return NEWLINE_RX.matcher(data).replaceAll(newlineReplacement);
     }
 
     @Override
