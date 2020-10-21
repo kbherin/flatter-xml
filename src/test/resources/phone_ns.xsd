@@ -1,4 +1,4 @@
-<xs:schema xmlns='http://kbps.com/phone' xmlns:xs='http://www.w3.org/2001/XMLSchema'
+<xs:schema xmlns="http://kbps.com/phone" xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://kbps.com/phone" attributeFormDefault="qualified">
 
 
@@ -14,13 +14,21 @@
   <xs:element name="phone">
     <xs:complexType>
       <xs:sequence>
-        <xs:element ref="phone-num" minOccurs="0"/>
+        <xs:element ref="phone-num" minOccurs="0" />
         <xs:element ref="phone-type" minOccurs="0"/>
       </xs:sequence>
     </xs:complexType>
   </xs:element>
 
-  <xs:element name="phone-num" type='xs:integer' />
+  <xs:element name="phone-num">
+    <xs:complexType>
+      <xs:simpleContent>
+        <xs:extension base="xs:integer">
+          <xs:attribute name="contact-type" type="xs:string" />
+        </xs:extension>
+      </xs:simpleContent>
+    </xs:complexType>
+  </xs:element>
   <xs:element name="phone-type" type='xs:string' />
 
 </xs:schema>

@@ -1,14 +1,16 @@
 package com.karbherin.flatterxml;
 
-import com.karbherin.flatterxml.feeder.XmlByteStreamEmitter;
+import com.karbherin.flatterxml.feeder.XmlRecordStringEmitter;
 import com.karbherin.flatterxml.consumer.XmlEventWorkerPool;
 import com.karbherin.flatterxml.consumer.XmlFlattenerWorkerFactory;
-import com.karbherin.flatterxml.feeder.XmlEventEmitter;
+import com.karbherin.flatterxml.feeder.XmlRecordEventEmitter;
 import com.karbherin.flatterxml.feeder.XmlRecordEmitter;
+import static com.karbherin.flatterxml.AppConstants.*;
 import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 import static com.karbherin.flatterxml.output.RecordHandler.GeneratedResult;
+
+import com.karbherin.flatterxml.helper.Utils;
 import com.karbherin.flatterxml.output.DelimitedFileWriter;
-import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.output.StatusReporter;
 import com.karbherin.flatterxml.xsd.XmlSchema;
 import org.apache.commons.cli.*;
@@ -23,8 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.karbherin.flatterxml.model.RecordFieldsCascade.CascadePolicy;
-
 /**
  * CLI main class for flattening an XML file into tabular files.
  *
@@ -35,15 +35,17 @@ public class FlattenXmlRunner {
     private static final int DEFAULT_BATCH_SIZE = 100;
     private static final String INDENT = "  ";
     private static final HelpFormatter HELP_FORMATTER = new HelpFormatter();
-    private static final String ENV_BYTE_STREAM_EMITTER = "BYTE_STREAM_EMITTER";
-    private static final String ENV_BYTE_STREAM_MULTI_EMITTER = "BYTE_STREAM_MULTI_EMITTER";
+    private static final String ENV_STRING_STREAM_MULTI_EMITTER = "MULTI_EMITTER";
     private static final int EMITTER_LOAD_FACTOR = 4;
 
     private final Options options = new Options();
     private final FlattenXml.FlattenXmlBuilder setup;
+    private DelimitedFileWriter recordHandler;
     private String delimiter = "|";
+    private String newlineReplacement = "~";
     private String outDir = "csvs";
     private int numWorkers = 1;
+    private boolean streamRecStrings = false;
     private String recordTag = null;
     private CascadePolicy cascadePolicy = CascadePolicy.NONE;
     private File recordCascadeFieldsDefFile = null;
@@ -74,12 +76,22 @@ public class FlattenXmlRunner {
         options.addOption("f", "output-fields", true,
                 "Desired output fields for each record(complex) type in a YAML file");
         options.addOption("c", "cascades", true,
-                "Data for tags under a record(complex) type element is cascaded to child records."
-                +"\nNONE|ALL|XSD|<record-fields-yaml>.\nDefaults to NONE");
+                "Data for tags under a record(complex) type element is cascaded to child records." +
+                        "\nNONE|OUT|XSD|<cascade-fields-yaml>.\n" +
+                        "NONE - do not cascade\n" +
+                        "OUT - cascade all output fields on a record\n" +
+                        "XSD - cascade fields defined in XSD for a record\n" +
+                        "<cascade-fields-yaml> - cascade user defined fields in the yaml file" );
         options.addOption("x", "xsd", true,
                 "XSD files. Comma separated list.\nFormat: emp_ns.xsd,phone_ns.xsd,...");
         options.addOption("w", "workers", true,
                 "Number of parallel workers. Defaults to 1");
+        options.addOption("s", "stream-record-strings", true,
+                "Distribute XML records as strings to multiple workers."+
+                "\nLess safe but highly performant"+
+                "\nDefaults to streaming records as events");
+        options.addOption("l", "newline", true,
+                "Replacement character for newline character in the data");
 
         setup = new FlattenXml.FlattenXmlBuilder();
     }
@@ -101,15 +113,18 @@ public class FlattenXmlRunner {
 
     private void assignOptions() throws IOException, XMLStreamException {
 
+        // Directory to place all the output files in
         if (cmd.hasOption("o")) {
             outDir = cmd.getOptionValue("o");
             createOutputDirectory(outDir);
         }
 
+        // Delimiter for the output file
         if (cmd.hasOption("d")) {
             delimiter = cmd.getOptionValue("d");
         }
 
+        // Number of parallel workers
         if (cmd.hasOption("w")) {
             numWorkers = Integer.parseInt(cmd.getOptionValue("w"));
             if (numWorkers < 1) {
@@ -117,32 +132,57 @@ public class FlattenXmlRunner {
             }
         }
 
+        // Multiplex records as a string blob to multiple XML flattening workers
+        if (cmd.hasOption("s")) {
+            streamRecStrings = true;
+        }
+
+        // The XML tag that identifies a top level record
         if (cmd.hasOption("r")) {
             recordTag = cmd.getOptionValue("r");
         }
 
-        if (cmd.hasOption("c")) {
-            if (cmd.getOptionValue("c").trim().equalsIgnoreCase(
-                    CascadePolicy.ALL.toString())) {
-
-                cascadePolicy = CascadePolicy.ALL;
-            } else if (cmd.getOptionValue("c").trim().equalsIgnoreCase(
-                    CascadePolicy.XSD.toString())) {
-
-                cascadePolicy = CascadePolicy.XSD;
-            } else {
-                // Is a filename
-                recordCascadeFieldsDefFile = new File(cmd.getOptionValue("c"));
-            }
-        }
-
+        // Read the name of the file that has explicit field sequences for output records
         if (cmd.hasOption("f")) {
             recordOutputFieldsDefFile = new File(cmd.getOptionValue("f"));
         }
 
+        // What fields to cascade from current record to all the child records
+        if (cmd.hasOption("c")) {
+            String cOptionValue = cmd.getOptionValue("c").trim();
+            if (cOptionValue.equalsIgnoreCase(CascadePolicy.OUT.toString())) {
+
+                // Cascading all the fields that are part of the output for a record
+                cascadePolicy = CascadePolicy.OUT;
+            } else if (cOptionValue.equalsIgnoreCase(CascadePolicy.XSD.toString())) {
+
+                // Cascading fields defined in XSD for a record
+                cascadePolicy = CascadePolicy.XSD;
+            } else if (cOptionValue.equalsIgnoreCase(CascadePolicy.NONE.toString())) {
+
+                // No cascading
+                cascadePolicy = CascadePolicy.NONE;
+            } else {
+
+                // Is a filename - user defined cascading
+                recordCascadeFieldsDefFile = new File(cOptionValue);
+                cascadePolicy = CascadePolicy.DEF;
+            }
+        }
+
+        // Read a list of comma separate XSD filenames
         if (cmd.hasOption("x")) {
             String[] xmlFiles = cmd.getOptionValue("x").split(",");
             xsds = parseXsds(xmlFiles);
+        }
+
+        // Replace new line characters in the character data of elements
+        if (cmd.hasOption("l")) {
+            newlineReplacement = cmd.getOptionValue("l");
+        }
+        // Default newline replacement to a tilde
+        if (newlineReplacement == null || newlineReplacement.isEmpty()) {
+            newlineReplacement = "~";
         }
 
         try {
@@ -175,9 +215,6 @@ public class FlattenXmlRunner {
         InputStream xmlStream = new FileInputStream(xmlFilePath);
         setup.setXmlStream(xmlStream);
 
-        // Create XML flattener
-        DelimitedFileWriter recordHandler = new DelimitedFileWriter(delimiter, outDir);
-        setup.setRecordWriter(recordHandler);
         final FlattenXml flattener = setup.create();
 
         System.out.printf("Parsing in batches of %d records%n", batchSize);
@@ -223,29 +260,27 @@ public class FlattenXmlRunner {
         InputStream xmlStream = new FileInputStream(xmlFilePath);
         setup.setXmlStream(xmlStream);
 
-        RecordHandler recordHandler = new DelimitedFileWriter(delimiter, outDir);
-
         // Initiate concurrent workers
         XmlRecordEmitter emitter;
-        if (System.getenv(ENV_BYTE_STREAM_EMITTER) != null) {
-            System.out.println("Employing XML byte stream for dispatching to workers");
+        if (streamRecStrings) {
+            System.out.println("Employing string streaming for dispatching XML records dispatching to workers");
             int numProducers = 1;
 
-            if (System.getenv(ENV_BYTE_STREAM_MULTI_EMITTER) != null) {
-                int loadFactor = parseInt(System.getenv(ENV_BYTE_STREAM_MULTI_EMITTER), EMITTER_LOAD_FACTOR);
+            if (System.getenv(ENV_STRING_STREAM_MULTI_EMITTER) != null) {
+                int loadFactor = Utils.parseInt(System.getenv(ENV_STRING_STREAM_MULTI_EMITTER), EMITTER_LOAD_FACTOR);
                 if (numWorkers / loadFactor > 1) {
                     numProducers = numWorkers / loadFactor;
                     System.out.printf("Using %d parallel XML byte stream emitters%n", numProducers);
                 }
             }
 
-            emitter = new XmlByteStreamEmitter.XmlByteStreamEmitterBuilder()
+            emitter = new XmlRecordStringEmitter.XmlByteStreamEmitterBuilder()
                     .setXmlFile(xmlFilePath)
                     .setNumProducers(numProducers)
                     .create();
         } else {
-            System.out.println("Employing XML event stream for dispatching to workers");
-            emitter = new XmlEventEmitter.XmlEventEmitterBuilder()
+            System.out.println("Employing event streaming for dispatching XML records to workers");
+            emitter = new XmlRecordEventEmitter.XmlEventEmitterBuilder()
                     .setXmlFile(xmlFilePath)
                     .create();
         }
@@ -276,6 +311,11 @@ public class FlattenXmlRunner {
         cmd = parseCliArgs(args);
         assignOptions();
 
+        // Create output record handler
+        recordHandler = new DelimitedFileWriter(delimiter, outDir,
+                outputRecordsDefined(),
+                statusReporter, newlineReplacement);
+        setup.setRecordWriter(recordHandler);
 
         if (numWorkers == 1) {
             workAlone();
@@ -303,7 +343,7 @@ public class FlattenXmlRunner {
     private static void displayFilesGenerated(Collection<GeneratedResult> filesWritten, String rootTagName) {
 
         // Display the files generated
-        StringBuilder filesTreeStr = new StringBuilder();
+        StringBuilder filesTreeStr = new StringBuilder("\n");
         Map<String, List<GeneratedResult>> groupedByParent = filesWritten.stream()
                 .collect(Collectors.groupingBy(r -> r.previousRecordType, Collectors.toList()));
 
@@ -333,6 +373,10 @@ public class FlattenXmlRunner {
         }
     }
 
+    private boolean outputRecordsDefined() {
+        return recordOutputFieldsDefFile != null && recordCascadeFieldsDefFile != null ||
+                !xsds.isEmpty();
+    }
 
     private static void createOutputDirectory(String outDir) throws IOException {
         // Create output directory path

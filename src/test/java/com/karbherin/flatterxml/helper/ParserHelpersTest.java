@@ -5,6 +5,9 @@ import static org.junit.Assert.*;
 import com.karbherin.flatterxml.model.Pair;
 import org.junit.Test;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import static com.karbherin.flatterxml.helper.ParsingHelpers.*;
 public class ParserHelpersTest {
 
@@ -42,5 +45,21 @@ public class ParserHelpersTest {
         assertEquals("\"3\" : \"5\"", coord.toString());
     }
 
+    @Test
+    public void testElemAttr() {
+        Pattern elemAttrRx = Pattern.compile("^(?<elem>.*?)(\\[(?<attr>.*?)?\\])?$");
+        Matcher mat = elemAttrRx.matcher("ph:phone-num");
+        assertTrue(mat.find());
+        if (mat.find()) {
+            assertEquals("ph:phone-num", mat.group("elem"));
+            assertNull(mat.group("attr"));
+        }
 
+        mat = elemAttrRx.matcher("ph:phone-num[ph:contact-type]");
+        assertTrue(mat.find());
+        if (mat.find()) {
+            assertEquals("ph:phone-num", mat.group("elem"));
+            assertEquals("ph:contact-type", mat.group("attr"));
+        }
+    }
 }

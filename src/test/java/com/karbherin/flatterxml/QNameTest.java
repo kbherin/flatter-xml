@@ -10,6 +10,13 @@ import javax.xml.namespace.QName;
  */
 public class QNameTest {
     @Test
+    public void testValueOf_Prefix() {
+        QName qName = QName.valueOf("{http://kbps.com/emp}em:employee");
+        Assert.assertEquals("em:employee", qName.getLocalPart());
+        Assert.assertEquals("http://kbps.com/emp", qName.getNamespaceURI());
+    }
+
+    @Test
     public void testValueOf_Local() {
         QName qName = QName.valueOf("employee");
         Assert.assertEquals("employee", qName.getLocalPart());

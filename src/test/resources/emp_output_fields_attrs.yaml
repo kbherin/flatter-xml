@@ -8,13 +8,24 @@ namespaces:
 
 
 records:
-
   "employee":
     - "employee-no"
     - "department"
+    - {"identifiers": ["id-doc-expiry", "id-doc-type"]}
 
   "address":
     - "address-type"
     - "line1"
+    - "state"
+    - "zip"
+
+  "phone":
+    - "phone-num": []
+    - "phone-type"
+
+  "reroute":
+    - "employee-name"
+    - "line1"
+    - "line2"
     - "state"
     - "zip"

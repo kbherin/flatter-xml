@@ -1,6 +1,5 @@
 package com.karbherin.flatterxml.helper;
 
-import com.karbherin.flatterxml.model.RecordsDefinitionRegistry;
 import com.karbherin.flatterxml.xsd.XmlSchema;
 import org.xml.sax.SAXException;
 
@@ -9,6 +8,7 @@ import javax.xml.namespace.NamespaceContext;
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.Attribute;
+import javax.xml.stream.events.Namespace;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import javax.xml.transform.Source;
@@ -17,9 +17,7 @@ import javax.xml.validation.SchemaFactory;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.text.ParseException;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -28,10 +26,10 @@ public class XmlHelpers {
 
     public static final String CASCADES_DELIM = ";";
     public static final String PAIR_SEP = "=";
-    public static final String PREFIX_SEP = "=";
+    public static final String PREFIX_SEP = ":";
     public static final String COMMA_DELIM = ",";
-    public static final String WHITESPACES = "\\s+";
     public static final String EMPTY = "";
+    public static final String ELEM_ATTR_FMT = "%s[%s]";
 
     /**
      * Stringifies of attributes on an XML start tag.
@@ -65,7 +63,7 @@ public class XmlHelpers {
 
                 if (ev.isStartElement()) {
                     StartElement startEl = ev.asStartElement();
-                    String attrStr = attributeString(startEl.getAttributes());
+                    String attrStr = attributeString(attributesIterator(startEl));
                     String prefix = startEl.getName().getPrefix();
                     String tagName = (prefix.length() > 0 ? prefix + PREFIX_SEP : EMPTY)
                             + startEl.getName().getLocalPart();
@@ -114,38 +112,64 @@ public class XmlHelpers {
     }
 
     public static QName parsePrefixTag(String input, NamespaceContext nsContext, String targetNamespace) {
-        String[] parts = input.split(":");
+        QName qName = QName.valueOf(input);
+
+        String namespaceUri = qName.getNamespaceURI();
+        // If namespace URI is empty then use targetNamespace
+        if (namespaceUri == null || namespaceUri.isEmpty()) {
+            namespaceUri = targetNamespace;
+        }
+
+        String[] parts = qName.getLocalPart().split(PREFIX_SEP);
         if (parts.length > 1) {
+            // Handle forms: "{uri}prefix:name" and "prefix:name"
             return new QName(nsContext.getNamespaceURI(parts[0]), parts[1], parts[0]);
         } else {
-            QName qname = new QName(parts[0]);
-            if (qname.getNamespaceURI() == null || qname.getNamespaceURI().length() == 0)
-                return new QName(targetNamespace, parts[0]);
-            return qname;
+            // Handle forms: "{uri}name" and "name"
+            return new QName(namespaceUri, parts[0]);
         }
     }
 
     public static QName parsePrefixTag(String input) {
-        String[] parts = input.split(":");
+        QName qName = QName.valueOf(input);
+
+        String[] parts = qName.getLocalPart().split(PREFIX_SEP);
         if (parts.length > 1) {
             String prefix = parts[0];
             String tagName = parts[1];
-            return new QName("", tagName, prefix);
+            return new QName(qName.getNamespaceURI(), tagName, prefix);
         } else {
             String tagName = parts[0];
-            return new QName(tagName);
+            return new QName(qName.getNamespaceURI(), tagName);
         }
     }
 
     public static String toPrefixedTag(QName qname) {
+        return toPrefixedTag(qname, null, PREFIX_SEP);
+    }
+
+    public static String toPrefixedTag(QName qname, Map<String, Namespace> xmlnsUriToPrefix) {
+        return toPrefixedTag(qname, xmlnsUriToPrefix, PREFIX_SEP);
+    }
+
+    public static String toPrefixedTag(QName qname, Map<String, Namespace> xmlnsUriToPrefix, String separator) {
         if (qname.getPrefix() != null && qname.getPrefix().length() > 0) {
-            return String.format("%s:%s", qname.getPrefix(), qname.getLocalPart());
+            return String.format("%s%s%s", qname.getPrefix(), separator, qname.getLocalPart());
         }
+
+        // Alternate prefix
+        if (xmlnsUriToPrefix != null) {
+            Namespace ns = xmlnsUriToPrefix.get(qname.getNamespaceURI());
+            if (ns != null && ns.getPrefix() != null && ns.getPrefix().length() > 0) {
+                return String.format("%s%s%s", ns.getPrefix(), separator, qname.getLocalPart());
+            }
+        }
+
         return qname.getLocalPart();
     }
 
     public static QName extractAttrValue(StartElement el, QName attrName, String targetNamespace) {
-        for (Iterator<Attribute> it = el.getAttributes(); it.hasNext(); ) {
+        for (Iterator<Attribute> it = attributesIterator(el); it.hasNext(); ) {
             Attribute attr = it.next();
             QName attrQName = attr.getName();
             String nsUri = attrQName.getNamespaceURI();
@@ -156,11 +180,6 @@ public class XmlHelpers {
                 return parsePrefixTag(attr.getValue(), el.getNamespaceContext(), targetNamespace);
         }
         return null;
-    }
-
-    public static<T> Stream<T> iteratorStream(Iterator<T> iterator) {
-        return StreamSupport.stream(
-                Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false);
     }
 
     public static void validateXml(String xmlFile, String xsdFiles[]) throws SAXException, IOException {
@@ -185,24 +204,14 @@ public class XmlHelpers {
         return xsds;
     }
 
-    public static boolean isEmpty(String str) {
-        return str == null || str.trim().length() == 0;
+    @SuppressWarnings("unchecked")
+    public static Iterator<Attribute> attributesIterator(StartElement el) {
+        return (Iterator<Attribute>) el.getAttributes();
     }
 
-    public static <T> T defaultIfNull(T val, T defaultVal) {
-        return val == null ? defaultVal : val;
-    }
-
-    public static String emptyIfNull(String str) {
-        return defaultIfNull(str, EMPTY);
-    }
-
-    public static int parseInt(String str, int defaultValue) {
-        try {
-            return Integer.valueOf(str);
-        } catch (NumberFormatException ex) {
-            return defaultValue;
-        }
+    @SuppressWarnings("unchecked")
+    public static Iterator<Namespace> namespacesIterator(StartElement el) {
+        return (Iterator<Namespace>) el.getNamespaces();
     }
 
 }

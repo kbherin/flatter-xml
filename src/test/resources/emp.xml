@@ -16,7 +16,8 @@
           <zip>12345</zip>
           <reroute>  <!-- reroute.csv: While cascading, deepest info is presented first: <reroute-fields>|<address-fields>|<employee-fields> [deepest first]-->
             <employee-name>Nick Fury</employee-name>
-            <line1>541E Summer St.</line1>
+            <line1>541E
+              Summer St.</line1>
             <!-- While cascading with "XSD" policy "line2" field with empty value is printed, despite the element missing here. Always intend to use "XSD" policy -->
             <!-- But when cascading with "ALL" policy "line2" field will be missing in the output. "ALL" works only if XML file includes all the fields for complex types -->
             <state>NY, US</state>
@@ -82,6 +83,7 @@
     </contact>
   </employee>
   <employee>
+    <identifiers>11111111</identifiers>
     <employee-no>00000004</employee-no>
     <employee-name>Clint Barton</employee-name>
     <department>sales</department>

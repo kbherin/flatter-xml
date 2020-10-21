@@ -5,7 +5,9 @@
                                    http://kbps.com/phone phone_ns.xsd'>
   <emp:employee> <!-- employee.csv: 00000001|Steve Rogers|public relations|150,000.00 -->
     <!-- first avenger -->
-    <emp:employee-no>00000001</emp:employee-no>
+    <emp:identifiers emp:id-doc-type="SSN" emp:id-doc-expiry="1945-05-25">1234567890</emp:identifiers>
+    <emp:identifiers emp:id-doc-type="MEDICARE" emp:id-doc-expiry="2021-06-30">4567890123</emp:identifiers>
+    <emp:employee-no emp:status="active">00000001</emp:employee-no>
     <emp:employee-name>Steve Rogers</emp:employee-name>
     <emp:department>public relations</emp:department>
     <emp:salary>150,000.00</emp:salary>
@@ -28,14 +30,16 @@
       </emp:addresses>
       <ph:phones>
         <ph:phone>
-          <ph:phone-num>1234567890</ph:phone-num>
+          <ph:phone-num ph:contact-type="primary">1234567890</ph:phone-num>
           <ph:phone-type>landline</ph:phone-type>
         </ph:phone>
       </ph:phones>
     </emp:contact>
   </emp:employee>
   <emp:employee>
-    <emp:employee-no>00000002</emp:employee-no>
+    <emp:identifiers emp:id-doc-type="SSN">0000000000</emp:identifiers>
+    <emp:identifiers emp:id-doc-type="MIT" emp:id-doc-expiry="2008-12-28">8908907890</emp:identifiers>
+    <emp:employee-no emp:status="suspended">00000002</emp:employee-no>
     <emp:employee-name>Tony Stark</emp:employee-name>
     <emp:department>sales</emp:department>
     <emp:salary>89,000.00</emp:salary>
@@ -58,18 +62,20 @@
       </emp:addresses>
       <ph:phones>
         <ph:phone>
-          <ph:phone-num>7279237008</ph:phone-num>
+          <ph:phone-num ph:contact-type="primary">7279237008</ph:phone-num>
           <ph:phone-type>cell</ph:phone-type>
         </ph:phone>
         <ph:phone>
-          <ph:phone-num>9090909090</ph:phone-num>
+          <ph:phone-num ph:contact-type="emergency">9090909090</ph:phone-num>
           <ph:phone-type>office</ph:phone-type>
         </ph:phone>
       </ph:phones>
     </emp:contact>
   </emp:employee>
   <emp:employee>
-    <emp:employee-no>00000001</emp:employee-no>
+    <emp:identifiers emp:id-doc-type="SSN">1234567890</emp:identifiers>
+    <emp:identifiers emp:id-doc-type="MEDICARE" emp:id-doc-expiry="2021-06-30">4567890123</emp:identifiers>
+    <emp:employee-no emp:status="active">00000001</emp:employee-no>
     <emp:employee-name>Steve Rogers</emp:employee-name>
     <emp:department>public relations</emp:department>
     <emp:salary>150,000.00</emp:salary>

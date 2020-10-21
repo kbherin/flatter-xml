@@ -1,21 +1,21 @@
 package com.karbherin.flatterxml;
 
 import com.karbherin.flatterxml.helper.XmlHelpers;
+import com.karbherin.flatterxml.model.SchemaElementWithAttributes;
 import com.karbherin.flatterxml.model.Pair;
 import com.karbherin.flatterxml.model.RecordFieldsCascade;
-import com.karbherin.flatterxml.model.RecordsDefinitionRegistry;
+import com.karbherin.flatterxml.model.RecordDefinitions;
 import com.karbherin.flatterxml.output.RecordHandler;
 import com.karbherin.flatterxml.xsd.XmlSchema;
 import com.karbherin.flatterxml.xsd.XsdElement;
 
+import static com.karbherin.flatterxml.AppConstants.*;
+import static com.karbherin.flatterxml.helper.Utils.iteratorStream;
 import static com.karbherin.flatterxml.helper.XmlHelpers.*;
 
 import javax.xml.namespace.QName;
 import javax.xml.stream.*;
-import javax.xml.stream.events.EndElement;
-import javax.xml.stream.events.Namespace;
-import javax.xml.stream.events.StartElement;
-import javax.xml.stream.events.XMLEvent;
+import javax.xml.stream.events.*;
 import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -33,10 +33,10 @@ public class FlattenXml {
     private QName recordTag = null;  // Will be populated from recordTagGiven
     private final XMLEventReader reader;
     private final List<XmlSchema> xsds = new ArrayList<>();
-    private final RecordFieldsCascade.CascadePolicy cascadePolicy;
+    private final CascadePolicy cascadePolicy;
     private StartElement rootElement;
-    private final RecordsDefinitionRegistry recordCascadesRegistry;
-    private final RecordsDefinitionRegistry outputRecordFieldsSeq;
+    private final RecordDefinitions recordCascadesRegistry;
+    private final RecordDefinitions outputRecordFieldsSeq;
 
     // Maps namespace URIs in the xmlns declarations to prefixes
     private final Map<String, Namespace> xmlnsUriToPrefix = new HashMap<>();
@@ -62,9 +62,9 @@ public class FlattenXml {
     private final XMLEventFactory eventFactory = XMLEventFactory.newFactory();
 
     private FlattenXml(InputStream xmlStream, String recordTag,
-                       RecordFieldsCascade.CascadePolicy cascadePolicy,
-                       RecordsDefinitionRegistry recordCascadesRegistry,
-                       RecordsDefinitionRegistry outputRecordFieldsSeq,
+                       CascadePolicy cascadePolicy,
+                       RecordDefinitions recordCascadesRegistry,
+                       RecordDefinitions outputRecordFieldsSeq,
                        List<XmlSchema> xsds, RecordHandler recordHandler)
             throws XMLStreamException {
 
@@ -75,6 +75,7 @@ public class FlattenXml {
         this.recordHandler = recordHandler;
         this.xsds.addAll(xsds);
         this.outputRecordFieldsSeq = outputRecordFieldsSeq;
+        recordHandler.setXmlnsUriToPrefix(xmlnsUriToPrefix);
     }
 
     /**
@@ -100,7 +101,8 @@ public class FlattenXml {
      * @throws IOException
      */
     public long parseFlatten(long firstNRecords) throws XMLStreamException, IOException {
-        return flattenXmlDoc(firstNRecords);
+        long nRecs = flattenXmlDoc(firstNRecords);
+        return nRecs;
     }
 
     /**
@@ -142,7 +144,7 @@ public class FlattenXml {
                 } else {
                     rootElementVisited = true;
                     rootElement = el;
-                    iteratorStream((Iterator<Namespace>) rootElement.getNamespaces()).forEach(ns -> {
+                    iteratorStream(namespacesIterator(rootElement)).forEach(ns -> {
                         xmlnsUriToPrefix.put(ns.getNamespaceURI(), ns);
                     });
                     // The actual record tag string is parsed here as we now have the namespace context
@@ -150,7 +152,8 @@ public class FlattenXml {
                         recordTag = XmlHelpers.parsePrefixTag(recordTagGiven,
                                 el.getNamespaceContext(), rootElement.getName().getNamespaceURI());
                     }
-                    cascadingStack.push(new RecordFieldsCascade(el, Collections.emptyList(), null, xsds));
+                    // A new cascading container to the cascade stack
+                    pushNewCascadingRecord(el);
                     tagPath.push(el);
                     prevEv = ev;
                     // User did not specify the primary record tag. Skip root element.
@@ -161,20 +164,8 @@ public class FlattenXml {
                 if (prevEv.isStartElement()) {
                     currRecordCascade = cascadingStack.peek();
 
-                    // Add a cascading rule for a newly nested record.
-                    if (!currRecordCascade.recordName().equals( tagPath.peek().getName() )) {
-
-                        if (reuseRecordCascade != null &&
-                                reuseRecordCascade.recordName().equals(tagPath.peek().getName())) {
-                            // Reuse parent cascades if the record continues to be the same.
-                            // The cascading templates will be reused.
-                            currRecordCascade = reuseRecordCascade.clearCurrentRecordCascades();
-                        } else {
-                            // Cascade fields and values from parent record to this new record.
-                            currRecordCascade = newRecordCascade(tagPath.peek(), currRecordCascade);
-                        }
-                        cascadingStack.push(currRecordCascade);
-                    }
+                    // Add a cascading container for a newly nested record.
+                    pushNewNestedCascadingRecord();
                 }
 
                 if (tagName.equals(recordTag)) {
@@ -195,13 +186,8 @@ public class FlattenXml {
             } else if (tracking && ev.isEndElement()) { // End tag
                 EndElement endElement = ev.asEndElement();
 
-                // Previous element was data. Add it to the container's cascade list
-                if (!tagStack.peek().isStartElement() && !tagStack.peek().isEndElement()) {
-                    currRecordCascade.addCascadingData(
-                            endElement.getName(),
-                            tagStack.peek().asCharacters().getData(),
-                            cascadePolicy);
-                }
+                // Previous element was data. Add it to the container's cascading data
+                addCascadingData();
 
                 if (!inElement) {
                     // If parser is already outside an element and meets end of enclosing element
@@ -210,7 +196,7 @@ public class FlattenXml {
 
                     // A structural envelope does not contain its own data. Remove it from stack.
                     tagStack.pop();
-                    reuseRecordCascade = cascadingStack.pop().clearToCascadeToChildList();
+                    reuseRecordCascade = popCascadingRecord();
                 } else {
                     tagStack.push(ev);
                     inElement = false;
@@ -253,13 +239,52 @@ public class FlattenXml {
         return batchRecCounter;
     }
 
+    private void pushNewCascadingRecord(StartElement el) {
+        cascadingStack.push(new RecordFieldsCascade(el, Collections.emptyList(), cascadePolicy, null,
+                xsds, xmlnsUriToPrefix));
+    }
+
+    private void pushNewNestedCascadingRecord() {
+        if (cascadePolicy != CascadePolicy.NONE
+                && !currRecordCascade.recordName().equals( tagPath.peek().getName() )) {
+
+            if (reuseRecordCascade != null &&
+                    reuseRecordCascade.recordName().equals(tagPath.peek().getName())) {
+                // Reuse parent cascades if the record continues to be the same.
+                // The cascading templates will be reused.
+                currRecordCascade = reuseRecordCascade.clearCurrentRecordCascades();
+            } else {
+                // Cascade fields and values from parent record to this new record.
+                currRecordCascade = newRecordCascade(tagPath.peek(), currRecordCascade);
+            }
+            cascadingStack.push(currRecordCascade);
+        }
+    }
+
+    private RecordFieldsCascade popCascadingRecord() {
+        if (cascadePolicy == CascadePolicy.NONE) {
+            return null;
+        }
+        return cascadingStack.pop().clearToCascadeToChildList();
+    }
+
+    private void addCascadingData() {
+        if (!tagStack.peek().isStartElement() && !tagStack.peek().isEndElement()) {
+
+            currRecordCascade.addCascadingData(
+                    tagPath.peek(),
+                    tagStack.peek().asCharacters().getData(),
+                    cascadePolicy);
+        }
+    }
+
 
     private void writeRecord(Deque<XMLEvent> captureRecordOnError) throws IOException {
         if (tagStack.isEmpty()) {
             return;
         }
         XMLEvent ev;
-        Deque<Pair<QName, String>> pairStack = new ArrayDeque<>();
+        Deque<Pair<StartElement, String>> pairStack = new ArrayDeque<>();
 
         if (tagStack.isEmpty()) {
             return;
@@ -284,7 +309,7 @@ public class FlattenXml {
                 startElement = ev.asStartElement();
             }
 
-            pairStack.push(new Pair<>(startElement.getName(), data));
+            pairStack.push(new Pair<>(startElement, data));
 
             // Capture the entire record if a parsing error has occurred in the record.
             if (captureRecordOnError != null) {
@@ -296,86 +321,189 @@ public class FlattenXml {
 
         // The tabular file to write the record to.
         StartElement envelope = ev.asStartElement();
-        String recordTagName = envelope.getName().getLocalPart();
+        QName recordName = envelope.getName();
         tagStack.push(ev);     // Add it back on to tag stack.
 
-        // Final sequence of fields will be captured in this list
-        List<Pair<String, String>> pairList = null;
+        // Capture the record name which has an error in the record.
+        if (captureRecordOnError != null) {
+            captureRecordOnError.push(ev);
+            return;
+        }
 
         // User specified list of output fields takes the top priority
-        List<QName> outputFieldsSeq = outputRecordFieldsSeq.getRecordFields(envelope.getName());
+        List<? extends SchemaElementWithAttributes> outputFieldsSeq = outputRecordFieldsSeq.getRecordFields(recordName);
+
+        // Final sequence of fields will be captured in this list
+        List<List<Pair<String, String>>> records = null;
 
         // Goal: Align XML tags and data with desired field sequence or XSD field sequence or fallback to dump all
         if (!outputFieldsSeq.isEmpty()) {
             // 1. Align data from XML with the desired output fields sequence
-            pairList = alignFieldsToSchema(pairStack, outputFieldsSeq);
+            records = alignFieldsToSchema(pairStack, outputFieldsSeq);
 
         } else {
             // 2: Align data from XML with the sequence of fields in XSDs
 
             // Lookup schema for a list of fields a record can legitimately have
             XsdElement schemaEl = xsds.stream()
-                    .map(xsd -> xsd.getElementByName(envelope.getName()))
+                    .map(xsd -> xsd.getElementByName(recordName))
                     .filter(xsd -> xsd != null)
                     .findFirst().orElse(null);
 
             if (schemaEl != null) {
                 // Collect the list of fields a record should have
-                List<QName> recordSchemaFields = schemaEl.getChildElements().stream()
+                List<SchemaElementWithAttributes> recordSchemaFields = schemaEl.getChildElements().stream()
                         .filter(ch -> !XmlSchema.COMPLEX_TYPE.equals(ch.getType()))
-                        .map(ch -> ch.getName()).collect(Collectors.toList());
+                        .collect(Collectors.toList());
 
                 // Align with fields sequence in XSD
-                pairList = alignFieldsToSchema(pairStack, recordSchemaFields);
+                records = alignFieldsToSchema(pairStack, recordSchemaFields);
             }
         }
 
-        // 2. Final fallback - dump all XML fields and values
-        if (pairList == null) {
+        // 2. Final fallback - dump all XML fields and values if output was never defined with XSD or record definitions
+        if (records == null && outputRecordFieldsSeq.getRecords().isEmpty()) {
             // Fallback. Dump everything in the sequence they appear in the XML file
-            pairList = new ArrayList<>();
-            while (!pairStack.isEmpty()) {
-                Pair<QName, String> fv = pairStack.pop();
-                pairList.add(new Pair<String, String>(toPrefixedTag(fv.getKey()), fv.getVal()));
-            }
+            records = alignFieldsToSchema(pairStack, null);
         }
 
-        if (captureRecordOnError != null) {
-            // Capture the table name which has an error in the record.
-            captureRecordOnError.push(ev);
-        } else {
-            // Write record to file if there are no errors.
-            recordHandler.write(recordTagName, pairList, cascadingStack.peek(), cascadingStack.peek());
+        // Write record to file if there are no errors.
+        if (records != null) {
+            for (List<Pair<String, String>> record : records) {
+                recordHandler.write(recordName, record, cascadingStack.peek());
+            }
         }
     }
 
-    private List<Pair<String, String>> alignFieldsToSchema(
-            Collection<Pair<QName, String>> pairStack, List<QName> schemaFields) {
+    private List<Pair<String, String>> extractAttributesData(StartElement dataElem,
+                                                             SchemaElementWithAttributes schemaElem) {
 
-        // Make a field-value map first.
-        Map<String, Pair<QName, String>> fv = pairStack.stream()
-                .collect(Collectors.toMap(o -> o.getKey().getLocalPart(), o -> o));
+        String elemName = toPrefixedTag(dataElem.getName());
+        if (schemaElem != null) {
+            // Xml schema passed. Dump only listed attributes as per schema
+            return schemaElem.getAttributes().stream().map(schemaAttr -> {
+                Attribute attrData = dataElem.getAttributeByName(schemaAttr);
+                if (attrData == null) {
+                    return new Pair<>(String.format(ELEM_ATTR_FMT, elemName,
+                            toPrefixedTag(schemaAttr, xmlnsUriToPrefix)), EMPTY);
+                } else {
+                    return new Pair<>(String.format(ELEM_ATTR_FMT, elemName,
+                            toPrefixedTag(attrData.getName())), attrData.getValue());
+                }
+            }).collect(Collectors.toList());
+        } else {
+            // Xml schema not found. Dump all attributes on an element
+            return iteratorStream(attributesIterator(dataElem))
+                    .map(attrData -> new Pair<>(
+                            String.format(ELEM_ATTR_FMT, elemName, toPrefixedTag(attrData.getName())),
+                            attrData.getValue()))
+                    .collect(Collectors.toList());
+        }
+    }
+
+    private List<List<Pair<String, String>>> alignFieldsToSchema(
+            Collection<Pair<StartElement, String>> pairStack,
+            List<? extends SchemaElementWithAttributes> schemaFields) {
+
+        // Make a field-value map first. Group by tag names to catch repetitions.
+        Map<QName, List<Pair<StartElement, String>>> fieldGroups = pairStack.stream()
+                .collect(Collectors.groupingBy(pair -> pair.getKey().getName(),
+                        LinkedHashMap::new, Collectors.toList()));
+
+        List<List<Pair<String, String>>> records = new ArrayList<>();
+        records.add(new ArrayList<>());
+
+        List<QName> fieldsListing;
+        boolean fieldSeqPref;
+
+        if (schemaFields == null || schemaFields.isEmpty()) {
+            fieldsListing = new ArrayList<>(fieldGroups.keySet());
+            fieldSeqPref = false;
+        } else {
+            fieldsListing = schemaFields.stream()
+                    .map(SchemaElementWithAttributes::getName).collect(Collectors.toList());
+            fieldSeqPref = true;
+        }
 
         // Align header and data according to the order of fields defined in XSD for the record.
         // Force print fields that are missing for the record in the XML file.
-        Deque<String[]> aligned = new ArrayDeque<>();
-        return schemaFields.stream()
-                .map( tagName -> {
-                    Pair<QName, String> data =  fv.get(tagName.getLocalPart());
-                    if (data == null) {
-                        String prefix = xmlnsUriToPrefix.get(tagName.getNamespaceURI()).getPrefix();
-                        return new Pair<>(prefix+":"+tagName.getLocalPart(), EMPTY);
-                    } else {
-                        return new Pair<>(toPrefixedTag(data.getKey()), data.getVal());
+        for (int i = 0; i < fieldsListing.size(); i++) {
+            QName tagName = fieldsListing.get(i);
+            List<Pair<StartElement, String>> fieldValues = fieldGroups.get(tagName);
+
+            // Tags of the record that do not appear in the XML file but are defined in XSD
+            if (fieldValues == null) {
+                for (List<Pair<String, String>> rec : records) {
+                    String tagNameStr = toPrefixedTag(tagName, xmlnsUriToPrefix);
+                    rec.add(new Pair<>(tagNameStr, EMPTY));
+                    for (QName attr: schemaFields.get(i).getAttributes()) {
+                        rec.add(new Pair<>(String.format("%s[%s]", tagNameStr,
+                                toPrefixedTag(attr, xmlnsUriToPrefix)), EMPTY));
                     }
-                } )
-                .collect(Collectors.toList());
+                }
+                continue;
+            }
+
+            int repetition = 0;
+            int numPrevColsAdded;
+            List<List<Pair<String, String>>> baseRecords = records;
+
+            // Replicate result records as many times a field is repeated and
+            // add each value for a repeated field to one set of replicated records
+            for (Pair<StartElement, String> fv : fieldValues) {
+
+                // Clone the records list if we are dealing with the first repetition of a field
+                if (repetition == 1) {
+                    baseRecords = new ArrayList<>(records);
+                }
+
+                StartElement dataElem = fv.getKey();
+                Pair<String, String> fieldNameValue = new Pair<>(toPrefixedTag(dataElem.getName()), fv.getVal());
+                List<Pair<String, String>> attrsData = null;
+                if (fieldSeqPref) {
+                    SchemaElementWithAttributes schemaElem = schemaFields.get(i);
+                    attrsData = extractAttributesData(dataElem, schemaElem);
+                } else {
+                    attrsData = extractAttributesData(dataElem, null);
+                }
+
+                // Number of columns added to all the records as part of incorporating previous element
+                numPrevColsAdded = 1 + attrsData.size();
+
+                for (List<Pair<String, String>> rec : baseRecords) {
+
+                    if (repetition == 0) {
+                        rec.add(fieldNameValue);
+                        if (attrsData != null) {
+                            rec.addAll(attrsData);
+                        }
+                    } else {
+
+                        // Clone the record if we have tags repeated
+                        List<Pair<String, String>> recCopy = new ArrayList<>(
+                                rec.subList(0, Math.max(rec.size() - numPrevColsAdded, 0)));
+                        // Add the new element's data and attributes to the records
+                        recCopy.add(fieldNameValue);
+                        if (attrsData != null) {
+                            recCopy.addAll(attrsData);
+                        }
+
+                        // Add to the collection of records
+                        records.add(recCopy);
+                    }
+                }
+
+                repetition++;
+            }
+        }
+
+        return records;
     }
 
     private RecordFieldsCascade newRecordCascade(StartElement tag, RecordFieldsCascade parentRecCascade) {
-        RecordFieldsCascade recordFieldsCascade = new RecordFieldsCascade(
-                tag, recordCascadesRegistry.getRecordFields(tag.getName()), parentRecCascade, xsds);
-        return recordFieldsCascade;
+        return new RecordFieldsCascade(
+                tag, recordCascadesRegistry.getRecordFields(tag.getName()), cascadePolicy, parentRecCascade,
+                xsds, xmlnsUriToPrefix);
     }
 
     private XMLStreamException decorateParseError(XMLStreamException ex) throws IOException {
@@ -409,12 +537,16 @@ public class FlattenXml {
         return batchRecCounter;
     }
 
+    public Map<String, Namespace> getXmlnsUriToPrefix() {
+        return xmlnsUriToPrefix;
+    }
+
     public static class FlattenXmlBuilder {
         private InputStream xmlStream;
         private String recordTag = null;
-        private RecordFieldsCascade.CascadePolicy cascadePolicy = RecordFieldsCascade.CascadePolicy.NONE;
-        private RecordsDefinitionRegistry recordCascadeFieldsSeq = RecordsDefinitionRegistry.newInstance();
-        private RecordsDefinitionRegistry recordOutputFieldsSeq = RecordsDefinitionRegistry.newInstance();
+        private CascadePolicy cascadePolicy = CascadePolicy.NONE;
+        private RecordDefinitions recordCascadeFieldsSeq = RecordDefinitions.newInstance();
+        private RecordDefinitions recordOutputFieldsSeq = RecordDefinitions.newInstance();
         private List<XmlSchema> xsds = Collections.emptyList();
         private RecordHandler recordHandler;
 
@@ -428,35 +560,35 @@ public class FlattenXml {
             return this;
         }
 
-        public FlattenXmlBuilder setCascadePolicy(RecordFieldsCascade.CascadePolicy cascadePolicy) {
+        public FlattenXmlBuilder setCascadePolicy(CascadePolicy cascadePolicy) {
             this.cascadePolicy = cascadePolicy;
             return this;
         }
 
         public FlattenXmlBuilder setRecordCascadeFieldsSeq(File yamlFileName) throws IOException {
             if (yamlFileName == null) {
-                this.recordCascadeFieldsSeq = RecordsDefinitionRegistry.newInstance();
+                this.recordCascadeFieldsSeq = RecordDefinitions.newInstance();
             } else {
-                this.recordCascadeFieldsSeq = RecordsDefinitionRegistry.newInstance(yamlFileName);
+                this.recordCascadeFieldsSeq = RecordDefinitions.newInstance(yamlFileName);
             }
             return this;
         }
 
         public FlattenXmlBuilder setRecordOutputFieldsSeq(File yamlFileName) throws IOException {
             if (yamlFileName == null) {
-                this.recordOutputFieldsSeq = RecordsDefinitionRegistry.newInstance();
+                this.recordOutputFieldsSeq = RecordDefinitions.newInstance();
             } else {
-                this.recordOutputFieldsSeq = RecordsDefinitionRegistry.newInstance(yamlFileName);
+                this.recordOutputFieldsSeq = RecordDefinitions.newInstance(yamlFileName);
             }
             return this;
         }
 
-        public FlattenXmlBuilder setRecordCascadeFieldsSeq(RecordsDefinitionRegistry recordCascadeFieldsSeq) {
+        public FlattenXmlBuilder setRecordCascadeFieldsSeq(RecordDefinitions recordCascadeFieldsSeq) {
             this.recordCascadeFieldsSeq = recordCascadeFieldsSeq;
             return this;
         }
 
-        public FlattenXmlBuilder setRecordOutputFieldsSeq(RecordsDefinitionRegistry recordOutputFieldsSeq) {
+        public FlattenXmlBuilder setRecordOutputFieldsSeq(RecordDefinitions recordOutputFieldsSeq) {
             this.recordOutputFieldsSeq = recordOutputFieldsSeq;
             return this;
         }
@@ -473,7 +605,41 @@ public class FlattenXml {
             return this;
         }
 
+        private void validate() {
+            if (cascadePolicy == CascadePolicy.XSD && xsds.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Cascading policy cannot be XSD if XSD files are not provided");
+            }
+
+            if (cascadePolicy == CascadePolicy.DEF && recordCascadeFieldsSeq.getRecords().isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Cascading policy cannot be DEF if user has not defined the " +
+                                "the fields on a record to cascade to descendant records");
+            }
+        }
+
         public FlattenXml create() throws XMLStreamException {
+
+            // Copy output record definitions as cascading definitions if cascade policy is to follow output
+            if (cascadePolicy == CascadePolicy.OUT && recordCascadeFieldsSeq.getRecords().isEmpty()) {
+                // Cascading policy is to follow output.
+                if (!recordOutputFieldsSeq.getRecords().isEmpty()) {
+                    // Output records are defined by user with an 'out.yaml' file.
+                    // Apply same record definitions for cascading too.
+                    recordCascadeFieldsSeq = recordOutputFieldsSeq;
+                    // Mark cascading as explicitly defined by user
+                    cascadePolicy = CascadePolicy.DEF;
+                } else if (!xsds.isEmpty()) {
+                    // XSDs are provided. Therefore output follows XSD and cascade policy is to follow OUT.
+                    // It 'implies' that cascading should follow XSD.
+                    cascadePolicy = CascadePolicy.XSD;
+                }
+            }
+            if (! recordCascadeFieldsSeq.getRecords().isEmpty()) {
+                cascadePolicy = CascadePolicy.DEF;
+            }
+
+
             // Input XML file, tag that identifies a record
             return new FlattenXml(xmlStream, recordTag,
                     // Cascading data from parent record to child records
