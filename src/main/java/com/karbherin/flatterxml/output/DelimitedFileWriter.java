@@ -51,6 +51,7 @@ public class DelimitedFileWriter implements RecordHandler {
 
     private enum KeyValuePart {FIELD_PART, VALUE_PART}
     private static final String DATA_HEADER_SEP = "##HEADER>#";
+    private static final Pattern NEWLINE_RX = Pattern.compile("\r?\n");
 
     public DelimitedFileWriter(String delimiter, String outDir,
                                boolean outFieldsDefined, StatusReporter statusReporter,
@@ -430,7 +431,7 @@ public class DelimitedFileWriter implements RecordHandler {
     }
 
     private String replaceNewline(String data) {
-        return data.replace(System.lineSeparator(), newlineReplacement);
+        return NEWLINE_RX.matcher(data).replaceAll(newlineReplacement);
     }
 
     @Override
