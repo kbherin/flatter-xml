@@ -127,7 +127,7 @@ public class FlattenXmlNotNamespacedXMLTest {
         // output record definitions file record_defs.yaml
         // ----------------------------------------------
         // This record_defs.yaml can be reused for faster processing.
-        // The tests below check if using it maintains the same output as that produced from full export
+        // The tests below check if using it maintains similar output as that produced from full export
         Files.createDirectories(Paths.get(
                 "target/test/results/reuseRecordDefinitionsGeneratedByFullDump_noNsXML" + reusedDefsDir));
         recordHandler = new DelimitedFileWriter(
@@ -145,11 +145,12 @@ public class FlattenXmlNotNamespacedXMLTest {
         assertEquals(21, flattener.parseFlatten());
         recordHandler.closeAllFileStreams();
 
+        // Only employee.csv will match after using the record defs file produced by full dump
+        // because being the top level record type it does not have cascading
         compareOutFiles(outDir + "/employee.csv", outDir + "/reused_recdefs/employee.csv");
         // This behavior cannot be fixed
         //compareOutFiles(outDir + "/address.csv", outDir + "/reused_recdefs/address.csv");
         //compareOutFiles(outDir + "/phone.csv", outDir + "/reused_recdefs/phone.csv");
-        // This behavior cannot be fixed
         //compareOutFiles(outDir + "/reroute.csv", outDir + "/reused_recdefs/reroute.csv");
 
         assertTrue(new File(outDir + "/contact.csv").exists());
@@ -158,6 +159,37 @@ public class FlattenXmlNotNamespacedXMLTest {
         assertFalse(new File(outDir + "/reused_recdefs/contact.csv").exists());
         assertFalse(new File(outDir + "/reused_recdefs/addresses.csv").exists());
         assertFalse(new File(outDir + "/reused_recdefs/phones.csv").exists());
+
+        assertEquals(0, fileLines(outDir + "/addresses.csv").size());
+        assertEquals(0, fileLines(outDir + "/contact.csv").size());
+        assertEquals(0, fileLines(outDir + "/phones.csv").size());
+        assertEquals("identifiers|employee-no|employee-name|department|salary|contact",
+                fileLines(outDir + "/employee.csv").get(0));
+        assertEquals("identifiers|employee-no|employee-name|department|salary|contact",
+                fileLines(outDir + "/reused_recdefs/employee.csv").get(0));
+
+        assertEquals("address-type|line1|line2|state|zip" +
+                        "|employee.employee-no|employee.employee-name|employee.department|employee.salary|employee.identifiers",
+                fileLines(outDir + "/address.csv").get(0));
+        assertEquals("address-type|line1|line2|state|zip" +
+                        "|employee.identifiers|employee.employee-no|employee.employee-name|employee.department|employee.salary|employee.contact",
+                fileLines(outDir + "/reused_recdefs/address.csv").get(0));
+
+        assertEquals("phone-num|phone-type" +
+                        "|employee.employee-no|employee.employee-name|employee.department|employee.salary|employee.identifiers",
+                fileLines(outDir + "/phone.csv").get(0));
+        assertEquals("phone-num|phone-type" +
+                        "|employee.identifiers|employee.employee-no|employee.employee-name|employee.department|employee.salary|employee.contact",
+                fileLines(outDir + "/reused_recdefs/phone.csv").get(0));
+
+        assertEquals("employee-name|line1|state|zip" +
+                        "|address.address-type|address.line1|address.state|address.zip" +
+                        "|employee.employee-no|employee.employee-name|employee.department|employee.salary",
+                fileLines(outDir + "/reroute.csv").get(0));
+        assertEquals("employee-name|line1|state|zip" +
+                        "|address.address-type|address.line1|address.line2|address.state|address.zip" +
+                        "|employee.identifiers|employee.employee-no|employee.employee-name|employee.department|employee.salary|employee.contact",
+                fileLines(outDir + "/reused_recdefs/reroute.csv").get(0));
     }
 
     // Equivalent to FlattenXmlRunner CLI options: -f out.yaml, -c casc.yaml

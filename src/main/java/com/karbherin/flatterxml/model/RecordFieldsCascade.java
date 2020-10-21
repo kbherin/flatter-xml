@@ -183,18 +183,22 @@ public final class RecordFieldsCascade implements RecordTypeHierarchy, CascadedA
         return this;
     }
 
+    @Override
     public List<Pair<String, String>> getCascadedAncestorFields() {
         return parent.toCascadeToChild;
     }
 
+    @Override
     public QName recordName() {
         return recordName;
     }
 
+    @Override
     public RecordTypeHierarchy parentRecordType() {
         return parent;
     }
 
+    @Override
     public int recordLevel() {
         return level;
     }

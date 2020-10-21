@@ -370,7 +370,7 @@ public class FlattenXml {
         // Write record to file if there are no errors.
         if (records != null) {
             for (List<Pair<String, String>> record : records) {
-                recordHandler.write(recordName, record, cascadingStack.peek(), cascadingStack.peek());
+                recordHandler.write(recordName, record, cascadingStack.peek());
             }
         }
     }

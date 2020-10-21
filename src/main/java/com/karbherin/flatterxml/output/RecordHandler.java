@@ -13,8 +13,9 @@ import java.util.Map;
 
 public interface RecordHandler {
 
-    void write(QName recordName, Iterable<Pair<String, String>> fieldValueStack,
-               CascadedAncestorFields cascadedData, RecordTypeHierarchy recordTypeAncestry)
+    void write(QName recordName,
+               Iterable<Pair<String, String>> fieldValueStack,
+               CascadedAncestorFields cascadedData)
             throws IOException;
 
     List<GeneratedResult> getFilesWritten();

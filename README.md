@@ -56,7 +56,7 @@ Use the main function in FlattenXmlRunner to run this on command line.
 usage: FlattenXmlRunner XMLFile [OPTIONS]
  -c,--cascades <arg>           Data for tags under a record(complex) type
                                element is cascaded to child records.
-                               NONE|ALL|XSD|<record-fields-yaml>.
+                               NONE|OUT|XSD|<record-fields-yaml>.
                                Defaults to NONE
  -d,--delimiter <arg>          Delimiter. Defaults to a comma(,)
  -l,--newline <arg>            Newline replacement character. Defaults to tilde(~)
@@ -81,45 +81,45 @@ usage: FlattenXmlRunner XMLFile [OPTIONS]
 For any record type(complex type) output fields and fields to cascade to child records,
 can be specified with 
 1) XSD
-2) Record Specification File
+2) Record Definition File
 
 ##### Specifying the record definition file
-User can define either the output fields or fields to cascade from parent to child or both.
+User can define record definition files to define the output record and fields to cascade to child record.
 1) Output fields for a record type can be specified with a call to `builder.setRecordOutputFieldsSeq(yamlFile2)`
 2) Similarly, fields to cascade for a record type can be specified with `builder.setRecordCascadeFieldsSeq(yamlFile1)`
 
 Both lists only support inclusion. 
 
-##### Effect of cascading fields, output fields and XSDs on the output
+##### Effect of record definition files, cascading options and XSDs on the output
 
-|-f Output Def|-c Cascade Def|-x XSD| _Result:_ Output Fields                | _Result:_ Cascaded Fields              |
-|-------------|--------------|------|----------------------------------------|----------------------------------------|
-|    No       |       No     |  No  |All simple tags as they appear in XML   |No cascading from parent record         |
-|    No       |       No     | Yes  |All simple tags in same seq as in XSD   |No cascading from parent record         |
-|    No       |      "ALL"   |  No  |All simple tags as they appear in XML   |All tags cascade to child record        |
-|    No       |      "ALL"   | Yes  |All simple tags in same seq as in XSD   |All XSD tags cascade to child record    |
-|    No       |       Yes    |  No  |All simple tags as their appear in XML  |Specified tags & seq as in Cascade Def  |
-|    No       |       Yes    | Yes  |All simple tags, but in XSD seq         |Specified tags & seq as in Cascade Def  |
-|    Yes      |       No     |  No  |Simple tags & their seq as in Output Def|No cascading from parent record         |
-|    Yes      |       No     | Yes  |Simple tags & their seq as in Output Def|All XSD required tags cascade to child  |
-|    Yes      |       Yes    |  No  |Simple tags & their seq as in Output Def|Specified tags & seq as in Cascade Def  |
-|    Yes      |       Yes    | Yes  |Simple tags & their seq as in Output Def|Specified tags & seq as in Cascade Def  |
-|    Yes      |      "ALL"   | No   |Simple tags & their seq as in Output Def|Tags in Output Def cascade to child rec |
-|    Yes      |      "ALL"   | Yes  |Simple tags & their seq as in Output Def|All XSD tags cascade to child record    |
+|-f Output Def|-x XSD|-c Cascade Def| Tags on the Output Record              | _Result:_ Tags Cascaded to Child Record |
+|-------------|------|--------------|----------------------------------------|-----------------------------------------|
+|             |      |              |All simple tags in same seq as in XML   |No cascading to child record             |
+|             |      |      OUT     |All simple tags in same seq as in XML   |Follows output tags of record            |
+|             |x1.xsd|              |All simple tags in same seq as in XSD   |No cascading to child record             |
+|             |x1.xsd|      XSD     |All simple tags in same seq as in XSD   |Follows tags seq in XSD file             |
+|             |x1.xsd|      OUT     |All simple tags in same seq as in XSD   |Follows output tags of record            |
+|   out.yml   |      |              |All tags in same seq defined in out.yml |No cascading to child record             |
+|   out.yml   |      |      OUT     |All tags in same seq defined in out.yml |Follows output tags of record            |
+|   out.yml   |      |   casc.yml   |All tags in same seq defined in out.yml |Follows tags seq defined in casc.yml     |
+|   out.yml   |x1.xsd|   casc.yml   |All tags in same seq defined in out.yml |Follows tags seq defined in casc.yml     |
+|   out.yml   |x1.xsd|              |All tags in same seq defined in out.yml |No cascading to child record             |
+|   out.yml   |x1.xsd|      OUT     |All tags in same seq defined in out.yml |Follows output tags of record            |
+|   out.yml   |x1.xsd|      XSD     |All tags in same seq defined in out.yml |Follows tags seq in XSD file             |
 
 ###### Column sequence handling summary
 For columns in current record
 
-1. `-x emp.xsd`           = record's columns follow XSD
-2. `-f record_defs.yaml`  = record's columns follow the user defined order. Overrides -x
+1. `-x emp.xsd`          = record's columns follow the XSD file
+2. `-f record_defs.yaml` = record's columns follow the user defined order. Overrides -x
+3. `<-f unspecified>`    = record's columns follow the order of appearance in the XML file
 
 For columns cascaded to descendant record
 
-1. `-x emp.xsd -c XSD`    = columns cascaded to child records follow XSD
-2. `-x emp.xsd -c ALL`    = columns cascaded to child records follow XSD
-3. `-c NONE`              = no cascading to child records. Overrides -x and -f
-4. `-c cascade_defs.yaml` = columns cascaded to child records follow user defined order. Overrides -x
-5. `-f record_defs.yaml -c ALL` = means the same as `-f record_defs.yaml -c record_defs.yaml`
+1. `-c XSD -x x1.xsd`    = columns cascaded to child records follow the tags in XSD file
+2. `-c OUT`              = columns cascaded to child records follow the output record's fields
+3. `-c NONE`             = no cascading to child records
+4. `-c casc.yaml`        = columns cascaded to child records follow user defined order
 
 ## Examples
 
@@ -137,7 +137,7 @@ An example of extracting information into CSV files about employees in an organi
     <contact> <!-- contact.csv: empty -->
       <addresses> <!-- addresses.csv: empty -->
                    <!-- address.csv: Header fields indicate the source: address-type|line1|state|zip|employee.employee-no|employee.employee-name|employee.department|employee.salary--> 
-        <address>  <!-- address.csv: With cascade policy "ALL" prints : primary|1 Tudor &amp; Place|NY, US|12345|00000001|Steve Rogers|public relations|150,000.00-->
+        <address>  <!-- address.csv: With cascade policy "OUT" prints : primary|1 Tudor &amp; Place|NY, US|12345|00000001|Steve Rogers|public relations|150,000.00-->
           <address-type>primary</address-type>
           <line1>1 Tudor &amp; Place</line1>
           <state>NY, US</state>
@@ -146,7 +146,7 @@ An example of extracting information into CSV files about employees in an organi
             <employee-name>Nick Fury</employee-name>
             <line1>541E Summer St.</line1>
             <!-- While cascading with "XSD" policy "line2" field with empty value is printed, despite the element missing here. Always intend to use "XSD" policy -->
-            <!-- But when cascading with "ALL" policy "line2" field will be missing in the output. "ALL" works only if XML file includes all the fields for complex types -->
+            <!-- But when cascading with "OUT" policy "line2" field will be missing in the output. "OUT" works only if XML file includes all the fields for complex types -->
             <state>NY, US</state>
             <zip>92478</zip>
           <!--  Header in reroute.csv: employee-name|line1|line2|state|zip|address.address-type|address.line1|address.state|address.zip|employee.employee-no|employee.employee-name|employee.department -->
@@ -164,7 +164,7 @@ An example of extracting information into CSV files about employees in an organi
 
 ```
 
-If "record identifying" tag is unavailable then it infers it as the tag that immediately follows the root tag.
+If the top-level record tag is unavailable then it infers it as the tag that immediately follows the root tag.
 In this case it is `<employee>`.
 
 ##### Record Definition File

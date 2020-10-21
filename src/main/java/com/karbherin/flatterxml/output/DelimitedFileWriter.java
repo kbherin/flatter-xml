@@ -68,13 +68,15 @@ public class DelimitedFileWriter implements RecordHandler {
 
     @Override
     public void write(QName recordName, Iterable<Pair<String, String>> fieldValueStack,
-                      CascadedAncestorFields cascadedData, RecordTypeHierarchy recordTypeAncestry)
+                      CascadedAncestorFields cascadedData)
             throws IOException {
 
-        String fileName = toPrefixedTag(recordName).replace(':', '.');
+        String fileName = Arrays.asList(recordName.getPrefix(), recordName.getLocalPart()).stream()
+                .filter(part -> part != null && part.length() > 0)
+                .collect(Collectors.joining("."));
 
-        String previousFileName = previousFile(recordTypeAncestry, fileName);
-        int currLevel = recordTypeAncestry.recordLevel();
+        String previousFileName = previousFile(cascadedData, fileName);
+        int currLevel = cascadedData.recordLevel();
 
         final OpenCan<IOException> exception = new OpenCan<>();
         ByteChannel out = fileStreams.computeIfAbsent(fileName, (fName) -> {
@@ -127,18 +129,24 @@ public class DelimitedFileWriter implements RecordHandler {
                     + " Output record definitions not provided."
                     + " Regularizing all records to have same sequence of columns");
 
+            Map<String, List<String>> realignedRec = new HashMap<>();
+
             final CountDownLatch latch = new CountDownLatch(fileStreams.keySet().size());
-            for (String fileName : fileStreams.keySet()) {
-                new Thread(() -> {
-                    try {
-                        realignRecords(allRecHeaders.get(fileName).keySet().toArray(new String[0]), fileName);
-                    } catch (IOException ex) {
-                        statusReporter.logError(
-                                new RuntimeException("Could not post process " + fileName, ex), 1);
-                    }
-                    latch.countDown();
-                }).start();
-            }
+            filesWritten.stream()
+                    .sorted(Comparator.comparingInt(gr -> gr.recordLevel))
+                    .map(gr -> gr.recordType)
+                    .forEach(fileName ->
+                        new Thread(() -> {
+                            try {
+                                realignRecords(fileName);
+                            } catch (IOException ex) {
+                                statusReporter.logError(
+                                        new RuntimeException("Could not post process " + fileName, ex), 1);
+                            } finally {
+                                latch.countDown();
+                            }
+                        }).start()
+                    );
 
             try {
                 latch.await();
@@ -249,13 +257,14 @@ public class DelimitedFileWriter implements RecordHandler {
         out.write(buf);
     }
 
-    private void realignRecords(final String[] headers, String fileName) throws IOException {
-        if (headers.length == 0)
-            return;
+    private List<String> realignRecords(String fileName) throws IOException {
+
+        Map<String, Pair<Integer, Integer>> fileHeaders = allRecHeaders.get(fileName);
+        if (fileHeaders.keySet().size() == 0) {
+            return Collections.emptyList();
+        }
 
         long startTime = System.currentTimeMillis();
-        Map<String, Pair<Integer, Integer>> fileHeaders = allRecHeaders.get(fileName);
-
         // [(header, headerId, numOfColumns), ...]
         List<Map.Entry<String, Pair<Integer, Integer>>> headerStats = fileHeaders.entrySet().stream()
                 .sorted((e1, e2) -> e2.getKey().compareTo(e1.getKey()))
@@ -339,6 +348,8 @@ public class DelimitedFileWriter implements RecordHandler {
         long endTime = System.currentTimeMillis();
         statusReporter.logInfo(String.format("\nRegularized %d records of %s in %d seconds",
                 recCount.val, fileName, (endTime - startTime)/1000));
+
+        return allCols;
     }
 
     private void writeOutputRecordDefs() throws IOException {
@@ -358,7 +369,8 @@ public class DelimitedFileWriter implements RecordHandler {
                                 }
                                 List<String> attrs = elemAttrs.computeIfAbsent(
                                         mat.group("elem"), ign -> new ArrayList<>());
-                                Optional.ofNullable(mat.group("attr")).ifPresent(attrData -> attrs.add(attrData));
+                                Optional.ofNullable(mat.group("attr"))
+                                        .ifPresent(attrData -> attrs.add(attrData));
                             });
 
                     if (excp.val == null) {
