@@ -6,6 +6,7 @@ import com.karbherin.flatterxml.model.OpenCan;
 import com.karbherin.flatterxml.model.Pair;
 import com.karbherin.flatterxml.model.RecordTypeHierarchy;
 
+import javax.xml.namespace.QName;
 import javax.xml.stream.events.Namespace;
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -20,6 +21,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.karbherin.flatterxml.helper.XmlHelpers.EMPTY;
+import static com.karbherin.flatterxml.helper.XmlHelpers.toPrefixedTag;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.nio.file.StandardOpenOption.*;
 
@@ -51,11 +53,6 @@ public class DelimitedFileWriter implements RecordHandler {
     private static final String DATA_HEADER_SEP = "##HEADER>#";
 
     public DelimitedFileWriter(String delimiter, String outDir,
-                               boolean outFieldsDefined, StatusReporter statusReporter) {
-        this(delimiter, outDir, outFieldsDefined, statusReporter, "~");
-    }
-
-    public DelimitedFileWriter(String delimiter, String outDir,
                                boolean outFieldsDefined, StatusReporter statusReporter,
                                String newlineReplacement) {
 
@@ -70,12 +67,16 @@ public class DelimitedFileWriter implements RecordHandler {
     }
 
     @Override
-    public void write(String fileName, Iterable<Pair<String, String>> fieldValueStack,
-                      CascadedAncestorFields cascadedData, RecordTypeHierarchy recordTypeAncestry)
+    public void write(QName recordName, Iterable<Pair<String, String>> fieldValueStack,
+                      CascadedAncestorFields cascadedData)
             throws IOException {
 
-        String previousFileName = previousFile(recordTypeAncestry, fileName);
-        int currLevel = recordTypeAncestry.recordLevel();
+        String fileName = Arrays.asList(recordName.getPrefix(), recordName.getLocalPart()).stream()
+                .filter(part -> part != null && part.length() > 0)
+                .collect(Collectors.joining("."));
+
+        String previousFileName = previousFile(cascadedData, fileName);
+        int currLevel = cascadedData.recordLevel();
 
         final OpenCan<IOException> exception = new OpenCan<>();
         ByteChannel out = fileStreams.computeIfAbsent(fileName, (fName) -> {
@@ -128,18 +129,24 @@ public class DelimitedFileWriter implements RecordHandler {
                     + " Output record definitions not provided."
                     + " Regularizing all records to have same sequence of columns");
 
+            Map<String, List<String>> realignedRec = new HashMap<>();
+
             final CountDownLatch latch = new CountDownLatch(fileStreams.keySet().size());
-            for (String fileName : fileStreams.keySet()) {
-                new Thread(() -> {
-                    try {
-                        realignRecords(allRecHeaders.get(fileName).keySet().toArray(new String[0]), fileName);
-                    } catch (IOException ex) {
-                        statusReporter.logError(
-                                new RuntimeException("Could not post process " + fileName, ex), 1);
-                    }
-                    latch.countDown();
-                }).start();
-            }
+            filesWritten.stream()
+                    .sorted(Comparator.comparingInt(gr -> gr.recordLevel))
+                    .map(gr -> gr.recordType)
+                    .forEach(fileName ->
+                        new Thread(() -> {
+                            try {
+                                realignRecords(fileName);
+                            } catch (IOException ex) {
+                                statusReporter.logError(
+                                        new RuntimeException("Could not post process " + fileName, ex), 1);
+                            } finally {
+                                latch.countDown();
+                            }
+                        }).start()
+                    );
 
             try {
                 latch.await();
@@ -152,6 +159,8 @@ public class DelimitedFileWriter implements RecordHandler {
                     outDir, "record_defs.yaml"));
             statusReporter.logInfo(
                     "\nSpecify it for -o and -c options to gain on performance and for predictable sequence of columns");
+
+            // Write output record definitions
             writeOutputRecordDefs();
 
             long endTime = System.currentTimeMillis();
@@ -248,20 +257,19 @@ public class DelimitedFileWriter implements RecordHandler {
         out.write(buf);
     }
 
-    private void realignRecords(final String[] headers, String fileName) throws IOException {
-        if (headers.length == 0)
-            return;
+    private List<String> realignRecords(String fileName) throws IOException {
+
+        Map<String, Pair<Integer, Integer>> fileHeaders = allRecHeaders.get(fileName);
+        if (fileHeaders.keySet().size() == 0) {
+            return Collections.emptyList();
+        }
 
         long startTime = System.currentTimeMillis();
-        Map<String, Pair<Integer, Integer>> fileHeaders = allRecHeaders.get(fileName);
-
         // [(header, headerId, numOfColumns), ...]
         List<Map.Entry<String, Pair<Integer, Integer>>> headerStats = fileHeaders.entrySet().stream()
                 .sorted((e1, e2) -> e2.getKey().compareTo(e1.getKey()))
                 .collect(Collectors.toList());
 
-        if (fileName.equals("address"))
-            headerStats.size();
 
         // Merge column list of all headers into a single header with all columns of all records
         List<String> allCols = Utils.collapseSequences(
@@ -340,6 +348,8 @@ public class DelimitedFileWriter implements RecordHandler {
         long endTime = System.currentTimeMillis();
         statusReporter.logInfo(String.format("\nRegularized %d records of %s in %d seconds",
                 recCount.val, fileName, (endTime - startTime)/1000));
+
+        return allCols;
     }
 
     private void writeOutputRecordDefs() throws IOException {
@@ -359,11 +369,13 @@ public class DelimitedFileWriter implements RecordHandler {
                                 }
                                 List<String> attrs = elemAttrs.computeIfAbsent(
                                         mat.group("elem"), ign -> new ArrayList<>());
-                                Optional.ofNullable(mat.group("attr")).ifPresent(attrData -> attrs.add(attrData));
+                                Optional.ofNullable(mat.group("attr"))
+                                        .ifPresent(attrData -> attrs.add(attrData));
                             });
 
-                    if (excp.val == null)
+                    if (excp.val == null) {
                         recElemsAttrs.put(ent.getKey(), elemAttrs);
+                    }
                 });
 
         if (excp.val != null) {
@@ -384,9 +396,10 @@ public class DelimitedFileWriter implements RecordHandler {
                 .sorted(Comparator.comparing(Map.Entry::getKey))
                 .forEach(ent -> {
                     try {
-                        writer.write(String.format("\n%s\"%s\":\n", indent, ent.getKey()));
+                        writer.write(String.format("\n%s\"%s\":\n", indent,
+                                ent.getKey().replace('.', ':')));
                         ent.getValue().forEach((elem, attrs) -> {
-                            StringJoiner joiner = (new StringJoiner("\",\"", "\"", "\""));
+                            StringJoiner joiner = new StringJoiner("\",\"", "\"", "\"");
                             attrs.forEach(attr -> joiner.add(attr));
                             try {
                                 String attrsDelimited = joiner.toString();
@@ -400,6 +413,11 @@ public class DelimitedFileWriter implements RecordHandler {
                         excp.val = ex;
                     }
                 });
+
+        if (excp.val != null) {
+            throw excp.val;
+        }
+
         writer.close();
     }
 

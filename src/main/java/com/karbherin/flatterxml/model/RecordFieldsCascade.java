@@ -9,6 +9,7 @@ import com.karbherin.flatterxml.xsd.XsdAttribute;
 
 import javax.xml.namespace.QName;
 import javax.xml.stream.events.Attribute;
+import javax.xml.stream.events.Namespace;
 import javax.xml.stream.events.StartElement;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -22,12 +23,14 @@ public final class RecordFieldsCascade implements RecordTypeHierarchy, CascadedA
     private final int level;
 
     public RecordFieldsCascade(StartElement recordName, List<RecordDefinitions.Field> cascadingFields,
-                               RecordFieldsCascade parent, List<XmlSchema> xsds) {
+                               CascadePolicy cascadePolicy,
+                               RecordFieldsCascade parent, List<XmlSchema> xsds,
+                               Map<String, Namespace> xmlnsUriToPrefix) {
         this.recordName = recordName.getName();
         if (cascadingFields == null) {
-            positions = setupCascadeFields(Collections.emptyList(), xsds);
+            positions = setupCascadeFields(Collections.emptyList(), cascadePolicy, xsds, xmlnsUriToPrefix);
         } else {
-            positions = setupCascadeFields(cascadingFields, xsds);
+            positions = setupCascadeFields(cascadingFields, cascadePolicy, xsds, xmlnsUriToPrefix);
         }
 
         this.parent = parent == null ? this : parent;
@@ -52,7 +55,7 @@ public final class RecordFieldsCascade implements RecordTypeHierarchy, CascadedA
             }
             // Capture the data value at the designated location
             field.setVal(tagValue);
-        } else if (policy == CascadePolicy.ALL) {
+        } else if (policy == CascadePolicy.OUT) {
             positions.put(tagLocalName, cascadePairList.size());
             // Append the tag-value pair only if policy is cascade ALL
             cascadePairList.add(new Pair<>(tagName, tagValue));
@@ -69,7 +72,7 @@ public final class RecordFieldsCascade implements RecordTypeHierarchy, CascadedA
             if (pos != null) {
                 // Capture the data value at the designated location
                 cascadePairList.get(pos).setVal(attr.getValue());
-            } else if (policy == CascadePolicy.ALL) {
+            } else if (policy == CascadePolicy.OUT) {
                 positions.put(fullAttrLocalName, cascadePairList.size());
                 // Append the tag-value pair only if policy is cascade ALL
                 cascadePairList.add(new Pair<>(fullAttrQualifiedName, attr.getValue()));
@@ -85,10 +88,12 @@ public final class RecordFieldsCascade implements RecordTypeHierarchy, CascadedA
      * @param xsds          - XSD schemas to use as a reference for cascading fields
      * @return A mapping the cascaded field names and their position in the output
      */
-    private Map<String, Integer> setupCascadeFields(List<RecordDefinitions.Field> cascadeFields, List<XmlSchema> xsds) {
+    private Map<String, Integer> setupCascadeFields(List<RecordDefinitions.Field> cascadeFields,
+                                                    CascadePolicy cascadePolicy,
+                                                    List<XmlSchema> xsds, Map<String, Namespace> xmlnsUriToPrefix) {
 
         Map<String, Integer> primaryTagList = new HashMap<>();
-        final OpenCan<Integer> mutablePos = new OpenCan<Integer>(0);
+        final OpenCan<Integer> mutablePos = new OpenCan<>(0);
 
         // If caller explicitly specifies a fields cascade file then that is given priority.
         if (!cascadeFields.isEmpty()) {
@@ -96,43 +101,45 @@ public final class RecordFieldsCascade implements RecordTypeHierarchy, CascadedA
                     .filter(field -> !primaryTagList.containsKey(field.getName().getLocalPart()))
                     .forEach(field -> {
                         String fieldLocalName = field.getName().getLocalPart();
-                        String fieldName = toPrefixedTag(field.getName());
+                        String fieldName = toPrefixedTag(field.getName(), xmlnsUriToPrefix);
                         primaryTagList.put(fieldLocalName, mutablePos.val++);
                         cascadePairList.add(new Pair<>(fieldName, EMPTY));
 
-                        for (QName attr: field.getAttributes()) {
+                        for (QName attr : field.getAttributes()) {
                             primaryTagList.put(String.format(ELEM_ATTR_FMT,
                                     fieldLocalName, attr.getLocalPart()), mutablePos.val++);
                             cascadePairList.add(new Pair<>(String.format(ELEM_ATTR_FMT,
-                                    fieldName, toPrefixedTag(attr)), EMPTY));
+                                    fieldName, toPrefixedTag(attr, xmlnsUriToPrefix)), EMPTY));
                         }
                     });
             return primaryTagList;
         }
 
-        // Cascade all mandatory fields in XSDs.
-        // Find the element in all the XSDs
-        xsds.stream()
-                .map(xsd -> xsd.getElementByName(recordName))
-                .filter(Objects::nonNull)
-                .findFirst()
-                .ifPresent(schemaRec ->
-                        schemaRec.getChildElements().stream()
-                                .filter(field -> field.isRequired() && !field.getType().equals(XmlSchema.COMPLEX_TYPE))
-                                .filter(elem -> !primaryTagList.containsKey(elem.getName().getLocalPart()))
-                                .forEach(elem -> {
-                                    String elemLocalName = elem.getName().getLocalPart();
-                                    String elemName = toPrefixedTag(elem.getName());
-                                    primaryTagList.put(elemLocalName, mutablePos.val++);
-                                    cascadePairList.add(new Pair<>(elemName, EMPTY));
+        // Cascade all fields in XSDs.
+        if (cascadePolicy == CascadePolicy.XSD) {
+            // Find the element in all the XSDs
+            xsds.stream()
+                    .map(xsd -> xsd.getElementByName(recordName))
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .ifPresent(schemaRec ->
+                            schemaRec.getChildElements().stream()
+                                    .filter(field -> !field.getType().equals(XmlSchema.COMPLEX_TYPE))
+                                    .filter(elem -> !primaryTagList.containsKey(elem.getName().getLocalPart()))
+                                    .forEach(elem -> {
+                                        String elemLocalName = elem.getName().getLocalPart();
+                                        String elemName = toPrefixedTag(elem.getName(), xmlnsUriToPrefix);
+                                        primaryTagList.put(elemLocalName, mutablePos.val++);
+                                        cascadePairList.add(new Pair<>(elemName, EMPTY));
 
-                                    for (XsdAttribute attr: elem.getElementAttributes()) {
-                                        primaryTagList.put(String.format(ELEM_ATTR_FMT,
-                                                elemLocalName, attr.getName().getLocalPart()), mutablePos.val++);
-                                        cascadePairList.add(new Pair<>(String.format(ELEM_ATTR_FMT,
-                                                elemName, toPrefixedTag(attr.getName())), EMPTY));
-                                    }
-                                }));
+                                        for (XsdAttribute attr : elem.getElementAttributes()) {
+                                            primaryTagList.put(String.format(ELEM_ATTR_FMT,
+                                                    elemLocalName, attr.getName().getLocalPart()), mutablePos.val++);
+                                            cascadePairList.add(new Pair<>(String.format(ELEM_ATTR_FMT,
+                                                    elemName, toPrefixedTag(attr.getName(), xmlnsUriToPrefix)), EMPTY));
+                                        }
+                                    }));
+        }
 
         return primaryTagList;
     }
@@ -176,18 +183,22 @@ public final class RecordFieldsCascade implements RecordTypeHierarchy, CascadedA
         return this;
     }
 
+    @Override
     public List<Pair<String, String>> getCascadedAncestorFields() {
         return parent.toCascadeToChild;
     }
 
+    @Override
     public QName recordName() {
         return recordName;
     }
 
+    @Override
     public RecordTypeHierarchy parentRecordType() {
         return parent;
     }
 
+    @Override
     public int recordLevel() {
         return level;
     }

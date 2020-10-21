@@ -26,9 +26,8 @@ public class XmlHelpers {
 
     public static final String CASCADES_DELIM = ";";
     public static final String PAIR_SEP = "=";
-    public static final String PREFIX_SEP = "=";
+    public static final String PREFIX_SEP = ":";
     public static final String COMMA_DELIM = ",";
-    public static final String WHITESPACES = "\\s+";
     public static final String EMPTY = "";
     public static final String ELEM_ATTR_FMT = "%s[%s]";
 
@@ -121,7 +120,7 @@ public class XmlHelpers {
             namespaceUri = targetNamespace;
         }
 
-        String[] parts = qName.getLocalPart().split(":");
+        String[] parts = qName.getLocalPart().split(PREFIX_SEP);
         if (parts.length > 1) {
             // Handle forms: "{uri}prefix:name" and "prefix:name"
             return new QName(nsContext.getNamespaceURI(parts[0]), parts[1], parts[0]);
@@ -134,7 +133,7 @@ public class XmlHelpers {
     public static QName parsePrefixTag(String input) {
         QName qName = QName.valueOf(input);
 
-        String[] parts = qName.getLocalPart().split(":");
+        String[] parts = qName.getLocalPart().split(PREFIX_SEP);
         if (parts.length > 1) {
             String prefix = parts[0];
             String tagName = parts[1];
@@ -146,9 +145,26 @@ public class XmlHelpers {
     }
 
     public static String toPrefixedTag(QName qname) {
+        return toPrefixedTag(qname, null, PREFIX_SEP);
+    }
+
+    public static String toPrefixedTag(QName qname, Map<String, Namespace> xmlnsUriToPrefix) {
+        return toPrefixedTag(qname, xmlnsUriToPrefix, PREFIX_SEP);
+    }
+
+    public static String toPrefixedTag(QName qname, Map<String, Namespace> xmlnsUriToPrefix, String separator) {
         if (qname.getPrefix() != null && qname.getPrefix().length() > 0) {
-            return String.format("%s:%s", qname.getPrefix(), qname.getLocalPart());
+            return String.format("%s%s%s", qname.getPrefix(), separator, qname.getLocalPart());
         }
+
+        // Alternate prefix
+        if (xmlnsUriToPrefix != null) {
+            Namespace ns = xmlnsUriToPrefix.get(qname.getNamespaceURI());
+            if (ns != null && ns.getPrefix() != null && ns.getPrefix().length() > 0) {
+                return String.format("%s%s%s", ns.getPrefix(), separator, qname.getLocalPart());
+            }
+        }
+
         return qname.getLocalPart();
     }
 
